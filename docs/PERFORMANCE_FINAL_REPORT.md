@@ -1,4 +1,4 @@
-## PHCL System Performance Optimization - Final Report
+## PiHCL System Performance Optimization - Final Report
 
 ### Critical Issues Fixed
 
