@@ -1,7 +1,7 @@
-# PHCL App Welcome Splash Screen - Final Setup
+# PiHCL App Welcome Splash Screen - Final Setup
 
 ## Overview
-App now opens with a beautiful welcome splash screen featuring PHCL logo and "WELCOME PHCL" text in large, prominent styling.
+App now opens with a beautiful welcome splash screen featuring PiHCL logo and "WELCOME PiHCL" text in large, prominent styling.
 
 ## App Entry Flow
 
@@ -34,9 +34,9 @@ App now opens with a beautiful welcome splash screen featuring PHCL logo and "WE
 ### Splash Screen
 ```
 ┌─────────────────────────────┐
-│  PHCL Logo (bouncing)       │
+│  PiHCL Logo (bouncing)       │
 │  WELCOME                    │
-│  PHCL (gradient)            │
+│  PiHCL (gradient)            │
 │  Trade Crypto...            │
 │  [Enter App Button]         │
 │  Loading dots (auto-redirect)
@@ -44,9 +44,9 @@ App now opens with a beautiful welcome splash screen featuring PHCL logo and "WE
 ```
 
 ### Styling Details
-- **Logo Size**: xl (use PHCLLogo component)
+- **Logo Size**: xl (use PiHCL Logo component)
 - **Welcome Font**: text-5xl-7xl, font-black, white
-- **PHCL Font**: text-6xl-8xl, gradient (yellow → white → purple)
+- **PiHCL Font**: text-6xl-8xl, gradient (yellow → white → purple)
 - **Tagline**: text-xl-2xl, yellow-100, bilingual
 - **Background**: Purple gradient (600 → 800)
 - **Animation**: bounce-slow (3s), scale transition (1s)
@@ -62,7 +62,7 @@ App now opens with a beautiful welcome splash screen featuring PHCL logo and "WE
 1. User visits app (/)
 2. Automatically redirected to splash screen
 3. Sees PHCL logo bouncing
-4. Sees large "WELCOME PHCL" text fade in
+4. Sees large "WELCOME PiHCL" text fade in
 5. Can click "Enter App" button immediately
 6. Automatically redirected to welcome page after 5 seconds
 7. From welcome page, can access chat, wallet, trading, etc.
