@@ -10,7 +10,7 @@ The PiHCL application has been fully restored to its original design and functio
 - **Multilingual AI Assistant** - Responds in 10+ languages
 - **PiHCL Branding** - Logo and purple theme throughout
 - **Quick Actions** - Suggested buttons for common queries
-- **Real-time Responses** - AI responds to user queries about marketplace, wallet, trading
+- **Real-time Responses** - AI responds to user queries about marketplace, wallet,  trading
 
 ### Core Pages
 
