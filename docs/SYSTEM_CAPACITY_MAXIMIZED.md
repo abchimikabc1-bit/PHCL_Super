@@ -1,4 +1,4 @@
-# PHCL System Capacity Maximized - Final Report
+# PiHCL System Capacity Maximized - Final Report
 
 ## Critical Issues Fixed
 
