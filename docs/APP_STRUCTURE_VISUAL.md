@@ -1,5 +1,5 @@
 ```
-PHCL APP STRUCTURE - Welcome & Landing Experience
+PiHCL APP STRUCTURE - Welcome & Landing Experience
 ================================================
 
 ┌─────────────────────────────────────────────────────┐
@@ -13,7 +13,7 @@ PHCL APP STRUCTURE - Welcome & Landing Experience
 │         WELCOME PAGE (/welcome)                     │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
-│  │         [PHCL Logo & Company Name]           │  │
+│  │         [PiHCL Logo & Company Name]           │  │
 │  │      PiHUB COMPANY Limited 🇹🇿              │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                     │
@@ -25,7 +25,7 @@ PHCL APP STRUCTURE - Welcome & Landing Experience
 │                                                     │
 │  Stats: 50K+ Users | 24/7 Support | $100M+ Traded │
 │                                                     │
-│  Why Choose PHCL:                                   │
+│  Why Choose PiHCL:                                   │
 │  ⚡ Lightning Fast    🔒 Secure & Safe    🌐 Pi Ready│
 │                                                     │
 │  Quick Actions:                                     │
@@ -57,7 +57,7 @@ PHCL APP STRUCTURE - Welcome & Landing Experience
 
 HEADER (Available on All Pages)
 ================================
-[🟣 PHCL Logo] [Chat] [Wallet] [Trading] [Marketplace] [?]
+[🟣 PiHCL Logo] [Chat] [Wallet] [Trading] [Marketplace] [?]
                                             [🌐 Language] [Start]
 
 DESIGN SYSTEM
@@ -86,7 +86,7 @@ Responsive:
 
 KEY FEATURES
 ============
-✅ PHCL Logo Prominently Displayed
+✅ PiHCL Logo Prominently Displayed
 ✅ Welcome Page with Hero Section
 ✅ Professional Header Navigation
 ✅ Language Selector (EN/SW)
@@ -102,7 +102,7 @@ KEY FEATURES
 
 ### For First Time Users:
 1. App loads → Automatically shows `/welcome` page
-2. See PHCL logo and welcome message
+2. See PiHCL logo and welcome message
 3. Choose to "Start Trading" (chat) or "Open Wallet"
 4. Can switch language anytime
 
@@ -119,5 +119,5 @@ KEY FEATURES
 - Add real logos to `/public` folder
 
 ---
-**PHCL App - Professional Cryptocurrency Trading Platform**  
+**PiHCL App - Professional Cryptocurrency Trading Platform**  
 **Tanzania | 2026**
