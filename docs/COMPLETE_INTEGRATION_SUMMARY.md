@@ -1,8 +1,8 @@
-# PHCL App - Complete Integration Summary
+# PiHCL App - Complete Integration Summary
 
 ## App Architecture - All Components Unified
 
-The PHCL Cryptocurrency Trading App is now fully integrated with all components working together seamlessly. Here's the complete system overview:
+The PiHCL Cryptocurrency Trading App is now fully integrated with all components working together seamlessly. Here's the complete system overview:
 
 ---
 
@@ -15,12 +15,12 @@ User visits app (/)
 Redirects to /splash (Entry point)
     ↓
 Splash Screen (3-5 seconds)
-    - PHCL logo with bounce animation
+    - PiHCL logo with bounce animation
     - "WELCOME PHCL" gradient text
     - Auto-redirect or manual button
     ↓
 /welcome - Welcome/Landing Page
-    - PHCL branding
+    - PiHCL branding
     - Features overview
     - Quick action buttons
     ↓
@@ -34,7 +34,7 @@ All Pages have Global Header with Navigation
 ### Global Components (On Every Page)
 
 **Header** (`/components/header.tsx`)
-- PHCL Logo (clickable - returns home)
+- PiHCL Logo (clickable - returns home)
 - Navigation Menu (Desktop: horizontal, Mobile: hamburger)
 - Language Selector (EN/SW)
 - Sticky positioning (z-50)
@@ -54,8 +54,8 @@ All Pages have Global Header with Navigation
 ### Entry/Landing Pages
 
 **1. Splash Screen** (`/app/splash/page.tsx`)
-- Large PHCL logo with bounce animation
-- "WELCOME PHCL" text in gradient
+- Large PiHCL logo with bounce animation
+- "WELCOME PiHCL" text in gradient
 - Bilingual tagline
 - Auto-redirect after 5 seconds
 - Manual "Enter App" button
@@ -321,12 +321,12 @@ app/
 
 components/
 ├── header.tsx          # Global header (nav + logo)
-├── phcl-logo.tsx       # PHCL logo component
+├── phcl-logo.tsx       # PiHCL logo component
 ├── transaction-form-components.tsx  # Form components
 └── ui/                 # shadcn UI components
 
 lib/
-├── phcl-config.ts      # PHCL configuration
+├── phcl-config.ts      # PiHCL configuration
 ├── app-config.ts       # App settings
 └── utils.ts            # Utility functions
 
@@ -338,7 +338,7 @@ hooks/
 
 ## Key Features Summary
 
-✓ Splash screen with PHCL branding
+✓ Splash screen with PiHCL branding
 ✓ Beautiful welcome landing page
 ✓ Professional wallet management
 ✓ Complete transaction system (Send, Receive, Withdraw)
@@ -381,7 +381,7 @@ hooks/
 
 ## Summary
 
-The PHCL Cryptocurrency Trading Application is now fully integrated with:
+The PiHCL Cryptocurrency Trading Application is now fully integrated with:
 - Unified navigation through global Header component
 - Consistent styling across all pages
 - Professional splash & welcome screens
