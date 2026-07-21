@@ -1,0 +1,229 @@
+﻿app/admin/dashboard/page.tsx(4,27): error TS2307: Cannot find module 'next/navigation' or its corresponding type declarations.
+app/admin/dashboard/page.tsx(5,18): error TS2307: Cannot find module 'next/link' or its corresponding type declarations.
+app/admin/dashboard/page.tsx(6,26): error TS2307: Cannot find module '@/lib/admin-context' or its corresponding type declarations.
+app/admin/layout.tsx(2,31): error TS2307: Cannot find module '@/lib/admin-context' or its corresponding type declarations.
+app/admin/login/page.tsx(4,27): error TS2307: Cannot find module 'next/navigation' or its corresponding type declarations.
+app/admin/login/page.tsx(5,26): error TS2307: Cannot find module '@/lib/admin-context' or its corresponding type declarations.
+app/admin/products/page.tsx(4,27): error TS2307: Cannot find module 'next/navigation' or its corresponding type declarations.
+app/admin/products/page.tsx(5,26): error TS2307: Cannot find module '@/lib/admin-context' or its corresponding type declarations.
+app/admin/products/page.tsx(6,38): error TS2307: Cannot find module '@/lib/marketplace-products' or its corresponding type declarations.
+app/api/chat/route.ts(2,24): error TS2307: Cannot find module '@ai-sdk/openai' or its corresponding type declarations.
+app/api/chat/route.ts(43,7): error TS2353: Object literal may only specify known properties, and 'maxTokens' does not exist in type 'CallSettings & (Prompt & { model: LanguageModel; tools?: ToolSet; toolChoice?: ToolChoice<ToolSet>; stopWhen?: StopCondition<...> | StopCondition<...>[]; ... 23 more ...; _internal?: { ...; }; })'.
+app/icon.tsx(1,31): error TS2307: Cannot find module 'next/og' or its corresponding type declarations.
+app/layout.tsx(2,35): error TS2307: Cannot find module 'next/font/google' or its corresponding type declarations.
+app/layout.tsx(4,31): error TS2307: Cannot find module '@/lib/admin-context' or its corresponding type declarations.
+app/page.tsx(3,35): error TS2307: Cannot find module '@/components/coming-soon-overlay' or its corresponding type declarations.
+app/src/app/dashboard/page.tsx(6,32): error TS2307: Cannot find module '@/components/marketplace/chat' or its corresponding type declarations.
+app/src/app/dashboard/page.tsx(7,32): error TS2307: Cannot find module '@/components/marketplace/shop' or its corresponding type declarations.
+app/src/app/dashboard/page.tsx(95,21): error TS2322: Type '{ darkMode: boolean; onAddToCart: (product: any) => void; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'darkMode' does not exist on type 'IntrinsicAttributes'.
+app/src/app/dashboard/page.tsx(127,23): error TS2322: Type '{ darkMode: boolean; language: string; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'darkMode' does not exist on type 'IntrinsicAttributes'.
+app/terms-of-service/page.tsx(4,35): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+app/terms-of-service/page.tsx(5,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/bulk-discount-calculator.tsx(5,58): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/bulk-discount-calculator.tsx(6,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/bulk-discount-calculator.tsx(7,23): error TS2307: Cannot find module '@/components/ui/badge' or its corresponding type declarations.
+components/bulk-discount-calculator.tsx(8,23): error TS2307: Cannot find module '@/components/ui/input' or its corresponding type declarations.
+components/bulk-discount-calculator.tsx(10,35): error TS2307: Cannot find module '@/lib/promo-system' or its corresponding type declarations.
+components/category-selector.tsx(4,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/category-selector.tsx(5,58): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/checkout-form.tsx(4,58): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/checkout-form.tsx(5,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/checkout-form.tsx(6,23): error TS2307: Cannot find module '@/components/ui/input' or its corresponding type declarations.
+components/checkout-form.tsx(7,23): error TS2307: Cannot find module '@/components/ui/badge' or its corresponding type declarations.
+components/currency-display.tsx(4,48): error TS2307: Cannot find module '@/lib/currency-config' or its corresponding type declarations.
+components/currency-exchanger.tsx(4,44): error TS2307: Cannot find module '@/lib/currencies' or its corresponding type declarations.
+components/currency-exchanger.tsx(5,96): error TS2307: Cannot find module '@/lib/currency-converter' or its corresponding type declarations.
+components/currency-exchanger.tsx(52,5): error TS2698: Spread types may only be created from object types.
+components/footer.tsx(3,18): error TS2307: Cannot find module 'next/link' or its corresponding type declarations.
+components/footer.tsx(4,29): error TS2307: Cannot find module '@/hooks/use-language' or its corresponding type declarations.
+components/footer.tsx(5,31): error TS2305: Module '"lucide-react"' has no exported member 'Facebook'.
+components/footer.tsx(5,41): error TS2305: Module '"lucide-react"' has no exported member 'Twitter'.
+components/footer.tsx(5,50): error TS2305: Module '"lucide-react"' has no exported member 'Linkedin'.
+components/footer.tsx(6,42): error TS2307: Cannot find module '@/lib/phcl-config' or its corresponding type declarations.
+components/header.tsx(3,18): error TS2307: Cannot find module 'next/link' or its corresponding type declarations.
+components/header.tsx(4,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/header.tsx(5,29): error TS2307: Cannot find module '@/hooks/use-language' or its corresponding type declarations.
+components/header/language-switcher.tsx(5,27): error TS2307: Cannot find module '@/lib/currencies' or its corresponding type declarations.
+components/image-upload.tsx(4,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/image-upload.tsx(5,58): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/image-upload.tsx(6,23): error TS2307: Cannot find module '@/components/ui/badge' or its corresponding type declarations.
+components/image-upload.tsx(8,19): error TS2307: Cannot find module 'next/image' or its corresponding type declarations.
+components/info-cards-section.tsx(3,29): error TS2307: Cannot find module '@/hooks/use-language' or its corresponding type declarations.
+components/language-switcher.tsx(3,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/language-switcher.tsx(4,29): error TS2307: Cannot find module '@/hooks/use-language' or its corresponding type declarations.
+components/language-switcher.tsx(5,30): error TS2307: Cannot find module '@/lib/translations' or its corresponding type declarations.
+components/marketplace/cart.tsx(3,70): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './currency-utils.js'?
+components/marketplace/shop.tsx(4,26): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './products-data.js'?
+components/marketplace/shop.tsx(5,34): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './currency-utils.js'?
+components/marketplace/shop.tsx(6,37): error TS2307: Cannot find module '@/components/products/phone-gallery' or its corresponding type declarations.
+components/marketplace/showroom.tsx(3,26): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './products-data.js'?
+components/navbar.tsx(3,29): error TS2307: Cannot find module 'next/navigation' or its corresponding type declarations.
+components/navbar.tsx(4,18): error TS2307: Cannot find module 'next/link' or its corresponding type declarations.
+components/notification-center.tsx(4,35): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/notification-center.tsx(5,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/notification-center.tsx(6,23): error TS2307: Cannot find module '@/components/ui/badge' or its corresponding type declarations.
+components/product-card.tsx(3,35): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/product-card.tsx(4,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/product-card.tsx(5,23): error TS2307: Cannot find module '@/components/ui/badge' or its corresponding type declarations.
+components/product-card.tsx(7,19): error TS2307: Cannot find module 'next/image' or its corresponding type declarations.
+components/product-card.tsx(9,18): error TS2307: Cannot find module 'next/link' or its corresponding type declarations.
+components/products/phone-gallery.tsx(112,29): error TS2339: Property 'url' does not exist on type '{ type: string; }'.
+components/promo-section.tsx(3,25): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './promo-banner.js'?
+components/shopping-cart.tsx(5,58): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/shopping-cart.tsx(6,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/shopping-cart.tsx(7,23): error TS2307: Cannot find module '@/components/ui/input' or its corresponding type declarations.
+components/shopping-cart.tsx(8,23): error TS2307: Cannot find module '@/components/ui/badge' or its corresponding type declarations.
+components/shopping-cart.tsx(10,45): error TS2307: Cannot find module '@/lib/promo-system' or its corresponding type declarations.
+components/theme-provider.tsx(7,8): error TS2307: Cannot find module 'next-themes' or its corresponding type declarations.
+components/transaction-form-components.tsx(4,58): error TS2307: Cannot find module '@/components/ui/card' or its corresponding type declarations.
+components/transaction-form-components.tsx(5,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/accordion.tsx(4,37): error TS2307: Cannot find module '@radix-ui/react-accordion' or its corresponding type declarations.
+components/ui/accordion.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/alert-dialog.tsx(4,39): error TS2307: Cannot find module '@radix-ui/react-alert-dialog' or its corresponding type declarations.
+components/ui/alert-dialog.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/alert-dialog.tsx(7,32): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/ui/alert.tsx(4,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/aspect-ratio.tsx(3,39): error TS2307: Cannot find module '@radix-ui/react-aspect-ratio' or its corresponding type declarations.
+components/ui/avatar.tsx(4,34): error TS2307: Cannot find module '@radix-ui/react-avatar' or its corresponding type declarations.
+components/ui/avatar.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/badge.tsx(4,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/breadcrumb.tsx(5,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/button-group.tsx(4,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/button-group.tsx(5,27): error TS2307: Cannot find module '@/components/ui/separator' or its corresponding type declarations.
+components/ui/button.tsx(5,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/calendar.tsx(5,27): error TS2307: Cannot find module 'react-day-picker' or its corresponding type declarations.
+components/ui/calendar.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/calendar.tsx(8,32): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/ui/card.tsx(3,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/carousel.tsx(9,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/carousel.tsx(10,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/ui/chart.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/chart.tsx(119,7): error TS2339: Property 'payload' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean; allowEscapeViewBox?: AllowInDimension; ... 24 more ...; wrapperStyle?: CSSProperties; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+components/ui/chart.tsx(124,7): error TS2339: Property 'label' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean; allowEscapeViewBox?: AllowInDimension; ... 24 more ...; wrapperStyle?: CSSProperties; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+components/ui/chart.tsx(264,41): error TS2344: Type '"payload" | "verticalAlign"' does not satisfy the constraint '"string" | "className" | "suppressHydrationWarning" | "id" | "lang" | "style" | "tabIndex" | "role" | "content" | "color" | "children" | "dangerouslySetInnerHTML" | "onCopy" | ... 431 more ... | "onBBoxUpdate"'.
+  Type '"payload"' is not assignable to type '"string" | "className" | "suppressHydrationWarning" | "id" | "lang" | "style" | "tabIndex" | "role" | "content" | "color" | "children" | "dangerouslySetInnerHTML" | "onCopy" | ... 431 more ... | "onBBoxUpdate"'.
+components/ui/chart.tsx(275,19): error TS2339: Property 'length' does not exist on type 'unknown'.
+components/ui/chart.tsx(288,18): error TS2339: Property 'map' does not exist on type 'unknown'.
+components/ui/checkbox.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/command.tsx(8,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/command.tsx(9,39): error TS2307: Cannot find module '@/components/ui/dialog' or its corresponding type declarations.
+components/ui/context-menu.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/dialog.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/drawer.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/dropdown-menu.tsx(4,40): error TS2307: Cannot find module '@radix-ui/react-dropdown-menu' or its corresponding type declarations.
+components/ui/dropdown-menu.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/empty.tsx(3,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/field.tsx(139,32): error TS2304: Cannot find name 'Label'.
+components/ui/field.tsx(141,6): error TS2304: Cannot find name 'Label'.
+components/ui/field.tsx(199,8): error TS2304: Cannot find name 'Separator'.
+components/ui/form.tsx(15,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/form.tsx(16,23): error TS2307: Cannot find module '@/components/ui/label' or its corresponding type declarations.
+components/ui/hover-card.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/input-group.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/input-group.tsx(7,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/ui/input-group.tsx(8,23): error TS2307: Cannot find module '@/components/ui/input' or its corresponding type declarations.
+components/ui/input-group.tsx(9,26): error TS2307: Cannot find module '@/components/ui/textarea' or its corresponding type declarations.
+components/ui/input-otp.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/input.tsx(3,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/item.tsx(5,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/item.tsx(6,27): error TS2307: Cannot find module '@/components/ui/separator' or its corresponding type declarations.
+components/ui/kbd.tsx(1,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/label.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/menubar.tsx(4,35): error TS2307: Cannot find module '@radix-ui/react-menubar' or its corresponding type declarations.
+components/ui/menubar.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/navigation-menu.tsx(2,42): error TS2307: Cannot find module '@radix-ui/react-navigation-menu' or its corresponding type declarations.
+components/ui/navigation-menu.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/pagination.tsx(4,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/pagination.tsx(5,45): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/ui/popover.tsx(4,35): error TS2307: Cannot find module '@radix-ui/react-popover' or its corresponding type declarations.
+components/ui/popover.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/progress.tsx(4,36): error TS2307: Cannot find module '@radix-ui/react-progress' or its corresponding type declarations.
+components/ui/progress.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/radio-group.tsx(4,38): error TS2307: Cannot find module '@radix-ui/react-radio-group' or its corresponding type declarations.
+components/ui/radio-group.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/resizable.tsx(4,37): error TS2307: Cannot find module 'react-resizable-panels' or its corresponding type declarations.
+components/ui/resizable.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/scroll-area.tsx(4,38): error TS2307: Cannot find module '@radix-ui/react-scroll-area' or its corresponding type declarations.
+components/ui/scroll-area.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/select.tsx(4,34): error TS2307: Cannot find module '@radix-ui/react-select' or its corresponding type declarations.
+components/ui/select.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/separator.tsx(4,37): error TS2307: Cannot find module '@radix-ui/react-separator' or its corresponding type declarations.
+components/ui/separator.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/sheet.tsx(8,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/sidebar.tsx(8,29): error TS2307: Cannot find module '@/hooks/use-mobile' or its corresponding type declarations.
+components/ui/sidebar.tsx(9,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/sidebar.tsx(10,24): error TS2307: Cannot find module '@/components/ui/button' or its corresponding type declarations.
+components/ui/sidebar.tsx(11,23): error TS2307: Cannot find module '@/components/ui/input' or its corresponding type declarations.
+components/ui/sidebar.tsx(12,27): error TS2307: Cannot find module '@/components/ui/separator' or its corresponding type declarations.
+components/ui/sidebar.tsx(13,37): error TS2307: Cannot find module '@/components/ui/sheet' or its corresponding type declarations.
+components/ui/sidebar.tsx(14,26): error TS2307: Cannot find module '@/components/ui/skeleton' or its corresponding type declarations.
+components/ui/sidebar.tsx(20,8): error TS2307: Cannot find module '@/components/ui/tooltip' or its corresponding type declarations.
+components/ui/skeleton.tsx(1,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/slider.tsx(4,34): error TS2307: Cannot find module '@radix-ui/react-slider' or its corresponding type declarations.
+components/ui/slider.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/sonner.tsx(3,26): error TS2307: Cannot find module 'next-themes' or its corresponding type declarations.
+components/ui/sonner.tsx(4,35): error TS2307: Cannot find module 'sonner' or its corresponding type declarations.
+components/ui/spinner.tsx(3,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/switch.tsx(4,35): error TS2307: Cannot find module '@radix-ui/react-switch' or its corresponding type declarations.
+components/ui/switch.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/table.tsx(3,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/tabs.tsx(4,32): error TS2307: Cannot find module '@radix-ui/react-tabs' or its corresponding type declarations.
+components/ui/tabs.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/textarea.tsx(3,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/toast.tsx(4,34): error TS2307: Cannot find module '@radix-ui/react-toast' or its corresponding type declarations.
+components/ui/toast.tsx(8,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/toaster.tsx(3,26): error TS2307: Cannot find module '@/hooks/use-toast' or its corresponding type declarations.
+components/ui/toaster.tsx(11,8): error TS2307: Cannot find module '@/components/ui/toast' or its corresponding type declarations.
+components/ui/toggle-group.tsx(4,39): error TS2307: Cannot find module '@radix-ui/react-toggle-group' or its corresponding type declarations.
+components/ui/toggle-group.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/toggle-group.tsx(8,32): error TS2307: Cannot find module '@/components/ui/toggle' or its corresponding type declarations.
+components/ui/toggle.tsx(4,34): error TS2307: Cannot find module '@radix-ui/react-toggle' or its corresponding type declarations.
+components/ui/toggle.tsx(7,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/tooltip.tsx(4,35): error TS2307: Cannot find module '@radix-ui/react-tooltip' or its corresponding type declarations.
+components/ui/tooltip.tsx(6,20): error TS2307: Cannot find module '@/lib/utils' or its corresponding type declarations.
+components/ui/use-toast.ts(9,8): error TS2307: Cannot find module '@/components/ui/toast' or its corresponding type declarations.
+hooks/use-language.ts(4,31): error TS2307: Cannot find module '@/lib/translations' or its corresponding type declarations.
+hooks/use-language.ts(5,48): error TS2307: Cannot find module '@/lib/translations' or its corresponding type declarations.
+hooks/use-language.ts(37,7): error TS2322: Type 'string | number | symbol' is not assignable to type 'string'.
+  Type 'number' is not assignable to type 'string'.
+hooks/use-toast.ts(9,8): error TS2307: Cannot find module '@/components/ui/toast' or its corresponding type declarations.
+lib/admin-context.tsx(4,30): error TS2307: Cannot find module '@/hooks/useAdminAuth' or its corresponding type declarations.
+lib/chatbot-service.ts(1,58): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './crypto-data.js'?
+lib/chatbot-service.ts(33,18): error TS2339: Property 'currentPrice' does not exist on type 'unknown'.
+lib/chatbot-service.ts(36,25): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/chatbot-service.ts(36,44): error TS2339: Property 'currentPrice' does not exist on type 'unknown'.
+lib/chatbot-service.ts(37,25): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/chatbot-service.ts(37,44): error TS2339: Property 'currentPrice' does not exist on type 'unknown'.
+lib/chatbot-service.ts(42,25): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/chatbot-service.ts(43,25): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/currency-converter.ts(4,44): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './currencies.js'?
+lib/currency-converter.ts(126,16): error TS2339: Property 'name' does not exist on type 'unknown'.
+lib/currency-converter.ts(127,18): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/currency-converter.ts(128,16): error TS2339: Property 'type' does not exist on type 'unknown'.
+lib/currency-converter.ts(136,33): error TS2339: Property 'type' does not exist on type 'unknown'.
+lib/currency-converter.ts(139,18): error TS2339: Property 'name' does not exist on type 'unknown'.
+lib/currency-converter.ts(140,20): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/currency-converter.ts(148,33): error TS2339: Property 'type' does not exist on type 'unknown'.
+lib/currency-converter.ts(151,18): error TS2339: Property 'name' does not exist on type 'unknown'.
+lib/currency-converter.ts(152,20): error TS2339: Property 'symbol' does not exist on type 'unknown'.
+lib/lazy-pages.tsx(1,21): error TS2307: Cannot find module 'next/dynamic' or its corresponding type declarations.
+lib/lazy-pages.tsx(4,46): error TS2307: Cannot find module '@/app/chat/page' or its corresponding type declarations.
+lib/lazy-pages.tsx(9,53): error TS2307: Cannot find module '@/app/marketplace/page' or its corresponding type declarations.
+lib/lazy-pages.tsx(14,48): error TS2307: Cannot find module '@/app/wallet/page' or its corresponding type declarations.
+lib/lazy-pages.tsx(19,54): error TS2307: Cannot find module '@/app/transactions/page' or its corresponding type declarations.
+lib/lazy-pages.tsx(24,52): error TS2307: Cannot find module '@/app/live-market/page' or its corresponding type declarations.
+lib/lazy-pages.tsx(29,49): error TS2307: Cannot find module '@/app/profile/page' or its corresponding type declarations.
+lib/product-pricing.ts(4,38): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './marketplace-products.js'?
+lib/product-pricing.ts(5,44): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './currencies.js'?
+lib/product-pricing.ts(6,33): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './currency-converter.js'?
+lib/product-pricing.ts(44,49): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+lib/product-pricing.ts(199,3): error TS2322: Type 'unknown[]' is not assignable to type 'string[]'.
+  Type 'unknown' is not assignable to type 'string'.
+lib/product-pricing.ts(217,3): error TS2322: Type '{ prices: Record<string, number>; formattedPrices: Record<string, string>; id: number; name: string; category: string; description: string; image: string; rating: number; reviews: number; inStock: boolean; seller: string; }[]' is not assignable to type 'PricedProduct[]'.
+  Type '{ prices: Record<string, number>; formattedPrices: Record<string, string>; id: number; name: string; category: string; description: string; image: string; rating: number; reviews: number; inStock: boolean; seller: string; }' is not assignable to type 'PricedProduct'.
+    Types of property 'prices' are incompatible.
+      Property 'USD' is missing in type 'Record<string, number>' but required in type '{ [key: string]: number; USD: number; }'.
+middleware.ts(1,30): error TS2307: Cannot find module 'next/server' or its corresponding type declarations.
+middleware.ts(2,34): error TS2307: Cannot find module 'next/server' or its corresponding type declarations.

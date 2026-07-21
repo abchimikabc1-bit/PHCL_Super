@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Real User Monitoring performance report
+model PerformanceReport {
+  id                          Int      @id @default(autoincrement())
+  timestamp                   BigInt
+  url                         String
+  device                      String   // 'mobile', 'tablet', 'desktop'
+  
+  // Core Web Vitals
+  lcpValue                    Float?
+  lcpRating                   String?
+  fidValue                    Float?
+  fidRating                   String?
+  clsValue                    Float?
+  clsRating                   String?
+  ttfbValue                   Float?
+  ttfbRating                  String?
+  
+  // Image metrics
+  totalImages                 Int      @default(0)
+  lazyLoadedImages            Int      @default(0)
+  priorityImages              Int      @default(0)
+  averageImageLoadTime        Float    @default(0)
+  totalImageBandwidth         Int      @default(0)
+  compressedImageBandwidth    Int      @default(0)
+  bandwidthSavings            Int      @default(0)
+  
+  // Navigation timing
+  dns                         Int      @default(0)
+  tcp                         Int      @default(0)
+  ttfb                        Int      @default(0)
+  domInteractive              Int      @default(0)
+  domComplete                 Int      @default(0)
+  pageLoadTime                Int      @default(0)
+  
+  createdAt                   DateTime @default(now())
+  
+  @@index([timestamp])
+  @@index([device])
+}
+
+model AlertPreference {
+  id                Int      @id
+  enabledChannels   String
+  emailAddress      String?
+  slackWebhookUrl   String?
+  phoneNumber       String?
+  thresholdSeverity String   @default("critical")
+  batchAlerts       Boolean  @default(true)
+  batchIntervalMs   Int      @default(300000)
+  updatedAt         DateTime @updatedAt
+}
+
+model AlertNotification {
+  id         String   @id
+  timestamp  BigInt
+  metric     String
+  severity   String
+  value      String
+  threshold  String
+  message    String
+  recipient  String
+  channel    String
+  status     String
+  errorMessage String?
+  createdAt  DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([severity])
+  @@index([channel])
+  @@index([status])
+}
