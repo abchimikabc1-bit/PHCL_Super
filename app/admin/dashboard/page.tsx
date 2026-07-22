@@ -21,7 +21,7 @@ import { getAdminSettingsAudit } from '@/lib/admin-settings';
 import { getPolicyVersions } from '@/lib/policy-compliance';
 import { getOrderIntegrityEvents, getOrders, type OrderIntegrityEvent, type StoredOrder } from '@/lib/order-storage';
 import { getWalletLedger, getWalletSnapshot, type WalletLedgerEntry } from '@/lib/wallet-storage';
-import { convertAmount, formatCurrencyAmount } from '@/components/marketplace/currency-utils';
+import { convertCurrency, formatCurrency } from '@/components/marketplace/currency';
 
 type DashboardLogEntry = {
   timestamp: string;
@@ -129,12 +129,15 @@ export default function AdminDashboardPage() {
   const revenueMetrics = useMemo(() => {
     return {
       totalUsd: orders.reduce((sum, order) => sum + order.totalUsd, 0),
-      totalTzs: orders.reduce((sum, order) => sum + convertAmount(order.totalUsd, 'usd', 'tzs'), 0),
-      totalPi: orders.reduce((sum, order) => sum + convertAmount(order.totalUsd, 'usd', 'pi'), 0),
+      totalTzs: orders.reduce((sum, order) => sum + convertCurrency(order.totalUsd, 'USD', 'TZS'), 0),
+      totalPi: orders.reduce((sum, order) => sum + convertCurrency(order.totalUsd, 'USD', 'PI'), 0),
       orderCount: orders.length,
       byMethod: orders.reduce(
         (acc, order) => {
-          acc[order.paymentMethod] += 1;
+          const methodKey = order.paymentMethod.toLowerCase() as keyof typeof acc;
+          if (acc[methodKey] !== undefined) {
+            acc[methodKey] += 1;
+          }
           return acc;
         },
         { usd: 0, tzs: 0, ntzs: 0, pi: 0 }
@@ -208,10 +211,10 @@ export default function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 to-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-purple-200">Loading admin panel...</p>
+          <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-xs font-bold">Inapakia Admin Command Center...</p>
         </div>
       </div>
     );
@@ -220,138 +223,153 @@ export default function AdminDashboardPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+      {/* Admin Top Header */}
+      <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-white">PHCL Admin Dashboard</h1>
-            <p className="text-sm text-slate-400 mt-1">Welcome, Admin</p>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-lg shadow-lg shadow-amber-500/20">
+              👑
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-white tracking-wide">PHCL Admin Console</h1>
+              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                System Administrator Active
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={checkAuth}
-              className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg"
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition"
             >
-              Recheck Session
+              🔄 Refresh Session
             </button>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+              className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-extrabold text-xs rounded-xl border border-rose-500/30 transition"
             >
-              Logout
+              🚪 Logout
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-white mb-2">Dashboard</h2>
-          <p className="text-slate-300">Manage all aspects of your PHCL Super platform</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        {/* Banner Section */}
+        <div>
+          <h2 className="text-3xl font-black text-white">Global Command Hub</h2>
+          <p className="text-xs text-slate-400 mt-1">Sajili ya Usimamizi Mkuu wa Miamala, Soko, Sarafu, na Bidhaa za PHCL Super Platform</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-          <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
-            <div className="text-2xl font-bold text-purple-400">{stockHealth.totalProducts}</div>
-            <p className="text-sm text-slate-400">Products</p>
+        {/* Quick Top Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Products</span>
+            <div className="text-3xl font-black text-purple-400">{stockHealth.totalProducts}</div>
           </div>
-          <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
-            <div className="text-2xl font-bold text-green-400">{currencyCount}</div>
-            <p className="text-sm text-slate-400">Currencies</p>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Active Currencies</span>
+            <div className="text-3xl font-black text-emerald-400">{currencyCount}</div>
           </div>
-          <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
-            <div className="text-2xl font-bold text-blue-400">{languageCount}</div>
-            <p className="text-sm text-slate-400">Languages</p>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Enabled Languages</span>
+            <div className="text-3xl font-black text-blue-400">{languageCount}</div>
           </div>
-          <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
-            <div className="text-2xl font-bold text-orange-400">24/7</div>
-            <p className="text-sm text-slate-400">Support</p>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Platform Status</span>
+            <div className="text-3xl font-black text-amber-400">24/7 Live</div>
           </div>
         </div>
 
-        <div className="mb-12 rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-md">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="text-lg font-semibold text-white">Financial Overview</h3>
+        {/* Financial Overview Grid */}
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div>
+              <span className="text-amber-500 font-bold text-xs tracking-wider uppercase">Financial Analytics</span>
+              <h3 className="text-xl font-extrabold text-white">💰 Muhtasari wa Mapato na Miamala</h3>
+            </div>
             <div className="flex gap-2">
-              <Link href="/admin/orders" className="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">
-                View Orders
+              <Link href="/admin/orders" className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-extrabold text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 transition">
+                📦 View Orders
               </Link>
-              <Link href="/admin/wallet" className="rounded bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-700">
-                Wallet Ledger
+              <Link href="/admin/wallet" className="rounded-xl bg-cyan-500/10 border border-cyan-500/30 px-3 py-1.5 text-xs font-extrabold text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition">
+                💼 Wallet Ledger
               </Link>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <h4 className="text-sm font-semibold text-white mb-3">Revenue by Currency</h4>
-              <div className="space-y-2">
-                <div className="flex justify-between rounded bg-blue-500/10 px-3 py-2 border border-blue-300/20">
-                  <span className="text-blue-200">USD Total</span>
-                  <span className="text-blue-300 font-bold">{formatCurrencyAmount('usd', revenueMetrics.totalUsd)}</span>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <h4 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">Revenue by Currency</h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">USD Total</span>
+                  <span className="text-blue-400 font-extrabold">{formatCurrency(revenueMetrics.totalUsd, 'USD')}</span>
                 </div>
-                <div className="flex justify-between rounded bg-amber-500/10 px-3 py-2 border border-amber-300/20">
-                  <span className="text-amber-200">TZS Total</span>
-                  <span className="text-amber-300 font-bold">{formatCurrencyAmount('tzs', revenueMetrics.totalTzs)}</span>
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">TZS Total</span>
+                  <span className="text-amber-400 font-extrabold">{formatCurrency(revenueMetrics.totalTzs, 'TZS')}</span>
                 </div>
-                <div className="flex justify-between rounded bg-yellow-500/10 px-3 py-2 border border-yellow-300/20">
-                  <span className="text-yellow-200">PI Total</span>
-                  <span className="text-yellow-300 font-bold">{formatCurrencyAmount('pi', revenueMetrics.totalPi)}</span>
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">PI Total</span>
+                  <span className="text-amber-300 font-extrabold">{formatCurrency(revenueMetrics.totalPi, 'PI')}</span>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <h4 className="text-sm font-semibold text-white mb-3">Order Summary</h4>
-              <div className="space-y-2">
-                <div className="flex justify-between rounded bg-purple-500/10 px-3 py-2 border border-purple-300/20">
-                  <span className="text-purple-200">Total Orders</span>
-                  <span className="text-purple-300 font-bold">{revenueMetrics.orderCount}</span>
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <h4 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">Order Volume</h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">Total Orders</span>
+                  <span className="text-purple-400 font-extrabold text-base">{revenueMetrics.orderCount}</span>
                 </div>
-                <div className="flex justify-between rounded bg-slate-500/10 px-3 py-2 border border-slate-300/20">
-                  <span className="text-slate-200">By Payment Method</span>
-                  <span className="text-slate-300 font-bold text-right">
-                    USD {revenueMetrics.byMethod.usd} | TZS {revenueMetrics.byMethod.tzs} | nTZS {revenueMetrics.byMethod.ntzs} | PI {revenueMetrics.byMethod.pi}
-                  </span>
+                <div className="rounded-xl bg-slate-900 p-3 border border-slate-800 space-y-1">
+                  <span className="text-slate-400 font-bold block">By Payment Method:</span>
+                  <div className="text-[11px] text-slate-300 font-mono font-bold flex justify-between pt-1">
+                    <span>USD: {revenueMetrics.byMethod.usd}</span>
+                    <span>TZS: {revenueMetrics.byMethod.tzs}</span>
+                    <span>PI: {revenueMetrics.byMethod.pi}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <h4 className="text-sm font-semibold text-white mb-3">Wallet Activity</h4>
-              <div className="space-y-2">
-                <div className="flex justify-between rounded bg-cyan-500/10 px-3 py-2 border border-cyan-300/20">
-                  <span className="text-cyan-200">Checkout Debits</span>
-                  <span className="text-cyan-300 font-bold">{walletMetrics.debitCount}</span>
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <h4 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">Wallet Operations</h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">Checkout Debits</span>
+                  <span className="text-cyan-400 font-extrabold">{walletMetrics.debitCount}</span>
                 </div>
-                <div className="flex justify-between rounded bg-rose-500/10 px-3 py-2 border border-rose-300/20">
-                  <span className="text-rose-200">Refund Credits</span>
-                  <span className="text-rose-300 font-bold">{walletMetrics.refundCount}</span>
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">Refund Credits</span>
+                  <span className="text-rose-400 font-extrabold">{walletMetrics.refundCount}</span>
                 </div>
-                <div className="flex justify-between rounded bg-slate-500/10 px-3 py-2 border border-slate-300/20">
-                  <span className="text-slate-200">Missing Payment Refs</span>
-                  <span className="text-slate-300 font-bold">{walletMetrics.missingPaymentRefs}</span>
-                </div>
-                <div className="flex justify-between rounded bg-blue-500/10 px-3 py-2 border border-blue-300/20">
-                  <span className="text-blue-200">Current USD Balance</span>
-                  <span className="text-blue-300 font-bold">{formatCurrencyAmount('usd', walletMetrics.snapshot.balances.usd)}</span>
+                <div className="flex justify-between items-center rounded-xl bg-slate-900 p-3 border border-slate-800">
+                  <span className="text-slate-400 font-bold">Base USD Balance</span>
+                  <span className="text-amber-400 font-extrabold">{formatCurrency(walletMetrics.snapshot.balances.usd, 'USD')}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mb-12 rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-6 backdrop-blur-md">
-          <h3 className="text-lg font-semibold text-white mb-4">Operational Readiness</h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {/* Operational Readiness */}
+        <div className="rounded-3xl border border-cyan-500/20 bg-cyan-950/20 p-6 space-y-4">
+          <h3 className="text-base font-extrabold text-slate-100 uppercase tracking-wider">⚡ Operational Readiness Monitor</h3>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
             {operationalReadiness.map((item) => (
-              <div key={item.label} className="rounded border border-white/10 bg-slate-950/40 p-4">
-                <p className="text-xs text-slate-300">{item.label}</p>
-                <p
-                  className={`mt-2 text-sm font-semibold ${
-                    item.tone === 'emerald' ? 'text-emerald-300' : item.tone === 'amber' ? 'text-amber-300' : 'text-cyan-300'
-                  }`}
-                >
+              <div key={item.label} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</p>
+                <p className={`text-xs font-extrabold ${
+                  item.tone === 'emerald' ? 'text-emerald-400' : item.tone === 'amber' ? 'text-amber-400' : 'text-cyan-400'
+                }`}>
                   {item.value}
                 </p>
               </div>
@@ -359,37 +377,36 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="mb-12 rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-md">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="text-lg font-semibold text-white">Stock Health Command Center</h3>
-            <Link href="/admin/products" className="rounded bg-purple-600 px-3 py-1 text-xs font-semibold text-white hover:bg-purple-700">
-              Open Product Stock Manager
+        {/* Stock Health & Critical Items */}
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 space-y-4">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <h3 className="text-base font-extrabold text-white">📦 Stock Health Command Center</h3>
+            <Link href="/admin/products" className="rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-1.5 text-xs font-extrabold transition">
+              Manage Products Stock
             </Link>
           </div>
 
-          <div className="rounded border border-white/10 bg-black/20 p-4">
-            <p className="mb-3 text-sm font-semibold text-slate-200">Critical Products</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Critical Products Alert</p>
             {criticalStocks.length === 0 ? (
-              <p className="text-xs text-slate-400">No critical stock alerts right now.</p>
+              <p className="text-xs text-slate-500 italic">No critical stock alerts right now.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {criticalStocks.map((product) => {
                   const status = getStockStatus(product.productId);
                   return (
-                    <div key={product.productId} className="flex items-center justify-between rounded border border-white/10 bg-white/5 px-3 py-2">
+                    <div key={product.productId} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-3">
                       <div>
-                        <p className="text-sm text-white">{product.productName}</p>
-                        <p className="text-xs text-slate-400">ID: {product.productId}</p>
+                        <p className="text-xs font-bold text-slate-100">{product.productName}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">ID: {product.productId}</p>
                       </div>
-                      <span
-                        className={`rounded px-2 py-1 text-[11px] font-semibold ${
-                          status.color === 'green'
-                            ? 'bg-green-500/20 text-green-300'
-                            : status.color === 'amber'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-red-500/20 text-red-300'
-                        }`}
-                      >
+                      <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black uppercase ${
+                        status.color === 'green'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : status.color === 'amber'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      }`}>
                         {status.label}
                       </span>
                     </div>
@@ -400,40 +417,53 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
-            <Link key={item.href} href={item.href} className="group">
-              <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 hover:border-white/20 p-6 h-full transition-all hover:shadow-lg hover:shadow-purple-500/10 transform hover:scale-105">
-                <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${item.color} flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform`}>
-                  {item.icon}
+        {/* System Administration Shortcuts Navigation */}
+        <div className="space-y-4">
+          <h3 className="text-base font-extrabold text-slate-100">🛠️ Zana za Usimamizi wa Mfumo</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {menuItems.map((item) => (
+              <Link key={item.href} href={item.href} className="group">
+                <div className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 h-full transition duration-300 shadow-lg flex flex-col justify-between">
+                  <div>
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${item.color} flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition transform`}>
+                      {item.icon}
+                    </div>
+                    <h4 className="text-lg font-black text-white mb-1 group-hover:text-amber-400 transition">{item.title}</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
+                  </div>
+                  <span className="text-[10px] font-extrabold text-amber-500 mt-4 flex items-center gap-1 group-hover:translate-x-1 transition transform">
+                    Fungua Module &rarr;
+                  </span>
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-1">{item.title}</h3>
-                <p className="text-sm text-slate-400">{item.description}</p>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-12 bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Unified Activity Log</h3>
+        {/* Activity Logs */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+          <h3 className="text-base font-extrabold text-white">📜 Unified System Activity Log</h3>
           {recentLogs.length === 0 ? (
-            <p className="text-sm text-slate-400">No recent admin or operations log entries.</p>
+            <p className="text-xs text-slate-500 italic">Hakuna taarifa za karibuni za mfumo.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {recentLogs.map((entry, index) => (
-                <div key={`${entry.source}-${entry.timestamp}-${index}`} className="rounded border border-white/10 bg-slate-950/40 px-3 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className={`rounded px-2 py-1 text-[11px] font-semibold ${entry.tone === 'warning' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                <div key={`${entry.source}-${entry.timestamp}-${index}`} className="rounded-2xl border border-slate-800/80 bg-slate-950 p-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`rounded-xl px-2.5 py-1 text-[10px] font-black uppercase ${
+                      entry.tone === 'warning' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    }`}>
                       {entry.source}
                     </span>
-                    <span className="text-[11px] text-slate-400">{new Date(entry.timestamp).toLocaleString()}</span>
+                    <p className="text-xs font-medium text-slate-200">{entry.summary}</p>
                   </div>
-                  <p className="mt-2 text-sm text-slate-200">{entry.summary}</p>
+                  <span className="text-[10px] text-slate-500 font-mono">{new Date(entry.timestamp).toLocaleString()}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
+
       </div>
     </div>
   );
