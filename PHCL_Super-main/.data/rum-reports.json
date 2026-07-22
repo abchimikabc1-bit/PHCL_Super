@@ -1,0 +1,354 @@
+[
+  {
+    "timestamp": 1782201602570,
+    "url": "http://localhost:3000/marketplace",
+    "device": "desktop",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 5200,
+        "rating": "poor"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 220,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0.18,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 2100,
+        "rating": "poor"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 20,
+      "lazyLoadedImages": 2,
+      "priorityImages": 18,
+      "averageLoadTime": 900,
+      "totalImageBandwidth": 4000000,
+      "compressedImageBandwidth": 3800000,
+      "bandwidthSavings": 5
+    },
+    "navigationTiming": {
+      "dns": 20,
+      "tcp": 40,
+      "ttfb": 2100,
+      "domInteractive": 5000,
+      "domComplete": 8000,
+      "pageLoadTime": 8200
+    }
+  },
+  {
+    "timestamp": 1782201572047,
+    "url": "http://localhost:3000/admin/analytics",
+    "device": "tablet",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 1371,
+        "rating": "needs-improvement"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 0,
+      "lazyLoadedImages": 0,
+      "priorityImages": 0,
+      "averageLoadTime": 0,
+      "totalImageBandwidth": 0,
+      "compressedImageBandwidth": 0,
+      "bandwidthSavings": 0
+    },
+    "navigationTiming": {
+      "dns": 0,
+      "tcp": 5,
+      "ttfb": 1371,
+      "domInteractive": 1588,
+      "domComplete": 7198,
+      "pageLoadTime": 7198
+    }
+  },
+  {
+    "timestamp": 1782201572046,
+    "url": "http://localhost:3000/admin/dashboard",
+    "device": "mobile",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 1164,
+        "rating": "needs-improvement"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 0,
+      "lazyLoadedImages": 0,
+      "priorityImages": 0,
+      "averageLoadTime": 0,
+      "totalImageBandwidth": 0,
+      "compressedImageBandwidth": 0,
+      "bandwidthSavings": 0
+    },
+    "navigationTiming": {
+      "dns": 0,
+      "tcp": 0,
+      "ttfb": 1164,
+      "domInteractive": 1630,
+      "domComplete": 6770,
+      "pageLoadTime": 6770
+    }
+  },
+  {
+    "timestamp": 1782201572045,
+    "url": "http://localhost:3000/marketplace",
+    "device": "mobile",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 925,
+        "rating": "needs-improvement"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 0,
+      "lazyLoadedImages": 0,
+      "priorityImages": 0,
+      "averageLoadTime": 0,
+      "totalImageBandwidth": 0,
+      "compressedImageBandwidth": 0,
+      "bandwidthSavings": 0
+    },
+    "navigationTiming": {
+      "dns": 0,
+      "tcp": 0,
+      "ttfb": 925,
+      "domInteractive": 1822,
+      "domComplete": 6978,
+      "pageLoadTime": 6978
+    }
+  },
+  {
+    "timestamp": 1782201440813,
+    "url": "http://localhost:3000/marketplace",
+    "device": "mobile",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 1800,
+        "rating": "good"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 80,
+        "rating": "good"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0.02,
+        "rating": "good"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 600,
+        "rating": "good"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 12,
+      "lazyLoadedImages": 10,
+      "priorityImages": 2,
+      "averageLoadTime": 220,
+      "totalImageBandwidth": 1800000,
+      "compressedImageBandwidth": 1100000,
+      "bandwidthSavings": 39
+    },
+    "navigationTiming": {
+      "dns": 20,
+      "tcp": 30,
+      "ttfb": 600,
+      "domInteractive": 1200,
+      "domComplete": 1800,
+      "pageLoadTime": 2100
+    }
+  },
+  {
+    "timestamp": 1782201305038,
+    "url": "http://localhost:3000/admin/dashboard",
+    "device": "mobile",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 1164,
+        "rating": "needs-improvement"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 0,
+      "lazyLoadedImages": 0,
+      "priorityImages": 0,
+      "averageLoadTime": 0,
+      "totalImageBandwidth": 0,
+      "compressedImageBandwidth": 0,
+      "bandwidthSavings": 0
+    },
+    "navigationTiming": {
+      "dns": 0,
+      "tcp": 0,
+      "ttfb": 1164,
+      "domInteractive": 1630,
+      "domComplete": 6770,
+      "pageLoadTime": 6770
+    }
+  },
+  {
+    "timestamp": 1782201305038,
+    "url": "http://localhost:3000/admin/analytics",
+    "device": "tablet",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 1371,
+        "rating": "needs-improvement"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 0,
+      "lazyLoadedImages": 0,
+      "priorityImages": 0,
+      "averageLoadTime": 0,
+      "totalImageBandwidth": 0,
+      "compressedImageBandwidth": 0,
+      "bandwidthSavings": 0
+    },
+    "navigationTiming": {
+      "dns": 0,
+      "tcp": 5,
+      "ttfb": 1371,
+      "domInteractive": 1588,
+      "domComplete": 7198,
+      "pageLoadTime": 7198
+    }
+  },
+  {
+    "timestamp": 1782201305036,
+    "url": "http://localhost:3000/marketplace",
+    "device": "mobile",
+    "coreWebVitals": {
+      "lcp": {
+        "name": "Largest Contentful Paint",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "fid": {
+        "name": "First Input Delay",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "cls": {
+        "name": "Cumulative Layout Shift",
+        "value": 0,
+        "rating": "needs-improvement"
+      },
+      "ttfb": {
+        "name": "Time to First Byte",
+        "value": 925,
+        "rating": "needs-improvement"
+      }
+    },
+    "imageMetrics": {
+      "totalImages": 0,
+      "lazyLoadedImages": 0,
+      "priorityImages": 0,
+      "averageLoadTime": 0,
+      "totalImageBandwidth": 0,
+      "compressedImageBandwidth": 0,
+      "bandwidthSavings": 0
+    },
+    "navigationTiming": {
+      "dns": 0,
+      "tcp": 0,
+      "ttfb": 925,
+      "domInteractive": 1822,
+      "domComplete": 6978,
+      "pageLoadTime": 6978
+    }
+  }
+]

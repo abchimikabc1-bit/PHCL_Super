@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Kazi ya kuhakiki kama mtumiaji amejisajili (Auth check)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Kazi ya kuhakiki umiliki wa akaunti (Ownership check)
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Kulinda taarifa za watumiaji na balansi za siri za pochi
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Kulinda daftari la miamala (transactions ledger) dhidi ya ufutaji
+    match /transactions/{transactionId} {
+      // Mtumiaji anaweza kusoma tu miamala yake binafsi ya nyuma
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Mtumiaji anaweza kuunda (create) muamala mpya kama yeye ndiye aliyeuanzisha
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // HAKUNA ruhusa ya kubadilisha (update) au kufuta (delete) miamala iliyokamilika!
+      allow update, delete: if false;
+    }
+  }
+}
