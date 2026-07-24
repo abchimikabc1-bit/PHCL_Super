@@ -20,3 +20,27 @@ runConfig:
 env:
   - variable: NEXT_PUBLIC_SITE_URL
     value: "https://phclsuper.com"
+# Firebase App Hosting Configuration
+# Seva thabiti na salama ya PHCL Super
+
+headers:
+  - glob: "/**"
+    headers:
+      - key: "Strict-Transport-Security"
+        value: "max-age=31536000; includeSubDomains"
+      - key: "X-Content-Type-Options"
+        value: "nosniff"
+      - key: "X-Frame-Options"
+        value: "DENY"
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0 # Hali isiyo na gharama (no-cost idle) wakati hakuna watembeleaji
+  maxInstances: 5 # Udhibiti thabiti wa gharama kwenye Blaze plan
+
+env:
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: "https://phclsuper.com"
+  - variable: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    value: "WEKA_UFUNGUO_WAKO_WA_RECAPTCHA_HAPA" # Bandika ufunguo wako ndani ya nukuu hizi!
