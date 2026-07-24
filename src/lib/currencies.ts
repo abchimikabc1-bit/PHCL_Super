@@ -27,9 +27,15 @@ export const CURRENCIES = {
   KES: { symbol: 'KSh', name: 'Kenyan Shilling', color: 'from-green-600 to-green-800', icon: 'KSh', type: 'fiat' },
   NGN: { symbol: '₦', name: 'Nigerian Naira', color: 'from-green-700 to-emerald-800', icon: '₦', type: 'fiat' },
   ZWL: { symbol: 'Z$', name: 'Zimbabwean Dollar', color: 'from-yellow-600 to-amber-700', icon: 'Z$', type: 'fiat' }
-};
+} as const;
 
-export const LANGUAGE_OPTIONS = [
+export interface Language {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+export const LANGUAGE_OPTIONS: readonly Language[] = [
   { code: "en", name: "English", flag: "🇬🇧" },
   { code: "sw", name: "Kiswahili", flag: "🇹🇿" },
   { code: "zh", name: "中文 (Chinese)", flag: "🇨🇳" },
@@ -46,7 +52,7 @@ export const LANGUAGE_OPTIONS = [
   { code: "vi", name: "Tiếng Việt (Vietnamese)", flag: "🇻🇳" },
   { code: "th", name: "ไทย (Thai)", flag: "🇹🇭" },
   { code: "id", name: "Bahasa Indonesia (Indonesian)", flag: "🇮🇩" }
-] as const;
+];
 
 export const LANGUAGES = LANGUAGE_OPTIONS;
 

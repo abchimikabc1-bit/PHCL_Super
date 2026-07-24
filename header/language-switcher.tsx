@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
-import { LANGUAGE_OPTIONS } from '@/lib/currencies'; // Imebadilishwa hapa kusoma jina sahihi!
+import { LANGUAGE_OPTIONS } from '@/lib/currencies';
 
 interface LanguageSwitcherProps {
   darkMode: boolean;
@@ -12,12 +12,14 @@ interface LanguageSwitcherProps {
 
 export function LanguageSwitcher({ darkMode, currentLanguage, onLanguageChange }: LanguageSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
-  // Imebadilishwa hapa kusoma LANGUAGE_OPTIONS
+  
+  // Tunahakikisha inasoma kwa usalama hata kama currentLanguage haipo
   const current = LANGUAGE_OPTIONS.find(l => l.code === currentLanguage) || LANGUAGE_OPTIONS[0];
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-4 py-3 rounded-lg font-bold transition-all shadow-lg ${
           darkMode
@@ -36,10 +38,10 @@ export function LanguageSwitcher({ darkMode, currentLanguage, onLanguageChange }
             darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
           }`}
         >
-          {/* Imebadilishwa hapa kusoma LANGUAGE_OPTIONS */}
           {LANGUAGE_OPTIONS.map((lang) => (
             <button
               key={lang.code}
+              type="button"
               onClick={() => {
                 onLanguageChange(lang.code);
                 setIsOpen(false);
