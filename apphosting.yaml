@@ -20,8 +20,9 @@ runConfig:
 env:
   - variable: NEXT_PUBLIC_SITE_URL
     value: "https://phclsuper.com"
-# Firebase App Hosting Configuration
-# Seva thabiti na salama ya PHCL Super
+  - variable: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    value: "6LfRGmMtAAAAACDfmVzYA4HZjmdkfKiF95WJRYxF"
+
 
 headers:
   - glob: "/**"
