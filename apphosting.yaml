@@ -45,3 +45,4 @@ env:
     value: "https://phclsuper.com"
   - variable: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
     value: "WEKA_UFUNGUO_WAKO_WA_RECAPTCHA_HAPA" # Bandika ufunguo wako ndani ya nukuu hizi!
+# Siku mpya, Ushindi mpya wa PHCL Super!
