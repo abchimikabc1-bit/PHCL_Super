@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
 import { LANGUAGE_OPTIONS } from '@/lib/currencies'; // Imebadilishwa hapa!
 
-interface LanguageSwitcherProps {
+interface LANGUAGE_OPTIONSwitcherProps {
   darkMode: boolean;
   currentLanguage: string;
   onLanguageChange: (language: string) => void;
 }
 
-export function LanguageSwitcher({ darkMode, currentLanguage, onLanguageChange }: LanguageSwitcherProps) {
+export function LANGUAGE_OPTIONSwitcher({ darkMode, currentLanguage, onLanguageChange }: LANGUAGE_OPTIONSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const current = LANGUAGE_OPTIONS.find(l => l.code === currentLanguage) || LANGUAGE_OPTIONS[0];
 
