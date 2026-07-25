@@ -9,7 +9,7 @@ import { getAdminSettings } from '@/lib/admin-settings';
 import { canAddToCart, getStockStatus } from '@/lib/admin-product-stock';
 import { getMarketplaceProductImage } from '@/lib/marketplace-products';
 import { OptimizedImage } from '@/components/optimized-image';
-import { PI_GCV_USD, USD_TO_TZS, convertAmount, formatCurrencyAmount } from '@/components/marketplace/currency';
+import { PI_GCV_USD, USD_TO_TZS, convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
 
 interface ProductClientProps {
   product: {

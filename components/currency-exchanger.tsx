@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CURRENCIES } from '@/lib/currencies';
 import { getExchangeRate } from '@/lib/currency-converter';
-import { PI_GCV_USD } from '@/components/marketplace/currency';
+import { PI_GCV_USD } from '@/components/marketplace-products.tsx/currency';
 
 const LIVE_REFRESH_MIN_MS = 5000;
 const LIVE_REFRESH_MAX_MS = 10000;

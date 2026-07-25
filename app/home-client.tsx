@@ -18,7 +18,7 @@ import {
 import { useLanguage } from '@/hooks/use-language';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
-import { PI_GCV_USD, convertAmount, formatCurrencyAmount } from '@/components/marketplace/currency';
+import { PI_GCV_USD, convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
 
 export default function HomeClient() {
   const { language, switchLanguage, mounted } = useLanguage();

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatCurrencyAmount } from '@/components/marketplace/currency';
+import { formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
 import { useAdmin } from '@/lib/admin-context';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';

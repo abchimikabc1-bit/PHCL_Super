@@ -17,17 +17,17 @@ import {
   Globe,
   RefreshCw
 } from 'lucide-react';
-import { CurrencyCode, convertCurrency, formatCurrency } from '@/components/marketplace/currency';
+import { CurrencyCode, convertCurrency, formatCurrency } from '@/components/marketplace-products.tsx/currency';
 
 // Lazy loading component za Marketplace ili kuboresha performance
-const Shop = lazy(() => import('@/components/marketplace/shop'));
-const Showroom = lazy(() => import('@/components/marketplace/showroom'));
-const Cart = lazy(() => import('@/components/marketplace/cart'));
-const Checkout = lazy(() => import('@/components/marketplace/checkout'));
+const Shop = lazy(() => import('@/components/marketplace-products.tsx/shop'));
+const Showroom = lazy(() => import('@/components/marketplace-products.tsx/showroom'));
+const Cart = lazy(() => import('@/components/marketplace-products.tsx/cart'));
+const Checkout = lazy(() => import('@/components/marketplace-products.tsx/checkout'));
 const Order = lazy(() => import('@/components/marketplace/order'));
-const Wallet = lazy(() => import('@/components/marketplace/wallet'));
-const Trading = lazy(() => import('@/components/marketplace/trading'));
-const Chat = lazy(() => import('@/components/marketplace/chat'));
+const Wallet = lazy(() => import('@/components/marketplace-products.tsx/wallet'));
+const Trading = lazy(() => import('@/components/marketplace-products.tsx/trading'));
+const Chat = lazy(() => import('@/components/marketplace-products.tsx/chat'));
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('shop');

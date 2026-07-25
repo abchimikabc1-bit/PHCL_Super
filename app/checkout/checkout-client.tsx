@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Checkout, MobilePaymentDetails } from '@/components/marketplace/checkout';
-import { convertAmount, formatCurrencyAmount } from '@/components/marketplace/currency';
+import { Checkout, MobilePaymentDetails } from '@/components/marketplace-products.tsx/checkout';
+import { convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { useLanguage } from '@/hooks/use-language';

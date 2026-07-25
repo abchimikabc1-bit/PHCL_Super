@@ -10,7 +10,7 @@ import { X, Minus, Plus, Tag, Zap } from "lucide-react";
 import { toast } from 'sonner';
 import { applyPromo, getActivePromos } from "@/lib/promo-system";
 import { canAddToCart } from '@/lib/admin-product-stock';
-import { convertAmount, formatCurrencyAmount } from "@/components/marketplace/currency";
+import { convertAmount, formatCurrencyAmount } from "@/components/marketplace-products.tsx/currency";
 
 interface CartItem {
   id: string;

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getOrders } from '@/lib/order-storage';
-import { convertAmount, formatCurrencyAmount } from '@/components/marketplace/currency';
+import { convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
 import { MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletLedger, type WalletLedgerEntry } from '@/lib/wallet-storage';
