@@ -315,3 +315,15 @@ export const creditWalletBalance = (
   reason = 'wallet_credit',
   orderId?: string
 ): WalletMutationResult => mutateWalletBalance('credit', currency, amount, reason, orderId);
+export function updateWalletBalance(
+  currency: 'usd' | 'tzs' | 'ntzs' | 'pi',
+  amount: number,
+  type: 'credit' | 'debit',
+  reason: string
+) {
+  if (type === 'credit') {
+    return creditWalletBalance(currency, amount, reason);
+  } else {
+    return debitWalletBalance(currency, amount, reason);
+  }
+}

@@ -1,9 +1,10 @@
+// app/wallet/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { PI_GCV_USD, convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
+import { PI_GCV_USD, convertAmount, formatCurrencyAmount } from '@/components/currency';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import { useLanguage } from '@/hooks/use-language';

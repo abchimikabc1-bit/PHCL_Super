@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
+// Badilisha path hii iendane na mahali ulipoweka faili lako la currency (mfano components au lib)
+import { CURRENCIES, CURRENCY_RATES } from '@/components/currency';
 import { useAdmin } from '@/lib/admin-context';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';
@@ -20,6 +21,18 @@ const EMPTY_SNAPSHOT: WalletSnapshot = {
   balances: { usd: 0, tzs: 0, ntzs: 0, pi: 0 },
   updatedAt: '',
 };
+
+// Seva ya ndani ya ubadilishaji na uonyeshaji fedha kwa kutumia CURRENCIES ulizotoa
+function formatCurrencyAmount(currencyCode: string, amount: number): string {
+  const upperCode = currencyCode.toUpperCase();
+  const currencyInfo = (CURRENCIES as Record<string, any>)[upperCode];
+  const symbol = currencyInfo ? currencyInfo.symbol : upperCode;
+  
+  if (upperCode === 'PI') {
+    return `${symbol} ${amount.toFixed(4)}`;
+  }
+  return `${symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function AdminWalletPage() {
   const router = useRouter();

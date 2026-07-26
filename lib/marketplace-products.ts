@@ -1,5 +1,3 @@
-﻿// src/components/marketplace-products.tsx
-
 const CATEGORY_THEME: Record<string, { start: string; end: string; accent: string }> = {
   Vehicles: { start: '#1e293b', end: '#0f172a', accent: '#f59e0b' },
   Motorcycles: { start: '#1f2937', end: '#111827', accent: '#fb7185' },
@@ -9,10 +7,9 @@ const CATEGORY_THEME: Record<string, { start: string; end: string; accent: strin
   Industrial: { start: '#3f3f46', end: '#18181b', accent: '#facc15' },
   Tools: { start: '#365314', end: '#1a2e05', accent: '#bef264' },
   Food: { start: '#7f1d1d', end: '#450a0a', accent: '#fca5a5' },
-  Construction: { start: '#451a03', end: '#1c1917', accent: '#f97316' },
 };
 
-export function getMarketplaceProductImage(product: { name: string; category: string; image?: string }): string {
+export function getMarketplaceProductImage(product: { name: string; category: string; image?: string }) {
   const safeName = typeof product?.name === 'string' && product.name.trim().length > 0
     ? product.name
     : 'PHCL Product';
@@ -51,7 +48,7 @@ export function getMarketplaceProductImage(product: { name: string; category: st
 }
 
 export const MARKETPLACE_PRODUCTS = [
-  // --- VEHICLES ---
+  // Live catalog - validated real-world products
   {
     id: 1,
     name: "Mercedes-Benz C 200 Sedan",
@@ -112,44 +109,8 @@ export const MARKETPLACE_PRODUCTS = [
     inStock: true,
     seller: "Premium Auto"
   },
-  {
-    id: 42,
-    name: "Toyota Land Cruiser 300 ZX 2024",
-    category: "Vehicles",
-    priceUSD: 89900,
-    description: "Real flagship 4x4 SUV with robust V6 power, premium off-road capability, advanced safety systems, and executive comfort for long-distance travel.",
-    image: "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=600&h=600&fit=crop",
-    rating: 4.9,
-    reviews: 274,
-    inStock: true,
-    seller: "Toyota Tanzania"
-  },
-  {
-    id: 43,
-    name: "Range Rover Sport Autobiography Dynamic SE 2024",
-    category: "Vehicles",
-    priceUSD: 121500,
-    description: "Real modern luxury SUV special edition with premium leather interior, adaptive air suspension, advanced driver assistance, and refined performance for global executive travel.",
-    image: "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=600&h=600&fit=crop",
-    rating: 5.0,
-    reviews: 348,
-    inStock: true,
-    seller: "Range Rover East Africa"
-  },
-  {
-    id: 44,
-    name: "Toyota Land Cruiser Prado 250 First Edition (2026 Model)",
-    category: "Vehicles",
-    priceUSD: 68900,
-    description: "Brand new modern rugged SUV featuring retro-modern round LED headlights, 2.4L Turbo i-FORCE Max Hybrid engine, full-time 4WD, and digital terrain monitor.",
-    image: "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&h=600&fit=crop",
-    rating: 4.9,
-    reviews: 312,
-    inStock: true,
-    seller: "Safari Motors Tanzania"
-  },
 
-  // --- MOTORCYCLES ---
+  // Motorcycles
   {
     id: 6,
     name: "Yamaha MT-07",
@@ -211,7 +172,7 @@ export const MARKETPLACE_PRODUCTS = [
     seller: "Enfield Motors"
   },
 
-  // --- ELECTRONICS & SMARTPHONES & BLUETOOTH WATCHES ---
+  // Electronics
   {
     id: 11,
     name: "Apple iPhone 15 Pro Max 512GB",
@@ -296,80 +257,8 @@ export const MARKETPLACE_PRODUCTS = [
     inStock: true,
     seller: "Samsung Official"
   },
-  {
-    id: 101,
-    name: "Apple iPhone 16 Pro Max 1TB Titanium (2026 Model)",
-    category: "Electronics",
-    priceUSD: 1599.00,
-    description: "Next-generation flagship smartphone with A18 Pro Chip, Capacitive Capture Button, 48MP Fusion Camera system, micro-lens OLED display, and Grade 5 Titanium finish.",
-    image: "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=800&h=600&fit=crop",
-    rating: 5.0,
-    reviews: 942,
-    inStock: true,
-    seller: "Apple Official Store"
-  },
-  {
-    id: 102,
-    name: "Google Pixel 9 Pro XL 512GB (2026 Model)",
-    category: "Electronics",
-    priceUSD: 1199.00,
-    description: "Google's ultimate AI smartphone powered by Tensor G4 chip, Super Actua display, Gemini Nano integration, and pro triple-lens camera setup.",
-    image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
-    rating: 4.9,
-    reviews: 310,
-    inStock: true,
-    seller: "Google Store Partner"
-  },
-  {
-    id: 103,
-    name: "Xiaomi 14 Ultra 512GB Leica Camera Phone",
-    category: "Electronics",
-    priceUSD: 1299.00,
-    description: "Professional photography powerhouse featuring Leica Quad 50MP camera with 1-inch sensor, Snapdragon 8 Gen 3, and 90W HyperCharge.",
-    image: "https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=800&h=600&fit=crop",
-    rating: 4.8,
-    reviews: 215,
-    inStock: true,
-    seller: "Xiaomi Official East Africa"
-  },
-  {
-    id: 104,
-    name: "Apple Watch Ultra 2 Titanium GPS + Cellular (49mm)",
-    category: "Electronics",
-    priceUSD: 799.00,
-    description: "Rugged flagship smartwatch with S9 SIP chip, 3000 nits display, precision dual-frequency GPS, 36-hour battery, and depth gauge for diving.",
-    image: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&h=600&fit=crop",
-    rating: 4.9,
-    reviews: 580,
-    inStock: true,
-    seller: "Apple Premium Reseller"
-  },
-  {
-    id: 105,
-    name: "Samsung Galaxy Watch6 Classic (47mm Bluetooth & LTE)",
-    category: "Electronics",
-    priceUSD: 399.00,
-    description: "Premium smartwatch with rotating bezel, Sapphire Crystal glass, advanced sleep tracking, ECG heart monitor, and BioActive sensor.",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop",
-    rating: 4.8,
-    reviews: 412,
-    inStock: true,
-    seller: "Samsung Official"
-  },
-  {
-    id: 109,
-    name: "Samsung Galaxy Z Fold7 Ultra 1TB 5G (2026 Model)",
-    category: "Electronics",
-    priceUSD: 2099.99,
-    description: "Real next-gen flagship fold smartphone featuring ultra-thin Armor Aluminum hinge, 8.0-inch Dynamic AMOLED 2X inner display, built-in S Pen, and 200MP camera.",
-    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
-    rating: 5.0,
-    reviews: 814,
-    inStock: true,
-    seller: "Samsung Electronics Official Store"
-  },
 
-  // --- APPLIANCES & TVS & WASHING MACHINES ---
+  // Appliances - with people in lifestyle context
   {
     id: 18,
     name: "LG InstaView French Door Refrigerator",
@@ -430,32 +319,8 @@ export const MARKETPLACE_PRODUCTS = [
     inStock: true,
     seller: "Entertainment Hub"
   },
-  {
-    id: 106,
-    name: "LG C3 65-inch 4K Smart OLED evo TV (2026 Model)",
-    category: "Appliances",
-    priceUSD: 1699.00,
-    description: "Self-lit OLED pixels, Brightness Booster, α9 AI Processor Gen6, Dolby Vision & Atmos, 120Hz refresh rate for ultimate gaming & cinema experience.",
-    image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&h=600&fit=crop",
-    rating: 4.9,
-    reviews: 320,
-    inStock: true,
-    seller: "LG Brand Shop"
-  },
-  {
-    id: 107,
-    name: "LG Vivace AI DD Front Load Washer & Dryer (10.5kg / 7kg)",
-    category: "Appliances",
-    priceUSD: 950.00,
-    description: "Smart front load washing machine with AI Direct Drive technology, TurboWash 360, Steam+ allergy care, and ThinQ Wi-Fi control.",
-    image: "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=800&h=600&fit=crop",
-    rating: 4.9,
-    reviews: 184,
-    inStock: true,
-    seller: "LG Electronics Home"
-  },
 
-  // --- CLOTHING ---
+  // Clothing - with people wearing
   {
     id: 23,
     name: "Nike Air Max Shoes",
@@ -517,7 +382,7 @@ export const MARKETPLACE_PRODUCTS = [
     seller: "Outdoor Gear"
   },
 
-  // --- INDUSTRIAL ---
+  // Industrial - with professional context
   {
     id: 28,
     name: "Buhler Grain Milling Machine 50kg/hr",
@@ -579,7 +444,7 @@ export const MARKETPLACE_PRODUCTS = [
     seller: "Storage Systems"
   },
 
-  // --- TOOLS ---
+  // Tools - professional and DIY
   {
     id: 33,
     name: "DeWalt 20V MAX Drill Combo Kit",
@@ -629,7 +494,7 @@ export const MARKETPLACE_PRODUCTS = [
     seller: "Construction Tools"
   },
 
-  // --- FOOD & PACKAGING ---
+  // Food & Packaging
   {
     id: 37,
     name: "Wholesale Tin Cans 500ml x100",
@@ -690,44 +555,30 @@ export const MARKETPLACE_PRODUCTS = [
     inStock: true,
     seller: "Nature's Gift"
   },
-
-  // --- CONSTRUCTION MATERIALS ---
   {
-    id: 201,
-    name: "Bati za Mgongo Mkubwa Versatile - Royal Blue (Gauge 28, Mita 3)",
-    category: "Construction",
-    priceUSD: 18.50,
-    description: "Bati imara sana za kisasa zisizopauka haraka wala kupata kutu. Zina muonekano wa kifahari kama vigae kwa ajili ya kuezeka nyumba ya ndoto yako.",
-    image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=600&fit=crop",
+    id: 42,
+    name: "Toyota Land Cruiser 300 ZX 2024",
+    category: "Vehicles",
+    priceUSD: 89900,
+    description: "Real flagship 4x4 SUV with robust V6 power, premium off-road capability, advanced safety systems, and executive comfort for long-distance travel.",
+    image: "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=600&h=600&fit=crop",
     rating: 4.9,
-    reviews: 512,
+    reviews: 274,
     inStock: true,
-    seller: "ALAF Roofing Solutions Tanzania"
+    seller: "Toyota Tanzania"
   },
   {
-    id: 202,
-    name: "Twiga Extra Cement Grade 42.5N (Mfuko Wa 50kg)",
-    category: "Construction",
-    priceUSD: 8.20,
-    description: "Simenti imara sana ya daraja la 42.5N inayofaa kwa ajili ya kumwaga nguzo (columns), msingi wa ghorofa, na kozi za tofali za nyumba za kudumu.",
-    image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&h=600&fit=crop",
+    id: 43,
+    name: "Range Rover Sport Autobiography Dynamic SE 2024",
+    category: "Vehicles",
+    priceUSD: 121500,
+    description: "Real modern luxury SUV special edition with premium leather interior, adaptive air suspension, advanced driver assistance, and refined performance for global executive travel.",
+    image: "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=600&h=600&fit=crop",
     rating: 5.0,
-    reviews: 890,
+    reviews: 348,
     inStock: true,
-    seller: "Twiga Cement Official Distributor"
+    seller: "Range Rover East Africa"
   },
-  {
-    id: 203,
-    name: "Nondo za Ujenzi mm 12 (High Tensile Deformed Steel Rebar - Tani 1)",
-    category: "Construction",
-    priceUSD: 850.00,
-    description: "Nondo nene za chuma imara (Grade 500) kwa ajili ya kuimarisha beams, nguzo, na floor slabs za majengo and nyumba za ghorofa.",
-    image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop",
-    rating: 4.8,
-    reviews: 165,
-    inStock: true,
-    seller: "Steel Masters East Africa"
-  }
 ];
 
 export type MarketplaceProduct = typeof MARKETPLACE_PRODUCTS[0];

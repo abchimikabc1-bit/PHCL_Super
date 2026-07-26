@@ -1,9 +1,10 @@
+// app/orders/page.tsx
 "use client";
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
+import { convertAmount, formatCurrencyAmount } from '@/components/currency';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';

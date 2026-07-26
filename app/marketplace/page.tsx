@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
 import { toast } from 'sonner';
 import { CART_UPDATED_EVENT, CartStorageItem, addCartItem, getCartItemCount, getCartItems, getCartTotal } from '@/lib/cart-storage';
-import { convertAmount, formatCurrencyAmount, PI_GCV_USD } from '@/components/marketplace-products.tsx/currency';
+import { convertAmount, formatCurrencyAmount, PI_GCV_USD } from '@/components/currency';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { getAdminSettings } from '@/lib/admin-settings';
 import { canAddToCart, getStockStatus } from '@/lib/admin-product-stock';

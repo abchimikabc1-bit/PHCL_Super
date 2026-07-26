@@ -21,7 +21,7 @@ import { getAdminSettingsAudit } from '@/lib/admin-settings';
 import { getPolicyVersions } from '@/lib/policy-compliance';
 import { getOrderIntegrityEvents, getOrders, type OrderIntegrityEvent, type StoredOrder } from '@/lib/order-storage';
 import { getWalletLedger, getWalletSnapshot, type WalletLedgerEntry } from '@/lib/wallet-storage';
-import { convertCurrency, formatCurrency } from '@/components/marketplace-products.tsx/currency';
+import { convertCurrency, formatCurrency } from '@/components/currency';
 
 type DashboardLogEntry = {
   timestamp: string;

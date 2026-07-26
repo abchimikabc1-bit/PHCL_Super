@@ -7,7 +7,7 @@ import { CurrencyExchanger } from '@/components/currency-exchanger';
 import { getExchangeRate } from '@/lib/currency-converter';
 import { CURRENCIES } from '@/lib/currencies';
 import { useLanguage } from '@/hooks/use-language';
-import { PI_GCV_USD } from '@/components/marketplace-products.tsx/currency';
+import { PI_GCV_USD } from '@/components/currency';
 
 const POPULAR_CODES = ['BTC', 'ETH', 'USDT', 'SOL', 'XRP', 'ADA', 'DOGE', 'PI'] as const;
 

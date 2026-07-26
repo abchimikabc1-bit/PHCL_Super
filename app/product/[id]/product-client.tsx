@@ -1,3 +1,4 @@
+// app/product/product-client.tsx
 "use client";
 
 import Link from 'next/link';
@@ -9,7 +10,7 @@ import { getAdminSettings } from '@/lib/admin-settings';
 import { canAddToCart, getStockStatus } from '@/lib/admin-product-stock';
 import { getMarketplaceProductImage } from '@/lib/marketplace-products';
 import { OptimizedImage } from '@/components/optimized-image';
-import { PI_GCV_USD, USD_TO_TZS, convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
+import { PI_GCV_USD, USD_TO_TZS, convertAmount, formatCurrencyAmount } from '@/components/currency';
 
 interface ProductClientProps {
   product: {
@@ -182,7 +183,7 @@ export default function ProductClient({ product }: ProductClientProps) {
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-amber-200/20 bg-amber-200/16 p-3 text-yellow-100 drop-shadow-[0_0_14px_rgba(253,224,71,0.2)]">USD: ${usdPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
                 <div className="rounded-xl border border-white/20 bg-white/14 p-3 text-yellow-100 drop-shadow-[0_0_14px_rgba(253,224,71,0.2)]">TZS: TSh {tzsPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
-                <div className="rounded-xl border border-cyan-200/20 bg-cyan-200/12 p-3 text-cyan-100 drop-shadow-[0_0_14px_rgba(103,232,249,0.2)]">nTZS: nTSh {ntzsPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
+                <div className="rounded-xl border border-cyan-200/20 bg-cyan-200/12 p-3 text-cyan-100 drop-shadow-[0_0_14px_rgba(103,232,249,0.24)]">nTZS: nTSh {ntzsPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
                 <div className="rounded-xl border border-lime-200/20 bg-lime-200/16 p-3 text-yellow-100 drop-shadow-[0_0_14px_rgba(253,224,71,0.2)]">PI: Π {piPrice.toFixed(8)}</div>
               </div>
 

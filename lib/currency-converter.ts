@@ -1,6 +1,7 @@
 // Comprehensive currency conversion utilities supporting 15+ cryptos and 16+ fiat currencies
 // Updated for June 2026 with international standards
 
+// TUmerudisha uagizaji sahihi kutoka kwenye currencies badala ya performance!
 import { CURRENCY_RATES, CURRENCIES } from './currencies';
 import { getAdminCurrencyConfig } from './admin-currency-rates';
 

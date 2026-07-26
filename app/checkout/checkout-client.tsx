@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Checkout, MobilePaymentDetails } from '@/components/marketplace-products.tsx/checkout';
-import { convertAmount, formatCurrencyAmount } from '@/components/marketplace-products.tsx/currency';
+import { Checkout, MobilePaymentDetails } from '@/components/marketplace-products';
+import { convertAmount, formatCurrencyAmount } from '@/components/currency';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { useLanguage } from '@/hooks/use-language';
@@ -260,199 +260,199 @@ export default function CheckoutClient() {
     let chargedAmount = 0;
 
     try {
-    if (maintenanceMode) {
-      toast.error(copy.checkoutDisabledMaintenance);
-      return;
-    }
-
-    if (paymentMethod === 'pi' && !allowPiPayments) {
-      toast.error(copy.piDisabledByAdmin);
-      return;
-    }
-
-    if (items.length === 0 || total <= 0) {
-      toast.error(copy.cartEmpty);
-      return;
-    }
-
-    if (!shippingValid) {
-      toast.error(copy.completeShippingFirst);
-      return;
-    }
-
-    if (!policyConsentValid) {
-      toast.error(copy.agreePoliciesFirst);
-      return;
-    }
-
-    const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
-    const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
-    const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
-    const mobileDetailsValid =
-      !isMobileNetworkPayment ||
-      (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
-
-    if (!mobileDetailsValid) {
-      toast.error(copy.mobileDetailsRequired);
-      return;
-    }
-
-    const preflight = reconcileCartItemsWithStock(items);
-    if (preflight.changes.length > 0) {
-      setItems(preflight.items);
-      setCartItems(preflight.items);
-
-      const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
-      const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
-
-      if (removedCount > 0) {
-        toast.warning(copy.removedBeforeCheckout(removedCount));
+      if (maintenanceMode) {
+        toast.error(copy.checkoutDisabledMaintenance);
+        return;
       }
-      if (reducedCount > 0) {
-        toast.warning(copy.reducedBeforeCheckout(reducedCount));
+
+      if (paymentMethod === 'pi' && !allowPiPayments) {
+        toast.error(copy.piDisabledByAdmin);
+        return;
       }
-    }
 
-    const preflightItems = preflight.items;
-    if (preflightItems.length === 0) {
-      toast.error(copy.cartEmpty);
-      return;
-    }
+      if (items.length === 0 || total <= 0) {
+        toast.error(copy.cartEmpty);
+        return;
+      }
 
-    const preflightTotal = getCartTotal(preflightItems);
-    if (preflightTotal <= 0) {
-      toast.error(copy.cartEmpty);
-      return;
-    }
+      if (!shippingValid) {
+        toast.error(copy.completeShippingFirst);
+        return;
+      }
 
-    const stockConflicts = preflightItems
-      .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
-      .filter(({ check }) => !check.allowed);
+      if (!policyConsentValid) {
+        toast.error(copy.agreePoliciesFirst);
+        return;
+      }
 
-    if (stockConflicts.length > 0) {
-      const firstConflict = stockConflicts[0];
-      toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
-      return;
-    }
+      const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
+      const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
+      const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
+      const mobileDetailsValid =
+        !isMobileNetworkPayment ||
+        (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
 
-    const reorderSourceOrderId =
-      typeof window !== 'undefined'
-        ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
-        : undefined;
+      if (!mobileDetailsValid) {
+        toast.error(copy.mobileDetailsRequired);
+        return;
+      }
 
-    const order: StoredOrder = {
-      id: `ORD-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
-      totalUsd: preflightTotal,
-      paymentMethod,
-      displayCurrency,
-      items: preflightItems.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-      })),
-      customer: {
-        fullName: shipping.fullName.trim(),
-        phone: shipping.phone.trim(),
-        addressLine1: shipping.addressLine1.trim(),
-        city: shipping.city.trim(),
-        country: shipping.country.trim(),
-      },
-      audit: {
-        schemaVersion: 4,
-        sourceRoute: '/checkout',
-        channel: 'web',
-        recordedAt: new Date().toISOString(),
-        reorderSourceOrderId,
-        mobilePayment: isMobileNetworkPayment
-          ? {
-              network: effectiveMobileDetails.network || 'mpesa',
-              phone: normalizedMobilePhone,
-            }
-          : undefined,
-        consent: {
-          agreedToTerms: true,
-          agreedToPrivacy: true,
-          agreedAt: new Date().toISOString(),
-          termsVersion: policyVersions.termsVersion,
-          privacyVersion: policyVersions.privacyVersion,
-        },
-      },
-    };
+      const preflight = reconcileCartItemsWithStock(items);
+      if (preflight.changes.length > 0) {
+        setItems(preflight.items);
+        setCartItems(preflight.items);
 
-    const chargeCurrency = paymentMethod as WalletCurrency;
-    chargedAmount = convertAmount(preflightTotal, 'usd', chargeCurrency);
-    const walletSnapshot = getWalletSnapshot();
-    const availableAmount = walletSnapshot.balances[chargeCurrency];
+        const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
+        const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
 
-    if (availableAmount + 1e-9 < chargedAmount) {
-      toast.error(
-        copy.insufficientWalletBalance(
-          paymentMethod.toUpperCase(),
-          formatCurrencyAmount(paymentMethod, chargedAmount),
-          formatCurrencyAmount(paymentMethod, availableAmount)
-        )
-      );
-      return;
-    }
-
-    const walletDebit = debitWalletBalance(chargeCurrency, chargedAmount, 'checkout_purchase', order.id);
-    if (!walletDebit.success) {
-      toast.error(
-        copy.insufficientWalletBalance(
-          paymentMethod.toUpperCase(),
-          formatCurrencyAmount(paymentMethod, chargedAmount),
-          formatCurrencyAmount(paymentMethod, availableAmount)
-        )
-      );
-      return;
-    }
-    walletCharged = true;
-    if (walletDebit.transactionId) {
-      order.audit = {
-        ...order.audit,
-        paymentTransactionId: walletDebit.transactionId,
-      };
-    }
-
-    const stockCommit = applyProductStockPurchase(
-      preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
-      `order:${order.id}`
-    );
-
-    if (!stockCommit.success) {
-      if (walletCharged) {
-        const rollback = creditWalletBalance(chargeCurrency, chargedAmount, 'checkout_stock_rollback', order.id);
-        if (rollback.transactionId) {
-          order.audit = {
-            ...order.audit,
-            cancellation: {
-              cancelledAt: new Date().toISOString(),
-              refunded: true,
-              refundedAt: new Date().toISOString(),
-              refundAmount: chargedAmount,
-              refundCurrency: chargeCurrency,
-              refundTransactionId: rollback.transactionId,
-              reason: 'checkout_stock_rollback',
-            },
-          };
+        if (removedCount > 0) {
+          toast.warning(copy.removedBeforeCheckout(removedCount));
+        }
+        if (reducedCount > 0) {
+          toast.warning(copy.reducedBeforeCheckout(reducedCount));
         }
       }
-      toast.error(stockCommit.reason || copy.unableUpdateStock);
-      return;
-    }
 
-    saveOrder(order);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
-    }
-    setRecentOrder(order);
-    setCartItems([]);
-    setItems([]);
-    toast.success(copy.orderConfirmedToast(order.id));
+      const preflightItems = preflight.items;
+      if (preflightItems.length === 0) {
+        toast.error(copy.cartEmpty);
+        return;
+      }
+
+      const preflightTotal = getCartTotal(preflightItems);
+      if (preflightTotal <= 0) {
+        toast.error(copy.cartEmpty);
+        return;
+      }
+
+      const stockConflicts = preflightItems
+        .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
+        .filter(({ check }) => !check.allowed);
+
+      if (stockConflicts.length > 0) {
+        const firstConflict = stockConflicts[0];
+        toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
+        return;
+      }
+
+      const reorderSourceOrderId =
+        typeof window !== 'undefined'
+          ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
+          : undefined;
+
+      const order: StoredOrder = {
+        id: `ORD-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
+        totalUsd: preflightTotal,
+        paymentMethod,
+        displayCurrency,
+        items: preflightItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+        })),
+        customer: {
+          fullName: shipping.fullName.trim(),
+          phone: shipping.phone.trim(),
+          addressLine1: shipping.addressLine1.trim(),
+          city: shipping.city.trim(),
+          country: shipping.country.trim(),
+        },
+        audit: {
+          schemaVersion: 4,
+          sourceRoute: '/checkout',
+          channel: 'web',
+          recordedAt: new Date().toISOString(),
+          reorderSourceOrderId,
+          mobilePayment: isMobileNetworkPayment
+            ? {
+                network: effectiveMobileDetails.network || 'mpesa',
+                phone: normalizedMobilePhone,
+              }
+            : undefined,
+          consent: {
+            agreedToTerms: true,
+            agreedToPrivacy: true,
+            agreedAt: new Date().toISOString(),
+            termsVersion: policyVersions.termsVersion,
+            privacyVersion: policyVersions.privacyVersion,
+          },
+        },
+      };
+
+      const chargeCurrency = paymentMethod as WalletCurrency;
+      chargedAmount = convertAmount(preflightTotal, 'usd', chargeCurrency);
+      const walletSnapshot = getWalletSnapshot();
+      const availableAmount = walletSnapshot.balances[chargeCurrency];
+
+      if (availableAmount + 1e-9 < chargedAmount) {
+        toast.error(
+          copy.insufficientWalletBalance(
+            paymentMethod.toUpperCase(),
+            formatCurrencyAmount(paymentMethod, chargedAmount),
+            formatCurrencyAmount(paymentMethod, availableAmount)
+          )
+        );
+        return;
+      }
+
+      const walletDebit = debitWalletBalance(chargeCurrency, chargedAmount, 'checkout_purchase', order.id);
+      if (!walletDebit.success) {
+        toast.error(
+          copy.insufficientWalletBalance(
+            paymentMethod.toUpperCase(),
+            formatCurrencyAmount(paymentMethod, chargedAmount),
+            formatCurrencyAmount(paymentMethod, availableAmount)
+          )
+        );
+        return;
+      }
+      walletCharged = true;
+      if (walletDebit.transactionId) {
+        order.audit = {
+          ...order.audit,
+          paymentTransactionId: walletDebit.transactionId,
+        };
+      }
+
+      const stockCommit = applyProductStockPurchase(
+        preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+        `order:${order.id}`
+      );
+
+      if (!stockCommit.success) {
+        if (walletCharged) {
+          const rollback = creditWalletBalance(chargeCurrency, chargedAmount, 'checkout_stock_rollback', order.id);
+          if (rollback.transactionId) {
+            order.audit = {
+              ...order.audit,
+              cancellation: {
+                cancelledAt: new Date().toISOString(),
+                refunded: true,
+                refundedAt: new Date().toISOString(),
+                refundAmount: chargedAmount,
+                refundCurrency: chargeCurrency,
+                refundTransactionId: rollback.transactionId,
+                reason: 'checkout_stock_rollback',
+              },
+            };
+          }
+        }
+        toast.error(stockCommit.reason || copy.unableUpdateStock);
+        return;
+      }
+
+      saveOrder(order);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
+      }
+      setRecentOrder(order);
+      setCartItems([]);
+      setItems([]);
+      toast.success(copy.orderConfirmedToast(order.id));
     } finally {
       purchaseLockRef.current = false;
       setIsSubmitting(false);
