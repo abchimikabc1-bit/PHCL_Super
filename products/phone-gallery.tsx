@@ -37,18 +37,13 @@ export function ProductPhoneGallery({ product, darkMode, onAddToCart }: PhoneGal
     };
     return phones[productId]?.[imageType] || '📱';
   };
-    ],
-    69: [
-      { type: 'Front', url: '/placeholder.svg?height=500&width=300' },
-      { type: 'Back', url: '/placeholder.svg?height=500&width=300' },
-      { type: 'Side', url: '/placeholder.svg?height=500&width=300' },
-      { type: 'Box & Accessories', url: '/placeholder.svg?height=500&width=300' },
-    ],
-  };
 
   const getImages = () => {
     const imageTypes = ['Front', 'Back', 'Side', 'Box & Accessories', 'Unboxing'];
-    return imageTypes.slice(0, 5).map(type => ({ type }));
+    return imageTypes.slice(0, 5).map(type => ({ 
+      type,
+      url: '/placeholder.svg?height=500&width=300' 
+    }));
   };
 
   const images = getImages();
@@ -144,11 +139,11 @@ export function ProductPhoneGallery({ product, darkMode, onAddToCart }: PhoneGal
             </div>
             <div>
               <div className="text-xs opacity-75">TSh</div>
-              <div className="text-xl font-bold">{product.tzs.toLocaleString()}</div>
+              <div className="text-xl font-bold">{product.tzs?.toLocaleString() || product.tzs}</div>
             </div>
             <div>
               <div className="text-xs opacity-75">Pi Network</div>
-              <div className="text-xl font-bold">Π {product.pi.toFixed(6)}</div>
+              <div className="text-xl font-bold">Π {product.pi?.toFixed(6) || product.pi}</div>
             </div>
           </div>
         </div>

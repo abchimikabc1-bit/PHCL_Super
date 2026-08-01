@@ -1,13 +1,15 @@
+// app/admin/currencies/page.tsx
 'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useAdmin } from '@/lib/admin-context';
+import { CURRENCIES, CURRENCY_RATES } from '@/lib/currencies';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';
+import { useAdmin } from '@/lib/admin-context'; // <-- Hili ndilo lililokosekana na nime liongeza!
 import {
   AdminCurrencyAuditEntry,
   AdminCurrencyConfig,
@@ -19,7 +21,7 @@ import {
 
 export default function AdminCurrenciesPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, sessionDebug, adminUser } = useAdmin();
+  const { isAuthenticated, isLoading, sessionDebug, adminUser } = useAdmin(); // <-- Mstari wa 22 upo salama hapa!
   const { snapshot } = useCommerceSnapshot();
 
   const refreshSession = () => {

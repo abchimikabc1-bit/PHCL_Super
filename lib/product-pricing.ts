@@ -2,8 +2,7 @@
 // Automatically converts product prices to all supported currencies
 
 import { MARKETPLACE_PRODUCTS } from './marketplace-products';
-import { CURRENCY_RATES, CURRENCIES } from './performance';
-import { convertCurrency } from './currency-converter';
+import { convertCurrency, CURRENCIES, CURRENCY_RATES } from './currency-converter';
 
 export interface PricedProduct {
   id: number;

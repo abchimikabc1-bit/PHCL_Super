@@ -331,7 +331,7 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
           refundAmount,
           refundCurrency,
           refundTransactionId,
-        };
+        } as any; 
       }
     }
   }

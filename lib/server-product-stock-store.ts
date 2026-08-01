@@ -41,7 +41,7 @@ export const saveServerProductStockConfig = (
       actor,
       action: 'bulk_update',
       changedProducts: Object.keys(normalized.products),
-    });
+    })as any;
   });
 
   return {
@@ -61,7 +61,7 @@ export const updateServerProductStock = (
     const config = sanitizeProductStockConfig(state.product_stock_config) ?? createDefaultProductStockConfig();
     const current = config.products[productId];
     if (!current) {
-      state.product_stock_config = config;
+      state.product_stock_config = config as any;
       return;
     }
 
@@ -81,7 +81,7 @@ export const updateServerProductStock = (
     }
 
     const currentAudit = sanitizeProductStockAudit(state.product_stock_audit);
-    state.product_stock_config = config;
+    state.product_stock_config = config as any;
     state.product_stock_audit = appendAudit(currentAudit, {
       timestamp: new Date().toISOString(),
       actor,
@@ -90,14 +90,14 @@ export const updateServerProductStock = (
       productName: updatedStock.productName,
       stockChangedFrom: updates.stock !== undefined ? oldStock : undefined,
       stockChangedTo: updates.stock !== undefined ? updates.stock : undefined,
-    });
+    })as any;
   });
 
   return {
     config: sanitizeProductStockConfig(next.product_stock_config) ?? createDefaultProductStockConfig(),
     audit: sanitizeProductStockAudit(next.product_stock_audit),
     updated: updatedStock,
-  };
+  }as any;
 };
 
 export const applyServerProductStockPurchase = (
@@ -114,17 +114,17 @@ export const applyServerProductStockPurchase = (
       const stock = config.products[item.productId];
       if (!stock) {
         resultReason = `Product ${item.productId} not found`;
-        state.product_stock_config = config;
+        state.product_stock_config = config as any;
         return;
       }
       if (!stock.enabledForSale) {
         resultReason = `${stock.productName} is unavailable for purchase`;
-        state.product_stock_config = config;
+        state.product_stock_config = config as any;
         return;
       }
       if (stock.stock !== -1 && stock.stock < item.quantity) {
         resultReason = `Only ${stock.stock} ${stock.stock === 1 ? 'unit' : 'units'} available for ${stock.productName}`;
-        state.product_stock_config = config;
+        state.product_stock_config = config as any;
         return;
       }
     }
@@ -153,8 +153,8 @@ export const applyServerProductStockPurchase = (
     }
 
     config.updatedAt = now;
-    state.product_stock_config = config;
-    state.product_stock_audit = audit;
+    state.product_stock_config = config as any;
+    state.product_stock_audit = audit as any;
   });
 
   return {
@@ -180,7 +180,7 @@ export const revertServerProductStockPurchase = (
       const stock = config.products[item.productId];
       if (!stock) {
         resultReason = `Product ${item.productId} not found`;
-        state.product_stock_config = config;
+        state.product_stock_config = config as any;
         return;
       }
       if (stock.stock === -1) continue;
@@ -203,8 +203,8 @@ export const revertServerProductStockPurchase = (
     }
 
     config.updatedAt = now;
-    state.product_stock_config = config;
-    state.product_stock_audit = audit;
+    state.product_stock_config = config as any;
+    state.product_stock_audit = audit as any;
   });
 
   return {

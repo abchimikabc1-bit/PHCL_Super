@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 // Badilisha path hii iendane na mahali ulipoweka faili lako la currency (mfano components au lib)
-import { CURRENCIES, CURRENCY_RATES } from '@/components/currency';
+import { CURRENCIES, CURRENCY_RATES } from '@/lib/currencies';
 import { useAdmin } from '@/lib/admin-context';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';
@@ -16,6 +16,7 @@ import {
   type WalletLedgerEntry,
   type WalletSnapshot,
 } from '@/lib/wallet-storage';
+import build from 'next/dist/build';
 
 const EMPTY_SNAPSHOT: WalletSnapshot = {
   balances: { usd: 0, tzs: 0, ntzs: 0, pi: 0 },

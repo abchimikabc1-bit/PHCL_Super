@@ -58,9 +58,4 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
     supportedCurrencies: ['PI'],
     accountDetailsHint: 'Andika Passphrase au Public Key ya Wallet yako',
   },
-]
-export const LANGUAGE_OPTIONS = [
-  { code: 'sw', name: 'Swahili', flag: '🇹🇿' },
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  // Unaweza kuongeza lugha nyingine hapa kama utahitaji
 ];

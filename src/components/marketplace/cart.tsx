@@ -2,17 +2,18 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Sarafu na aina ya CurrencyCode kutoka kwenye currencies ya lib
+import { CURRENCIES, type CurrencyCode } from '@/lib/currencies';
+
+// Kazi za kubadilisha na kufomati kutoka kwenye currency ya components
+import { convertCurrency, formatCurrency } from '@/components/currency';
+
+// Bidhaa (products) zenye ID za herufi kutoka kwenye marketplace-products ya components
 import { 
-  CURRENCIES, 
-  CurrencyCode, 
-  convertCurrency, 
-  formatCurrency 
-} from './currency';
-import { 
-  MARKETPLACE_PRODUCTS, 
-  MarketplaceProduct, 
-  getMarketplaceProductImage 
-} from './marketplace-products';
+  products as MARKETPLACE_PRODUCTS, 
+  Product as MarketplaceProduct 
+} from '@/components/marketplace-products';
 
 export interface CartItem {
   product: MarketplaceProduct;
@@ -55,9 +56,9 @@ export default function Cart({
 
   const clearCart = () => setCartItems([]);
 
-  // Mahesabu ya Jumla
+  // Mahesabu ya Jumla ya Bei (Kutumia USD kama msingi wa ubadilishaji)
   const rawSubtotalUSD = cartItems.reduce(
-    (acc, item) => acc + item.product.priceUSD * item.quantity,
+    (acc, item) => acc + (item.product.usd || 0) * item.quantity,
     0
   );
 
@@ -125,7 +126,7 @@ export default function Cart({
 
               <AnimatePresence>
                 {cartItems.map(({ product, quantity }) => {
-                  const itemTotalUSD = product.priceUSD * quantity;
+                  const itemTotalUSD = (product.usd || 0) * quantity;
                   const itemTotalConverted = convertCurrency(itemTotalUSD, 'USD', selectedCurrency);
 
                   return (
@@ -137,11 +138,9 @@ export default function Cart({
                       exit={{ opacity: 0, x: -20 }}
                       className="bg-slate-900 border border-slate-800/90 rounded-2xl p-4 flex gap-4 items-center group hover:border-slate-700 transition"
                     >
-                      <img
-                        src={product.image || getMarketplaceProductImage(product)}
-                        alt={product.name}
-                        className="w-20 h-20 rounded-xl object-cover bg-slate-950 border border-slate-800 flex-shrink-0"
-                      />
+                      <div className="w-20 h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-3xl flex-shrink-0">
+                        {product.icon || '📦'}
+                      </div>
 
                       <div className="flex-1 min-w-0 space-y-1">
                         {product.category && (
@@ -153,7 +152,7 @@ export default function Cart({
                           {product.name}
                         </h3>
                         <p className="text-xs text-slate-400">
-                          Moja: {formatCurrency(convertCurrency(product.priceUSD, 'USD', selectedCurrency), selectedCurrency)}
+                          Moja: {formatCurrency(convertCurrency(product.usd || 0, 'USD', selectedCurrency), selectedCurrency)}
                         </p>
 
                         {/* Quantity Control Buttons */}

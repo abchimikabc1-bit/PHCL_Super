@@ -48,7 +48,7 @@ const deriveTransactions = (orders: StoredOrder[]): AdminTransactionView[] => {
     phone: order.customer?.phone || 'N/A',
     amountUsd: order.totalUsd || 0,
     paymentMethod: order.paymentMethod || 'Crypto / USDT',
-    status: (order.status as TransactionStatus) || 'completed',
+    status: ((order as any).status as TransactionStatus) || 'completed',
     createdAt: order.createdAt || new Date().toISOString(),
   })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };

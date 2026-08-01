@@ -1,7 +1,6 @@
 'use client';
 
 import { getProductPrice, getCurrencySymbol, getCurrencyColor } from './currency-utils';
-
 interface CartItem {
   id: number;
   name: string;

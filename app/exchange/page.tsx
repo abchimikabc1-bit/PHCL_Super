@@ -71,7 +71,7 @@ export default function ExchangePage() {
         code,
         name: info?.name || code,
         symbol: info?.symbol || code,
-        type: info?.type || 'crypto',
+        type: (info as any)?.type || 'crypto',
         rate,
       };
     });

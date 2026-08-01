@@ -2,13 +2,16 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
+import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS, type MarketplaceProduct } from '@/lib/marketplace-products';
+
 import { 
   CURRENCIES, 
   CurrencyCode, 
   formatCurrency, 
   convertCurrency 
 } from './currency';
+
+
 
 export default function Shop({
   onAddToCart,

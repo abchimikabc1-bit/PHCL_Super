@@ -1,11 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Checkout, MobilePaymentDetails } from '@/components/marketplace-products';
-import { convertAmount, formatCurrencyAmount } from '@/components/currency';
-import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
+import Checkout from '@/components/marketplace/checkout';
+import { convertAmount } from '@/components/marketplace/currency-utils';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { useLanguage } from '@/hooks/use-language';
 import { getAdminSettings } from '@/lib/admin-settings';
@@ -14,11 +13,9 @@ import { reconcileCartItemsWithStock } from '@/lib/cart-stock-reconcile';
 import { CART_UPDATED_EVENT, CartStorageItem, getCartItems, getCartTotal, setCartItems } from '@/lib/cart-storage';
 import { REORDER_SOURCE_KEY, StoredOrder, saveOrder } from '@/lib/order-storage';
 import { getPolicyVersions } from '@/lib/policy-compliance';
-import { WalletCurrency, creditWalletBalance, debitWalletBalance, getWalletSnapshot } from '@/lib/wallet-storage';
 
 export default function CheckoutClient() {
   const [items, setItems] = useState<CartStorageItem[]>([]);
-  const { snapshot } = useCommerceSnapshot();
   const { language } = useLanguage();
   const isSwahili = language === 'sw';
 
@@ -75,9 +72,6 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mtandao wa Simu',
         paymentPhoneLabel: 'Namba ya Malipo',
         notProvided: 'Haijawekwa',
-        purchaseInProgress: 'Ununuzi unaendelea. Tafadhali subiri.',
-        insufficientWalletBalance: (payment: string, required: string, available: string) =>
-          `Salio la wallet halitoshi kwa ${payment}. Inahitajika ${required}, inapatikana ${available}.`,
       }
     : {
         title: 'Checkout',
@@ -131,15 +125,12 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mobile Network',
         paymentPhoneLabel: 'Payment Phone',
         notProvided: 'Not provided',
-        purchaseInProgress: 'Purchase is already in progress. Please wait.',
-        insufficientWalletBalance: (payment: string, required: string, available: string) =>
-          `Insufficient wallet balance for ${payment}. Required ${required}, available ${available}.`,
       };
   const { displayCurrency, setCurrency, enabledDisplayCurrencies } = useDisplayCurrency('usd');
   const [recentOrder, setRecentOrder] = useState<StoredOrder | null>(null);
   const [allowPiPayments, setAllowPiPayments] = useState(true);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // <-- Bandika mstari huu hapa!
   const [isMobile, setIsMobile] = useState(false);
   const [shipping, setShipping] = useState({
     fullName: '',
@@ -152,12 +143,10 @@ export default function CheckoutClient() {
     agreedToTerms: false,
     agreedToPrivacy: false,
   });
-  const [mobilePaymentDetails, setMobilePaymentDetails] = useState<MobilePaymentDetails>({
-    network: null,
+  const [mobilePaymentDetails, setMobilePaymentDetails] = useState({
+    network: null as string | null,
     phone: '',
   });
-  const purchaseLockRef = useRef(false);
-
   const resolveMobileNetworkLabel = (network: string) => {
     if (network === 'mpesa') return 'M-Pesa';
     if (network === 'tigopesa') return 'Tigo Pesa';
@@ -165,14 +154,6 @@ export default function CheckoutClient() {
     if (network === 'halopesa') return 'HaloPesa';
     return network;
   };
-
-  useEffect(() => {
-    if (!snapshot) return;
-    const reconciled = reconcileCartItemsWithStock(snapshot.cartItems);
-    setItems(reconciled.items);
-    setAllowPiPayments(snapshot.adminSettings?.allowPiPayments ?? true);
-    setMaintenanceMode(snapshot.adminSettings?.maintenanceMode ?? false);
-  }, [snapshot]);
 
   useEffect(() => {
     const sync = () => {
@@ -246,217 +227,149 @@ export default function CheckoutClient() {
 
   const completePurchase = (
     paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi',
-    mobileDetails?: MobilePaymentDetails
+    mobileDetails?: { network: string | null; phone: string }
   ) => {
-    if (purchaseLockRef.current || isSubmitting) {
-      toast.error(copy.purchaseInProgress);
+    if (maintenanceMode) {
+      toast.error(copy.checkoutDisabledMaintenance);
       return;
     }
 
-    purchaseLockRef.current = true;
-    setIsSubmitting(true);
-
-    let walletCharged = false;
-    let chargedAmount = 0;
-
-    try {
-      if (maintenanceMode) {
-        toast.error(copy.checkoutDisabledMaintenance);
-        return;
-      }
-
-      if (paymentMethod === 'pi' && !allowPiPayments) {
-        toast.error(copy.piDisabledByAdmin);
-        return;
-      }
-
-      if (items.length === 0 || total <= 0) {
-        toast.error(copy.cartEmpty);
-        return;
-      }
-
-      if (!shippingValid) {
-        toast.error(copy.completeShippingFirst);
-        return;
-      }
-
-      if (!policyConsentValid) {
-        toast.error(copy.agreePoliciesFirst);
-        return;
-      }
-
-      const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
-      const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
-      const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
-      const mobileDetailsValid =
-        !isMobileNetworkPayment ||
-        (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
-
-      if (!mobileDetailsValid) {
-        toast.error(copy.mobileDetailsRequired);
-        return;
-      }
-
-      const preflight = reconcileCartItemsWithStock(items);
-      if (preflight.changes.length > 0) {
-        setItems(preflight.items);
-        setCartItems(preflight.items);
-
-        const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
-        const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
-
-        if (removedCount > 0) {
-          toast.warning(copy.removedBeforeCheckout(removedCount));
-        }
-        if (reducedCount > 0) {
-          toast.warning(copy.reducedBeforeCheckout(reducedCount));
-        }
-      }
-
-      const preflightItems = preflight.items;
-      if (preflightItems.length === 0) {
-        toast.error(copy.cartEmpty);
-        return;
-      }
-
-      const preflightTotal = getCartTotal(preflightItems);
-      if (preflightTotal <= 0) {
-        toast.error(copy.cartEmpty);
-        return;
-      }
-
-      const stockConflicts = preflightItems
-        .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
-        .filter(({ check }) => !check.allowed);
-
-      if (stockConflicts.length > 0) {
-        const firstConflict = stockConflicts[0];
-        toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
-        return;
-      }
-
-      const reorderSourceOrderId =
-        typeof window !== 'undefined'
-          ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
-          : undefined;
-
-      const order: StoredOrder = {
-        id: `ORD-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
-        totalUsd: preflightTotal,
-        paymentMethod,
-        displayCurrency,
-        items: preflightItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image,
-        })),
-        customer: {
-          fullName: shipping.fullName.trim(),
-          phone: shipping.phone.trim(),
-          addressLine1: shipping.addressLine1.trim(),
-          city: shipping.city.trim(),
-          country: shipping.country.trim(),
-        },
-        audit: {
-          schemaVersion: 4,
-          sourceRoute: '/checkout',
-          channel: 'web',
-          recordedAt: new Date().toISOString(),
-          reorderSourceOrderId,
-          mobilePayment: isMobileNetworkPayment
-            ? {
-                network: effectiveMobileDetails.network || 'mpesa',
-                phone: normalizedMobilePhone,
-              }
-            : undefined,
-          consent: {
-            agreedToTerms: true,
-            agreedToPrivacy: true,
-            agreedAt: new Date().toISOString(),
-            termsVersion: policyVersions.termsVersion,
-            privacyVersion: policyVersions.privacyVersion,
-          },
-        },
-      };
-
-      const chargeCurrency = paymentMethod as WalletCurrency;
-      chargedAmount = convertAmount(preflightTotal, 'usd', chargeCurrency);
-      const walletSnapshot = getWalletSnapshot();
-      const availableAmount = walletSnapshot.balances[chargeCurrency];
-
-      if (availableAmount + 1e-9 < chargedAmount) {
-        toast.error(
-          copy.insufficientWalletBalance(
-            paymentMethod.toUpperCase(),
-            formatCurrencyAmount(paymentMethod, chargedAmount),
-            formatCurrencyAmount(paymentMethod, availableAmount)
-          )
-        );
-        return;
-      }
-
-      const walletDebit = debitWalletBalance(chargeCurrency, chargedAmount, 'checkout_purchase', order.id);
-      if (!walletDebit.success) {
-        toast.error(
-          copy.insufficientWalletBalance(
-            paymentMethod.toUpperCase(),
-            formatCurrencyAmount(paymentMethod, chargedAmount),
-            formatCurrencyAmount(paymentMethod, availableAmount)
-          )
-        );
-        return;
-      }
-      walletCharged = true;
-      if (walletDebit.transactionId) {
-        order.audit = {
-          ...order.audit,
-          paymentTransactionId: walletDebit.transactionId,
-        };
-      }
-
-      const stockCommit = applyProductStockPurchase(
-        preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
-        `order:${order.id}`
-      );
-
-      if (!stockCommit.success) {
-        if (walletCharged) {
-          const rollback = creditWalletBalance(chargeCurrency, chargedAmount, 'checkout_stock_rollback', order.id);
-          if (rollback.transactionId) {
-            order.audit = {
-              ...order.audit,
-              cancellation: {
-                cancelledAt: new Date().toISOString(),
-                refunded: true,
-                refundedAt: new Date().toISOString(),
-                refundAmount: chargedAmount,
-                refundCurrency: chargeCurrency,
-                refundTransactionId: rollback.transactionId,
-                reason: 'checkout_stock_rollback',
-              },
-            };
-          }
-        }
-        toast.error(stockCommit.reason || copy.unableUpdateStock);
-        return;
-      }
-
-      saveOrder(order);
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
-      }
-      setRecentOrder(order);
-      setCartItems([]);
-      setItems([]);
-      toast.success(copy.orderConfirmedToast(order.id));
-    } finally {
-      purchaseLockRef.current = false;
-      setIsSubmitting(false);
+    if (paymentMethod === 'pi' && !allowPiPayments) {
+      toast.error(copy.piDisabledByAdmin);
+      return;
     }
+
+    if (items.length === 0 || total <= 0) {
+      toast.error(copy.cartEmpty);
+      return;
+    }
+
+    if (!shippingValid) {
+      toast.error(copy.completeShippingFirst);
+      return;
+    }
+
+    if (!policyConsentValid) {
+      toast.error(copy.agreePoliciesFirst);
+      return;
+    }
+
+    const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
+    const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
+    const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
+    const mobileDetailsValid =
+      !isMobileNetworkPayment ||
+      (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
+
+    if (!mobileDetailsValid) {
+      toast.error(copy.mobileDetailsRequired);
+      return;
+    }
+
+    const preflight = reconcileCartItemsWithStock(items);
+    if (preflight.changes.length > 0) {
+      setItems(preflight.items);
+      setCartItems(preflight.items);
+
+      const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
+      const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
+
+      if (removedCount > 0) {
+        toast.warning(copy.removedBeforeCheckout(removedCount));
+      }
+      if (reducedCount > 0) {
+        toast.warning(copy.reducedBeforeCheckout(reducedCount));
+      }
+    }
+
+    const preflightItems = preflight.items;
+    if (preflightItems.length === 0) {
+      toast.error(copy.cartEmpty);
+      return;
+    }
+
+    const preflightTotal = getCartTotal(preflightItems);
+    if (preflightTotal <= 0) {
+      toast.error(copy.cartEmpty);
+      return;
+    }
+
+    const stockConflicts = preflightItems
+      .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
+      .filter(({ check }) => !check.allowed);
+
+    if (stockConflicts.length > 0) {
+      const firstConflict = stockConflicts[0];
+      toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
+      return;
+    }
+
+    const reorderSourceOrderId =
+      typeof window !== 'undefined'
+        ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
+        : undefined;
+
+    const order: StoredOrder = {
+      id: `ORD-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
+      totalUsd: preflightTotal,
+      paymentMethod,
+      displayCurrency,
+      items: preflightItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      })),
+      customer: {
+        fullName: shipping.fullName.trim(),
+        phone: shipping.phone.trim(),
+        addressLine1: shipping.addressLine1.trim(),
+        city: shipping.city.trim(),
+        country: shipping.country.trim(),
+      },
+      audit: {
+        schemaVersion: 4,
+        sourceRoute: '/checkout',
+        channel: 'web',
+        recordedAt: new Date().toISOString(),
+        reorderSourceOrderId,
+        mobilePayment: isMobileNetworkPayment
+          ? {
+              network: (effectiveMobileDetails.network as "mpesa" | "tigopesa" | "airtelmoney" | "halopesa") || 'mpesa',
+              phone: normalizedMobilePhone,
+            }
+          : undefined,
+        consent: {
+          agreedToTerms: true,
+          agreedToPrivacy: true,
+          agreedAt: new Date().toISOString(),
+          termsVersion: policyVersions.termsVersion,
+          privacyVersion: policyVersions.privacyVersion,
+        },
+      },
+    };
+
+    const stockCommit = applyProductStockPurchase(
+      preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+      `order:${order.id}`
+    );
+
+    if (!stockCommit.success) {
+      toast.error(stockCommit.reason || copy.unableUpdateStock);
+      return;
+    }
+
+    saveOrder(order);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
+    }
+    setRecentOrder(order);
+    setCartItems([]);
+    setItems([]);
+    toast.success(copy.orderConfirmedToast(order.id));
   };
 
   return (
@@ -677,8 +590,7 @@ export default function CheckoutClient() {
               </p>
             </div>
 
-            <Checkout
-              darkMode
+                 <Checkout
               total={displayTotal}
               currency={displayCurrency}
               language={isSwahili ? 'sw' : 'en'}

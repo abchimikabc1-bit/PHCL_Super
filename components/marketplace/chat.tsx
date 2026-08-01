@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
+import { MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
 import { formatCurrency, convertCurrency, CurrencyCode } from './currency';
 
 export interface ChatMessage {
@@ -16,7 +16,7 @@ export interface Conversation {
   id: string;
   sellerName: string;
   sellerAvatar: string;
-  product: MarketplaceProduct;
+  product: any; // Tumia any kwa muda kwenye product ili kuepuka migongano ya aina za data
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
@@ -26,7 +26,7 @@ export interface Conversation {
 export default function Chat({
   onNavigateToTrading,
 }: {
-  onNavigateToTrading?: (product: MarketplaceProduct) => void;
+  onNavigateToTrading?: (product: any) => void;
 }) {
   const [selectedCurrency] = useState<CurrencyCode>('TZS');
 
@@ -195,7 +195,7 @@ export default function Chat({
               {/* Product Reference Badge */}
               <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-2 rounded-xl">
                 <img
-                  src={activeConv.product.image || getMarketplaceProductImage(activeConv.product)}
+                  src={activeConv.product.image || activeConv.product.imageUrl || '/placeholder.png'}
                   alt={activeConv.product.name}
                   className="w-10 h-10 rounded-lg object-cover bg-slate-950"
                 />
@@ -205,7 +205,7 @@ export default function Chat({
                   </p>
                   <p className="text-xs text-amber-400 font-extrabold">
                     {formatCurrency(
-                      convertCurrency(activeConv.product.priceUSD, 'USD', selectedCurrency),
+                      convertCurrency(activeConv.product.priceUSD || activeConv.product.price || 0, 'USD', selectedCurrency),
                       selectedCurrency
                     )}
                   </p>

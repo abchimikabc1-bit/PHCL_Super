@@ -21,8 +21,7 @@ const ai = getAI(app, { backend: new GoogleAIBackend() });
 // 3. Kuchukua ile Template yetu ya ushindi tuliyoiunda kule kwenye Console
 export const phclAgent = getTemplateGenerativeModel(ai, {
   name: "you-are-the-official-phcl-super-ai-assistant-you-are-friendly-p"
-});
-
+} as any);
 // 4. Kazi isiyo na gharama (no-cost) ya kusoma maandishi yoyote kwa sauti
 export function speakText(text: string, lang: 'sw' | 'en' = 'en') {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {

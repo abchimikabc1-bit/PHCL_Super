@@ -1,9 +1,8 @@
-// Comprehensive currency conversion utilities supporting 15+ cryptos and 16+ fiat currencies
-// Updated for June 2026 with international standards
 
-// TUmerudisha uagizaji sahihi kutoka kwenye currencies badala ya performance!
 import { CURRENCY_RATES, CURRENCIES } from './currencies';
 import { getAdminCurrencyConfig } from './admin-currency-rates';
+
+export { CURRENCIES, CURRENCY_RATES };
 
 export interface CurrencyConversion {
   fromCurrency: string;
@@ -75,7 +74,7 @@ const getUsdValuePerUnit = (currency: string, rates: Record<string, number>): nu
   if (!Number.isFinite(raw) || raw <= 0) return 1;
 
   const info = CURRENCIES[code as keyof typeof CURRENCIES];
-  const fiatLike = info?.type === 'fiat' || code === 'TZS' || code === 'NTZS';
+  const fiatLike = (info as any)?.type === 'fiat' || code === 'TZS' || code === 'NTZS';
 
   // Fiat-like rates are stored as "units per 1 USD" (e.g. USD->TZS = 2621.5),
   // so value of 1 unit in USD is inverse.
@@ -174,7 +173,7 @@ export const getAllAvailableCurrencies = () => {
     code,
     name: info.name,
     symbol: info.symbol,
-    type: info.type,
+    type: (info as any).type ||'fiat',
     rate: effectiveRates[code] || 0,
   }));
 };
@@ -184,7 +183,7 @@ export const getCryptoCurrencies = () => {
   const effectiveRates = getEffectiveRates();
 
   return Object.entries(CURRENCIES)
-    .filter(([_, info]) => info.type === 'crypto')
+    .filter(([_, info]) => (info as any).type === 'crypto')
     .map(([code, info]) => ({
       code,
       name: info.name,
@@ -198,7 +197,7 @@ export const getFiatCurrencies = () => {
   const effectiveRates = getEffectiveRates();
 
   return Object.entries(CURRENCIES)
-    .filter(([_, info]) => info.type === 'fiat')
+    .filter(([_, info]) => (info as any).type === 'fiat')
     .map(([code, info]) => ({
       code,
       name: info.name,

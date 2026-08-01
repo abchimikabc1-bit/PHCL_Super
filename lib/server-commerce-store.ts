@@ -87,60 +87,61 @@ export const getServerCommerceSnapshot = (): CommerceStatePayload => {
 export const saveServerCommerceSnapshot = (payload: CommerceSyncPayload): CommerceStatePayload => {
   const nowIso = new Date().toISOString();
   const nextState = updateRuntimeStoreState((state) => {
+  
     if (payload.cartItems) {
-      state.cart_items = sanitizeCart(payload.cartItems);
+      state.cart_items = sanitizeCart(payload.cartItems) as any;
     }
 
     if (payload.adminSettings !== undefined) {
-      state.admin_settings = sanitizeAdminSettings(payload.adminSettings);
+      state.admin_settings = sanitizeAdminSettings(payload.adminSettings)as any;
     }
 
     if (payload.adminSettingsAudit) {
-      state.admin_settings_audit = sanitizeAdminSettingsAudit(payload.adminSettingsAudit);
+      state.admin_settings_audit = sanitizeAdminSettingsAudit(payload.adminSettingsAudit)as any;
     }
 
     if (payload.currencyConfig !== undefined) {
-      state.currency_config = sanitizeAdminCurrencyConfig(payload.currencyConfig);
+      state.currency_config = sanitizeAdminCurrencyConfig(payload.currencyConfig)as any;
     }
 
     if (payload.currencyAudit) {
-      state.currency_audit = sanitizeAdminCurrencyAudit(payload.currencyAudit);
+      state.currency_audit = sanitizeAdminCurrencyAudit(payload.currencyAudit)as any;
     }
 
     if (payload.languageConfig !== undefined) {
-      state.language_config = sanitizeAdminLanguageConfig(payload.languageConfig);
+      state.language_config = sanitizeAdminLanguageConfig(payload.languageConfig)as any;
     }
 
     if (payload.languageAudit) {
-      state.language_audit = sanitizeAdminLanguageAudit(payload.languageAudit);
+      state.language_audit = sanitizeAdminLanguageAudit(payload.languageAudit)as any;
     }
 
     if (payload.orders) {
-      state.commerce_orders = sanitizeOrders(payload.orders);
+      state.commerce_orders = sanitizeOrders(payload.orders)as any;
     }
 
     if (payload.walletSnapshot !== undefined) {
-      state.wallet_snapshot = sanitizeWalletSnapshot(payload.walletSnapshot) as WalletSnapshot | null;
+      state.wallet_snapshot = sanitizeWalletSnapshot(payload.walletSnapshot) as any;
     }
 
     if (payload.walletLedger) {
-      state.wallet_ledger = sanitizeWalletLedger(payload.walletLedger);
+      state.wallet_ledger = sanitizeWalletLedger(payload.walletLedger)as any;
     }
 
     if (payload.orderStatusMap) {
-      state.order_status_map = sanitizeOrderStatusMap(payload.orderStatusMap);
+      state.order_status_map = sanitizeOrderStatusMap(payload.orderStatusMap)as any;
     }
 
     if (payload.orderStatusAudit) {
-      state.order_status_audit = sanitizeOrderStatusAudit(payload.orderStatusAudit);
+      state.order_status_audit = sanitizeOrderStatusAudit(payload.orderStatusAudit)as any;
     }
 
     if (payload.customerOverrideMap) {
-      state.customer_override_map = sanitizeCustomerOverrideMap(payload.customerOverrideMap);
+      state.customer_override_map = sanitizeCustomerOverrideMap(payload.customerOverrideMap)as any;
     }
 
     if (payload.deliveredAtMap) {
-      state.delivered_at_map = sanitizeDeliveredAtMap(payload.deliveredAtMap);
+      state.delivered_at_map = sanitizeDeliveredAtMap(payload.deliveredAtMap)as any;
     }
 
     state.commerce_revision = Math.max(0, Number(state.commerce_revision) || 0) + 1;

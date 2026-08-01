@@ -2,14 +2,20 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// 1. Hizi zinatoka kwenye ./currency
 import { 
   CURRENCIES, 
-  CurrencyCode, 
-  PAYMENT_METHODS, 
-  PaymentMethod, 
+  type CurrencyCode, 
   formatCurrency, 
   convertCurrency 
 } from './currency';
+
+// 2. Hizi zinatoka kwenye @/lib/currencies
+import { 
+  PAYMENT_METHODS, 
+  type PaymentMethod 
+} from '@/lib/currencies';
 
 export interface Transaction {
   id: string;
@@ -32,7 +38,7 @@ export default function Wallet() {
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'DEPOSIT' | 'WITHDRAW'>('OVERVIEW');
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>('TZS');
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(PAYMENT_METHODS[2]); // Default M-Pesa
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>(PAYMENT_METHODS[2] || PAYMENT_METHODS[0]); // Default
   const [amountInput, setAmountInput] = useState('');
   const [accountInput, setAccountInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -105,7 +111,7 @@ export default function Wallet() {
         type: activeTab === 'DEPOSIT' ? 'DEPOSIT' : 'WITHDRAW',
         amount: numericAmount,
         currency: selectedCurrency,
-        provider: selectedPayment.provider,
+        provider: selectedPayment.provider || selectedPayment.name,
         date: 'Punde Hivi',
         status: 'COMPLETED',
       };
@@ -302,7 +308,9 @@ export default function Wallet() {
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-400">2. Chagua Njia ya Malipo:</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {availablePayments.map((method) => {
+                  {availablePayments.map((baseMethod) => {
+                    // Hapa tume-cast ili kuondoa Type Error
+                    const method = baseMethod as PaymentMethod & { icon?: string };
                     const isSelected = selectedPayment.id === method.id;
                     return (
                       <div
@@ -314,7 +322,11 @@ export default function Wallet() {
                             : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                         }`}
                       >
-                        <span className="font-bold text-xs">{method.name}</span>
+                        <span className="font-bold text-xs flex items-center gap-2">
+                           {/* Kama kuna icon itaonyeshwa, vinginevyo jina tu */}
+                           {method.icon && <span>{method.icon}</span>}
+                           {method.name}
+                        </span>
                         <div
                           className={`w-3.5 h-3.5 rounded-full border ${
                             isSelected ? 'border-amber-500 bg-amber-500' : 'border-slate-600'
@@ -345,12 +357,12 @@ export default function Wallet() {
 
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    {selectedPayment.accountDetailsHint}:
+                    Namba ya Akaunti / Namba ya Simu:
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder={selectedPayment.accountDetailsHint}
+                    placeholder="Weka taarifa za akaunti yako..."
                     value={accountInput}
                     onChange={(e) => setAccountInput(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 font-mono text-sm focus:outline-none focus:border-amber-500 transition"

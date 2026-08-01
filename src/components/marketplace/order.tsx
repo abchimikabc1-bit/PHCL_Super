@@ -1,12 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { products, Product } from '@/data/products'; // Badilisha njia ya import (path) iendane na ulipoweka faili lako la products
 
 // ==========================================
 // 1. ORDER INTERFACES & TYPES
 // ==========================================
 export type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+
+// TUMEONGEZA HII ILI KUTAMBULISHA 'Product' BILA KUTEGEMEA FAILI LA NJE
+export interface Product {
+  id: string | number;
+  name: string;
+  category: string;
+  tzs: number;
+  usd: number;
+  pi: number;
+  rating: number;
+  reviews: number;
+  icon: string;
+}
 
 export interface OrderItem {
   id: string | number;
@@ -29,7 +41,7 @@ export interface Order {
 }
 
 // ==========================================
-// 2. MOCK DATA (ODA ZA AWALI)
+// 2. MOCK DATA (ODA ZA AWALI ZILIZOSAFISHWA)
 // ==========================================
 const initialOrders: Order[] = [
   {
@@ -39,7 +51,8 @@ const initialOrders: Order[] = [
     items: [
       {
         id: 1,
-        product: products[0] || { id: 1, name: 'Toyota Corolla 2024', category: 'car', tzs: 52500000, usd: 19999, pi: 0.0637, rating: 4.9, reviews: 456, icon: '🚗' },
+        // Tumeondoa `products[0] ||` ili kutumia data za moja kwa moja na kuzuia error
+        product: { id: 1, name: 'Toyota Corolla 2024', category: 'car', tzs: 52500000, usd: 19999, pi: 0.0637, rating: 4.9, reviews: 456, icon: '🚗' },
         quantity: 1,
         selectedCurrency: 'USD',
         totalPrice: 19999
@@ -58,7 +71,7 @@ const initialOrders: Order[] = [
     items: [
       {
         id: 13,
-        product: products[12] || { id: 13, name: 'Bitcoin Trading Pro', category: 'crypto', tzs: 265000, usd: 99.99, pi: 0.0003183, rating: 4.8, reviews: 234, icon: '₿' },
+        product: { id: 13, name: 'Bitcoin Trading Pro', category: 'crypto', tzs: 265000, usd: 99.99, pi: 0.0003183, rating: 4.8, reviews: 234, icon: '₿' },
         quantity: 2,
         selectedCurrency: 'TZS',
         totalPrice: 530000
@@ -71,7 +84,6 @@ const initialOrders: Order[] = [
     shippingAddress: 'Arusha, Tanzania'
   }
 ];
-
 // ==========================================
 // 3. MAIN ORDER COMPONENT
 // ==========================================

@@ -32,7 +32,7 @@
         "./currency.ts"
       ],
       "@marketplace-products": [
-        "./components/marketplace-products.tsx",
+        "components/products.tsx",
         "./src/components/marketplace-products.tsx"
       ],
       "@use-display-currency": [
