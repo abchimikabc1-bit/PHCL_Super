@@ -1,3 +1,4 @@
+// src/lib/admin-context.tsx
 'use client';
 
 import {
@@ -9,6 +10,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+
+// Tunaagiza 'auth' na kazi za Firebase Client SDK tulizozisanidi
+import { auth } from '@/lib/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 type LoginResult = {
   success: boolean;
@@ -85,19 +90,28 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
+      // 1. USALAMA MKUBWA: Kuhakiki barua pepe na neno la siri kupitia Firebase Client SDK kwanza
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // 2. Kuchukua Firebase ID Token (Cryptographic Token) ya mtumiaji
+      const idToken = await userCredential.user.getIdToken();
+
+      // 3. Kutuma ID Token kwenda kwenye seva badala ya neno la siri la mtumiaji (No raw passwords sent!)
       const response = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ idToken, email: email.trim() }),
       });
 
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
         const message = data?.message || 'Login failed. Please try again.';
+        // Kama seva imekataa kuweka session, tunamtoa mtumiaji upande wa client pia
+        await signOut(auth);
         setIsAuthenticated(false);
         setSessionInfo(null);
         setError(message);
@@ -108,8 +122,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       setSessionInfo((data?.session as SessionInfo) ?? null);
       setError(null);
       return { success: true, message: data?.message || 'Login successful.' };
-    } catch {
-      const message = 'Network error. Please try again.';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Network error. Please try again.';
       setIsAuthenticated(false);
       setSessionInfo(null);
       setError(message);
@@ -119,6 +133,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // 1. Kutoka kwenye Firebase Client SDK
+      await signOut(auth);
+
+      // 2. Kufuta secure httpOnly session cookie kule kwenye seva
       await fetch('/api/admin/auth', {
         method: 'DELETE',
         credentials: 'include',
