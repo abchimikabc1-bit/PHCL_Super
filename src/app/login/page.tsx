@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { loginWithEmail, registerWithEmail, resetUserPassword, subscribeToAuth } from '@/lib/auth';
+import { createUserProfile } from '@/lib/user-profile';
 import { useLanguage } from '@/hooks/use-language';
 
 export default function LoginPage() {
@@ -14,9 +15,11 @@ export default function LoginPage() {
 
   // Lugha na maneno ya ukurasa
   const copy = {
-    title: isSw ? 'Global Command Hub' : 'Global Command Hub',
+    title: isSw ? 'Secure Command Hub' : 'Secure Command Hub',
     loginTab: isSw ? 'Ingia (Login)' : 'Sign In',
     registerTab: isSw ? 'Jisajili (Register)' : 'Sign Up',
+    fullNameLabel: isSw ? 'Jina Kamili' : 'Full Name',
+    phoneLabel: isSw ? 'Namba ya Simu' : 'Phone Number',
     emailLabel: isSw ? 'Barua Pepe (Email)' : 'Email Address',
     passwordLabel: isSw ? 'Neno la Siri (Password)' : 'Password',
     loginBtn: isSw ? 'Ingia Salama 🔒' : 'Secure Sign In 🔒',
@@ -33,16 +36,23 @@ export default function LoginPage() {
     numberCheck: isSw ? 'Namba (0-9)' : 'One number (0-9)',
     specialCheck: isSw ? 'Alama maalum (!@#$%^&*)' : 'One special character (!@#$%^&*)',
     authSuccess: isSw ? 'Umeingia kwa mafanikio makubwa!' : 'Authenticated successfully!',
-    regSuccess: isSw ? 'Akaunti imeundwa salama!' : 'Account created successfully!',
+    regSuccess: isSw ? 'Akaunti na Profile vimeundwa salama!' : 'Account and Profile created successfully!',
     resetSuccess: isSw ? 'Kiungo cha kurejesha neno la siri kimetumwa kwenye barua pepe yako.' : 'Password reset link sent to your email.',
     processing: isSw ? 'Inashughulikia...' : 'Processing...',
+    tooManyAttempts: isSw ? 'Majaribio mengi yamefeli! Umefungiwa kuingia kwa muda na kuhamishiwa kwenye kurejesha neno la siri.' : 'Too many failed attempts! You have been locked out temporarily and redirected to password reset.',
   };
 
   const [isLogin, setIsLogin] = useState(true);
   const [isResetMode, setIsResetMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Siri za kujisajili upande wa mteja
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0); // Kikagua majaribio yaliyofeli
 
   // Uthibitishaji wa Nguvu ya Neno la siri (Password Strength Validator)
   const [strength, setStrength] = useState({
@@ -70,7 +80,7 @@ export default function LoginPage() {
     strength.hasNumber &&
     strength.hasSpecial;
 
-  // Kufuatilia kama mtumiaji tayari ameshaingia ili kumpeleka dashboard moja kwa moja
+  // Kufuatilia kama mtumiaji tayari ameshaingia ili kumpeleka dashboard
   useEffect(() => {
     const unsubscribe = subscribeToAuth((user) => {
       if (user) {
@@ -92,15 +102,33 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       if (isLogin) {
+        // Kuingia (Sign In)
         await loginWithEmail(email.trim(), password);
         toast.success(copy.authSuccess);
+        setFailedAttempts(0); // Tunasafisha hesabu ya kufeli akifanikiwa kuingia
         router.push('/admin/dashboard');
       } else {
-        await registerWithEmail(email.trim(), password);
+        // Kujisajili (Register)
+        const user = await registerWithEmail(email.trim(), password);
+        
+        // Tunatengeneza profile ya mtumiaji kiotomatiki kwenye Firestore
+        await createUserProfile(user.uid, email.trim(), fullName.trim(), phone.trim());
+        
         toast.success(copy.regSuccess);
         router.push('/admin/dashboard');
       }
     } catch (error) {
+      if (isLogin) {
+        // Kila anapokosea tunaongeza hesabu ya failedAttempts
+        setFailedAttempts((prev) => {
+          const next = prev + 1;
+          if (next >= 3) {
+            toast.error(copy.tooManyAttempts);
+            setIsResetMode(true); // Tunamhamishia kwenye kurejesha nenosiri kiotomatiki!
+          }
+          return next;
+        });
+      }
       toast.error(error instanceof Error ? error.message : 'Authentication failed.');
     } finally {
       setIsSubmitting(false);
@@ -116,6 +144,7 @@ export default function LoginPage() {
       await resetUserPassword(email.trim());
       toast.success(copy.resetSuccess);
       setIsResetMode(false);
+      setFailedAttempts(0); // Tunasafisha mambo baada ya kuanzisha mchakato wa kurejesha nenosiri
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send reset link.');
     } finally {
@@ -195,6 +224,36 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              {/* Sehemu za Usajili Pekee (Only for Registration) */}
+              {!isLogin && (
+                <>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">{copy.fullNameLabel}</label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      style={{ minHeight: '44px' }}
+                      className="w-full rounded-xl border border-white/20 bg-slate-950 px-3 py-2 text-white focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                      placeholder="Juma Rashid"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">{copy.phoneLabel}</label>
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      style={{ minHeight: '44px' }}
+                      className="w-full rounded-xl border border-white/20 bg-slate-950 px-3 py-2 text-white focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                      placeholder="0754 000 000"
+                    />
+                  </div>
+                </>
+              )}
+
               <div>
                 <label className="block text-slate-300 font-bold mb-1">{copy.emailLabel}</label>
                 <input
