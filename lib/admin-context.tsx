@@ -6,12 +6,12 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 
-// Tunaagiza 'auth' na kazi za Firebase Client SDK tulizozisanidi
+// Tunaagiza 'auth' na kazi za Firebase Client SDK tulizozisakinisha
 import { auth } from '@/lib/auth';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
@@ -54,6 +54,7 @@ interface AdminContextType {
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,13 +91,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      // 1. USALAMA MKUBWA: Kuhakiki barua pepe na neno la siri kupitia Firebase Client SDK kwanza
+      // 1. USALAMA MKUBWA: Kuhakiki barua pepe na neno la siri kupitia Firebase Client SDK kwanza upande wa Client
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      // 2. Kuchukua Firebase ID Token (Cryptographic Token) ya mtumiaji
+      // 2. Kuchukua Firebase ID Token (JWT Token iliyosainiwa ki-cryptographic na Google)
       const idToken = await userCredential.user.getIdToken();
 
-      // 3. Kutuma ID Token kwenda kwenye seva badala ya neno la siri la mtumiaji (No raw passwords sent!)
+      // 3. Kutuma ID Token kwenda kwenye seva badala ya neno la siri (No raw passwords sent!)
       const response = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: {
