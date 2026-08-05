@@ -1,3 +1,4 @@
+// src/app/home-client.tsx
 'use client';
 
 import Image from 'next/image';
@@ -14,6 +15,9 @@ import {
   Phone,
   MapPin,
   Star,
+  User,       // Tumeongeza kwa ajili ya Profile
+  Settings,   // Tumeongeza kwa ajili ya Settings
+  RefreshCw,  // Tumeongeza kwa ajili ya Exchange
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
@@ -32,16 +36,6 @@ export default function HomeClient() {
     subtitle: isSw
       ? 'Jenga uchumi wako vya kidijitali sehemu moja. Fanya biashara kwa akili, simamia fedha zako salama, na ungana na jamii kupitia mfumo wa kisasa wenye kasi.'
       : 'Build your digital economy in one place. Trade smarter, manage funds safely, and connect with the community through a modern experience built for speed.',
-    ctaMarketplace: isSw ? 'Fungua Marketplace' : 'Open Marketplace',
-    ctaChat: isSw ? 'Jiunge na Chat ya Jamii' : 'Join Community Chat',
-    ctaExchange: isSw ? 'Fungua Exchange' : 'Open Exchange',
-    nextStep: isSw ? 'Hatua inayofuata' : 'Next step',
-    nextStepText: isSw
-      ? 'Anza na Marketplace, kisha unganisha wallet yako na rekebisha settings ili ukamilishe usanidi wa PHCL Super.'
-      : 'Start with Marketplace, then connect your wallet and customize settings to complete your PHCL Super setup.',
-    goWallet: isSw ? 'Nenda Wallet' : 'Go to Wallet',
-    openSettings: isSw ? 'Fungua Settings' : 'Open Settings',
-    createAccount: isSw ? 'Fungua Akaunti' : 'Create Account',
     partnersTitle: isSw ? 'Washirika Wanaoaminiwa' : 'Trusted Partners',
     partnersText: isSw
       ? 'Tunashirikiana na timu na mifumo inayoaminika ili kutoa huduma imara kwa watumiaji wa Tanzania na kimataifa.'
@@ -73,6 +67,15 @@ export default function HomeClient() {
       ? ['Signup yenye sera za lazima', 'Marketplace na product pages tayari', 'Checkout na legal consent enforcement', 'Privacy, terms, na settings links wazi']
       : ['Signup with mandatory policy consent', 'Marketplace and product pages ready', 'Checkout with enforced legal consent', 'Privacy, terms, and settings links available'],
     readinessCta: isSw ? 'Anza Safari Yako' : 'Start Your Journey',
+    
+    // MAJINA MAPYA YA NJIA ZA MKATO (SHORTCUTS COPY)
+    shortcutsTitle: isSw ? 'Njia za Mkato za Haraka (Command Center)' : 'Quick Navigation Shortcuts',
+    shortcutMarketplace: isSw ? 'Soko (Marketplace)' : 'Marketplace',
+    shortcutWallet: isSw ? 'Pochi (Wallet)' : 'Wallet Ledger',
+    shortcutChat: isSw ? 'Mazungumzo (Chat)' : 'Community Chat',
+    shortcutExchange: isSw ? 'Ubadilishaji (Exchange)' : 'Currency Exchange',
+    shortcutProfile: isSw ? 'Profaili Yako (Profile)' : 'My Profile',
+    shortcutSettings: isSw ? 'Mipangilio (Settings)' : 'Settings',
   };
 
   const metrics = [
@@ -154,25 +157,10 @@ export default function HomeClient() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-300/10 to-transparent" />
       
       <section className="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 sm:pt-24 lg:px-8">
-        <div className="sticky top-2 z-40 mb-6 rounded-xl border border-amber-200/30 bg-slate-900/80 p-2 backdrop-blur md:hidden global-glass">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <Link href="/marketplace" className="rounded-lg bg-amber-300 px-3 py-2 text-center font-semibold text-slate-900">
-              {copy.ctaMarketplace}
-            </Link>
-            <Link href="/chat" className="rounded-lg border border-amber-200/30 bg-amber-200/20 px-3 py-2 text-center font-semibold text-amber-50 hover:bg-amber-200/30">
-              {copy.ctaChat}
-            </Link>
-            <Link href="/wallet" className="rounded-lg border border-amber-200/30 bg-white/10 px-3 py-2 text-center font-semibold text-white hover:bg-white/20">
-              {copy.goWallet}
-            </Link>
-            <Link href="/exchange" className="rounded-lg border border-violet-200/40 bg-violet-300/20 px-3 py-2 text-center font-semibold text-violet-50 hover:bg-violet-300/30">
-              {copy.ctaExchange}
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-200/15 px-3 py-1 text-xs font-semibold tracking-wide text-white shadow-[0_0_20px_rgba(251,191,36,0.25)] global-shimmer ink-glow">
+        
+        {/* Top Header Row with Badges and Language Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-200/15 px-3 py-1 text-xs font-semibold tracking-wide text-white shadow-[0_0_20px_rgba(251,191,36,0.25)] global-shimmer ink-glow animate-pulse">
             <Sparkles size={14} />
             {copy.badge}
           </div>
@@ -196,38 +184,76 @@ export default function HomeClient() {
           </div>
         </div>
 
-        <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-white/5 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white global-glass ink-soft">
+        {/* Global Reach Tag */}
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-white/5 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white global-glass ink-soft">
           {copy.globalReach}
           <span className="h-1 w-1 rounded-full bg-amber-300" />
           {copy.globalReachText}
         </div>
 
+        {/* Hero Typography */}
         <h1 className="mt-6 max-w-4xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl bg-gradient-to-r from-amber-100 via-white to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_24px_rgba(251,191,36,0.14)]">{copy.title}</h1>
-        
         <p className="mt-5 max-w-2xl text-base text-white/95 sm:text-lg ink-soft">{copy.subtitle}</p>
 
-        <div className="mt-8 hidden flex-wrap gap-3 md:flex">
-          <Link
-            href="/marketplace"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5 hover:from-amber-200 hover:to-yellow-300 shadow-[0_16px_36px_rgba(251,191,36,0.28)]"
-          >
-            {copy.ctaMarketplace}
-            <ArrowRight size={16} />
-          </Link>
-          <Link
-            href="/chat"
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-200/40 bg-amber-200/15 px-5 py-3 text-sm font-semibold text-amber-50 transition hover:-translate-y-0.5 hover:bg-amber-200/25 shadow-[0_16px_30px_rgba(251,191,36,0.16)]"
-          >
-            {copy.ctaChat}
-            <MessageCircle size={16} />
-          </Link>
-          <Link
-            href="/exchange"
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-200/40 bg-violet-300/15 px-5 py-3 text-sm font-semibold text-violet-100 transition hover:-translate-y-0.5 hover:bg-violet-300/25 shadow-[0_16px_30px_rgba(167,139,250,0.2)]"
-          >
-            {copy.ctaExchange}
-            <ArrowRight size={16} />
-          </Link>
+        {/* ======================================================== */}
+        {/* SECURE COMMAND CENTER GRID - NJIA ZA MKATO ZA HARAKA (SHORTCUTS) */}
+        {/* ======================================================== */}
+        <div className="mt-12 rounded-3xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur-xl shadow-2xl">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 mb-5 flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+            {copy.shortcutsTitle}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            
+            {/* 1. Soko (Marketplace) */}
+            <Link href="/marketplace" className="group flex flex-col items-center justify-center rounded-2xl border border-amber-200/10 bg-slate-950/40 p-5 hover:border-amber-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-amber-500/10">
+                <ShoppingBag size={22} />
+              </div>
+              <span className="text-xs font-black text-slate-200 group-hover:text-amber-400 text-center transition">{copy.shortcutMarketplace}</span>
+            </Link>
+
+            {/* 2. Pochi (Wallet) */}
+            <Link href="/wallet" className="group flex flex-col items-center justify-center rounded-2xl border border-emerald-500/10 bg-slate-950/40 p-5 hover:border-emerald-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-emerald-500/10">
+                <Wallet size={22} />
+              </div>
+              <span className="text-xs font-black text-slate-200 group-hover:text-emerald-400 text-center transition">{copy.shortcutWallet}</span>
+            </Link>
+
+            {/* 3. Community Chat */}
+            <Link href="/chat" className="group flex flex-col items-center justify-center rounded-2xl border border-blue-500/10 bg-slate-950/40 p-5 hover:border-blue-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-blue-500/10">
+                <MessageCircle size={22} />
+              </div>
+              <span className="text-xs font-black text-slate-200 group-hover:text-blue-400 text-center transition">{copy.shortcutChat}</span>
+            </Link>
+
+            {/* 4. Exchange */}
+            <Link href="/exchange" className="group flex flex-col items-center justify-center rounded-2xl border border-violet-500/10 bg-slate-950/40 p-5 hover:border-violet-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 flex items-center justify-center text-white mb-3 group-hover:scale-110 transition shadow-lg shadow-violet-500/10">
+                <RefreshCw size={22} />
+              </div>
+              <span className="text-xs font-black text-slate-200 group-hover:text-violet-400 text-center transition">{copy.shortcutExchange}</span>
+            </Link>
+
+            {/* 5. Profaili Yako (My Profile / Admin Dashboard) */}
+            <Link href="/admin/dashboard" className="group flex flex-col items-center justify-center rounded-2xl border border-pink-500/10 bg-slate-950/40 p-5 hover:border-pink-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-pink-500/10">
+                <User size={22} />
+              </div>
+              <span className="text-xs font-black text-slate-200 group-hover:text-pink-400 text-center transition">{copy.shortcutProfile}</span>
+            </Link>
+
+            {/* 6. Settings */}
+            <Link href="/settings" className="group flex flex-col items-center justify-center rounded-2xl border border-slate-700/30 bg-slate-950/40 p-5 hover:border-slate-500/50 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-slate-600 to-gray-600 flex items-center justify-center text-white mb-3 group-hover:scale-110 transition shadow-lg shadow-slate-500/10">
+                <Settings size={22} />
+              </div>
+              <span className="text-xs font-black text-slate-200 group-hover:text-slate-400 text-center transition">{copy.shortcutSettings}</span>
+            </Link>
+
+          </div>
         </div>
 
         {/* FEATURED PRODUCTS SECTION */}
