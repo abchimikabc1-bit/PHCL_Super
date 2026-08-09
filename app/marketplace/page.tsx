@@ -179,6 +179,9 @@ export default function MarketplacePage() {
             <Link href="/orders" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }} className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100">
               Orders
             </Link>
+            <Link href="/dashboard" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }} className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100">
+              Dashboard
+            </Link>
           </div>
         </div>
 

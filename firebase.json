@@ -1,8 +1,4 @@
 {
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
   "hosting": {
     "site": "phcl-super-f0d21",
     "public": "public",
@@ -11,39 +7,12 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "headers": [
-      {
-        "source": "**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "Pragma",
-            "value": "no-cache"
-          },
-          {
-            "key": "Expires",
-            "value": "0"
-          }
-        ]
-      }
-    ],
     "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
+      { "source": "**", "destination": "/index.html" }
     ]
   },
-  "emulators": {
-    "firestore": {
-      "port": 8080
-    },
-    "ui": {
-      "enabled": true,
-      "port": 4000
-    }
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

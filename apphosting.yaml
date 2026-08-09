@@ -1,14 +1,22 @@
-# Firebase App Hosting Production Configuration Manifest
-service: antigravity-production-app
-env:
-  - name: NODE_ENV
-    value: production
-  - name: PORT
-    value: "3000"
+# Firebase App Hosting Configuration
+# Seva thabiti na salama ya PHCL Super
+
+headers:
+  - glob: "/**"
+    headers:
+      - key: "Strict-Transport-Security"
+        value: "max-age=31536000; includeSubDomains"
+      - key: "X-Content-Type-Options"
+        value: "nosniff"
+      - key: "X-Frame-Options"
+        value: "DENY"
 
 runConfig:
-  minInstances: 1
-  maxInstances: 10
-  concurrency: 80
   cpu: 1
   memoryMiB: 1024
+  minInstances: 0 # Hali isiyo na gharama (no-cost idle) wakati hakuna watembeleaji
+  maxInstances: 5 # Udhibiti thabiti wa gharama kwenye Blaze plan
+
+env:
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: "https://phclsuper.com"

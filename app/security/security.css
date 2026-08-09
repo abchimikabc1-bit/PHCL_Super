@@ -1,0 +1,105 @@
+/* app/security/security.css */
+/* Premium, glass‑morphism style */
+.security-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #1c1f2a, #0a0c12);
+  font-family: 'Inter', sans-serif;
+  color: #f5f5f5;
+  padding: 2rem;
+}
+
+.security-page .card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.security-page .title {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #ffcc00; /* amber accent */
+}
+
+.security-page .form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.security-page .label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+  color: #e0e0e0;
+}
+
+.security-page .input {
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease;
+}
+
+.security-page .input:focus {
+  outline: none;
+  border-color: #ffcc00;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.security-page .biometric-section {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+.security-page .bio-btn {
+  flex: 1;
+  padding: 0.6rem 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 0.5rem;
+  color: #ffcc00;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.security-page .bio-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.security-page .error-list {
+  list-style: disc inside;
+  margin: 0.5rem 0;
+  color: #ff5555;
+  font-size: 0.85rem;
+}
+
+.security-page .submit-btn {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  background: #ffcc00;
+  color: #1c1f2a;
+  font-weight: 700;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.security-page .submit-btn:hover {
+  background: #e6b800;
+}

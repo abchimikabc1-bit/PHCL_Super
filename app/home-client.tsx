@@ -154,6 +154,20 @@ export default function HomeClient() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-300/10 to-transparent" />
       
       <section className="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 sm:pt-24 lg:px-8">
+        {/* MARKETING COPY SECTION */}
+        <section className="mt-12 text-center text-white/80">
+          <p className="max-w-3xl mx-auto text-base">
+            {isSw
+              ? `Kukuza kizazi kijacho cha biashara ya kidijitali kupitia teknolojia salama, ya haraka, na inayoungana na jamii.`
+              : `Empowering the next generation of digital commerce through secure, fast, and community‑driven technology.`}
+          </p>
+          <p className="max-w-3xl mx-auto text-base mt-4">
+            {isSw
+              ? `Jukwaa letu linakuwezesha kuunda, kusimamia na kukua biashara yako kwa urahisi, ukijifunza na wakundi wa wataalamu ulimwenguni. Tunahakikisha usalama wa mali, malipo ya haraka, na miundombinu inayojumuisha chaguzi za malipo za kidijitali, mkusanyiko wa vifaa, na usalama wa chaguo.`
+              : `Our platform lets you create, manage and grow your business effortlessly, learning from and connecting with experts worldwide. We guarantee fund security, instant payments, and a seamless ecosystem that includes digital payment options, inventory management, and robust compliance.`}
+          </p>
+        </section>
+
         <div className="sticky top-2 z-40 mb-6 rounded-xl border border-amber-200/30 bg-slate-900/80 p-2 backdrop-blur md:hidden global-glass">
           <div className="grid grid-cols-2 gap-2 text-sm">
             <Link href="/marketplace" className="rounded-lg bg-amber-300 px-3 py-2 text-center font-semibold text-slate-900">
@@ -400,6 +414,12 @@ export default function HomeClient() {
               </Link>
               <Link href="/settings" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/10 transition">
                 {copy.openSettings}
+              </Link>
+              <Link href="/privacy-policy" className="rounded-lg bg-yellow-500/20 border border-yellow-500/30 px-3 py-2 text-xs font-semibold text-yellow-400 hover:bg-yellow-500/30 transition">
+                {language === 'en' ? 'Privacy Policy' : 'Sera ya Faragha'}
+              </Link>
+              <Link href="/terms-of-service" className="rounded-lg bg-yellow-500/20 border border-yellow-500/30 px-3 py-2 text-xs font-semibold text-yellow-400 hover:bg-yellow-500/30 transition ml-2">
+                {language === 'en' ? 'Terms of Service' : 'Masharti ya Huduma'}
               </Link>
             </div>
           </div>
