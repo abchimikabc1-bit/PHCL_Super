@@ -1,0 +1,61 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*",
+        "./src/*"
+      ],
+      "@currency": [
+        "./components/currency.tsx",
+        "./utils/currency.ts",
+        "./src/utils/currency.ts",
+        "./currency.ts"
+      ],
+      "@marketplace-products": [
+        "components/products.tsx",
+        "./src/components/marketplace-products.tsx"
+      ],
+      "@use-display-currency": [
+        "./components/use-display-currency.tsx",
+        "./hooks/use-display-currency.ts",
+        "./src/hooks/use-display-currency.ts"
+      ]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

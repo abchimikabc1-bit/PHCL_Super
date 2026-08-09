@@ -1,0 +1,129 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS (USALAMA NA MIONGOZO YA UPATIKANAJI)
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/roles/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isUnchanged(field) {
+      return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
+    // =========================================================================
+    // DEFAULT POLICY: KATAA ZOTE AMBAZO HAZIKURUHUSIWA KWA UWAZI (DENY BY DEFAULT)
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // USER PROFILES COLLECTION (/users/{userId})
+    // =========================================================================
+    match /users/{userId} {
+      allow read: if isUser(userId) || isAdmin();
+
+      allow create: if isUser(userId)
+                    && isValidString(request.resource.data.displayName, 2, 50)
+                    && isValidString(request.resource.data.email, 5, 100)
+                    && request.resource.data.role == 'user'
+                    && request.resource.data.createdAt is timestamp;
+
+      allow update: if (isUser(userId) || isAdmin())
+                    && isUnchanged('uid')
+                    && isUnchanged('role')
+                    && isUnchanged('createdAt')
+                    && (request.resource.data.displayName == null || isValidString(request.resource.data.displayName, 2, 50));
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // KYC APPLICATIONS COLLECTION (/kyc_applications/{userId})
+    // =========================================================================
+    match /kyc_applications/{userId} {
+      // Mtumiaji anaweza kusoma hali yake tu ya KYC, au Admin anaweza kusoma zote
+      allow read: if isUser(userId) || isAdmin();
+
+      // Mtumiaji anaweza kuwasilisha maombi mapya ya KYC (yakiwa na status PENDING_REVIEW)
+      // HAWEZI kujipitishia status ya APPROVED yeye mwenyewe!
+      allow create: if isUser(userId)
+                    && request.resource.data.status == 'PENDING_ADMIN_REVIEW'
+                    && request.resource.data.tier2Status != 'APPROVED'
+                    && request.resource.data.tier3Status != 'APPROVED';
+
+      // Mtumiaji wa kawaida anaposasisha hawezi kubadilisha status kuwa APPROVED
+      allow update: if isAdmin() || (
+        isUser(userId)
+        && isUnchanged('status')
+        && isUnchanged('tier1Status')
+        && isUnchanged('tier2Status')
+        && isUnchanged('tier3Status')
+        && isUnchanged('currentTier')
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // PUBLIC CONTENT / POSTS COLLECTION (/posts/{postId})
+    // =========================================================================
+    match /posts/{postId} {
+      allow read: if isAuthenticated() && (resource.data.isPublic == true || resource.data.authorId == request.auth.uid || isAdmin());
+
+      allow create: if isEmailVerified()
+                    && request.resource.data.authorId == request.auth.uid
+                    && isValidString(request.resource.data.title, 3, 150)
+                    && isValidString(request.resource.data.content, 1, 10000)
+                    && request.resource.data.isPublic is bool
+                    && request.resource.data.createdAt is timestamp;
+
+      allow update: if (isUser(resource.data.authorId) || isAdmin())
+                    && isUnchanged('authorId')
+                    && isUnchanged('createdAt')
+                    && isValidString(request.resource.data.title, 3, 150)
+                    && isValidString(request.resource.data.content, 1, 10000);
+
+      allow delete: if isUser(resource.data.authorId) || isAdmin();
+    }
+
+    // =========================================================================
+    // SYSTEM ROLES & AUDIT LOGS (/roles/{userId} & /audit_logs/{logId})
+    // =========================================================================
+    match /roles/{userId} {
+      allow read: if isUser(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}

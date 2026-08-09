@@ -1,0 +1,23 @@
+name: phcl_app
+description: Official PHCL Super Marketplace & Crypto Exchange Cross-Platform App with Military-Grade Anti-Hacking Suite.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.1.0
+  local_auth: ^2.1.7
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

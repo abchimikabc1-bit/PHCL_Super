@@ -1,0 +1,20 @@
+ ⚠ Linting is disabled.
+   ▲ Next.js 15.5.9
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 56s
+   Checking validity of types ...
+Failed to compile.
+
+./src/app/dashboard/page.tsx:4:24
+Type error: Cannot find module './home-client' or its corresponding type declarations.
+
+[0m [90m 2 |[39m [36mimport[39m [33mLink[39m [36mfrom[39m [32m'next/link'[39m[33m;[39m
+ [90m 3 |[39m [36mimport[39m { [33mSparkles[39m } [36mfrom[39m [32m'lucide-react'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 4 |[39m [36mimport[39m [33mHomeClient[39m [36mfrom[39m [32m'./home-client'[39m[33m;[39m
+ [90m   |[39m                        [31m[1m^[22m[39m
+ [90m 5 |[39m
+ [90m 6 |[39m [36mexport[39m [36mconst[39m metadata[33m:[39m [33mMetadata[39m [33m=[39m {
+ [90m 7 |[39m   title[33m:[39m [32m'PHCL Super | Marketplace, Wallet and Community'[39m[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null

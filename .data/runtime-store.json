@@ -1,0 +1,36 @@
+{
+  "commerce_revision": 0,
+  "commerce_updated_at": "1970-01-01T00:00:00.000Z",
+  "rum_reports": [],
+  "alert_preferences": [
+    {
+      "id": 1,
+      "enabled_channels": "[]",
+      "email_address": null,
+      "slack_webhook_url": null,
+      "phone_number": null,
+      "threshold_severity": "critical",
+      "batch_alerts": 1,
+      "batch_interval_ms": 300000,
+      "updated_at": 1785082474
+    }
+  ],
+  "alert_notifications": [],
+  "cart_items": [],
+  "commerce_orders": [],
+  "wallet_snapshot": null,
+  "wallet_ledger": [],
+  "order_status_map": {},
+  "order_status_audit": [],
+  "customer_override_map": {},
+  "delivered_at_map": {},
+  "admin_sessions": {},
+  "admin_settings": null,
+  "admin_settings_audit": [],
+  "currency_config": null,
+  "currency_audit": [],
+  "language_config": null,
+  "language_audit": [],
+  "product_stock_config": null,
+  "product_stock_audit": []
+}

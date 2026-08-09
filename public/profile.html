@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PHCL Super – KYC &amp; Profile</title>
+  <meta name="description" content="Manage your PHCL Super profile, complete KYC verification with biometric liveness, view wallet balance, and control security settings. Premium UI with glass‑morphism design." />
+  <meta name="keywords" content="KYC, profile, user account, biometric liveness, escrow, PHCL Super" />
+  <meta property="og:title" content="PHCL Super – KYC &amp; Profile" />
+  <meta property="og:description" content="Securely manage your identity, verification status, and wallet balance with PHCL Super's premium dashboard." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.phclsuper.com/profile.html" />
+  <meta property="og:image" content="/assets/og-profile.jpg" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body {font-family: 'Inter', sans-serif; background:#0a0e14; color:#e2e8f0;}
+    .hero {display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;background:linear-gradient(135deg, rgba(24,9,45,0.9), rgba(58,16,102,0.9));border-radius:var(--radius-lg);margin:2rem;box-shadow:0 0 30px rgba(245,158,11,0.4);}
+    .hero h1 {font-size:2.2rem;color:#fbbf24; margin-bottom:0.5rem;}
+    .profile-card {background:rgba(15,23,42,0.85);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:2rem;margin:2rem;box-shadow:0 0 25px rgba(56,189,248,0.3);}
+    .profile-card h2 {color:#38bdf8;}
+    .profile-card p {color:#cbd5e1;}
+    .btn-primary {background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:0.6rem 1.2rem;border:none;border-radius:9999px;cursor:pointer;transition:transform 0.2s;}
+    .btn-primary:hover{transform:scale(1.05);}
+    footer{margin-top:3rem;padding:2rem;text-align:center;font-size:0.85rem;color:#64748b;border-top:1px solid rgba(255,255,255,0.1);}
+  </style>
+</head>
+<body>
+  <a href="#main" class="visually-hidden focusable">Skip to main content</a>
+
+  <!-- HEADER & NAVIGATION -->
+  <header>
+    <nav class="navbar" aria-label="Main navigation">
+      <div class="nav-links">
+        <a class="nav-btn" href="/index.html">🏠 Home</a>
+        <a class="nav-btn" href="/products.html">🛍️ Marketplace</a>
+        <a class="nav-btn" href="/exchange.html">🔱 Exchange</a>
+        <a class="nav-btn active" href="/profile.html" aria-current="page">👤 KYC &amp; Profile</a>
+        <a class="nav-btn" href="/privacy.html">🔏 Privacy</a>
+        <a class="nav-btn" href="/terms.html">📜 Terms</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.8rem;">
+        <select id="globalLangSelect" onchange="changeGlobalLanguage(this.value)" class="lang-select-dropdown" aria-label="Select language">
+          <option value="en" selected>🇬🇧 English</option>
+          <option value="sw">🇹🇿 Swahili</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="zh">🇨🇳 中文</option>
+        </select>
+        <button class="nav-btn btn-secondary" onclick="aiWidget.toggleHighContrast()" aria-label="Toggle high‑contrast mode">👁️ High Contrast</button>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <!-- HERO SECTION -->
+    <section class="hero" aria-labelledby="profile-hero-title">
+      <h1 id="profile-hero-title">Your Secure Profile &amp; KYC Hub</h1>
+      <p>Manage your personal data, verify identity with biometric liveness, and control escrow settings – all encrypted with AES‑256.</p>
+    </section>
+
+    <!-- PROFILE CARD -->
+    <section class="profile-card" id="profileCard" aria-live="polite" aria-label="User profile information">
+      <h2>Welcome, <span id="userName">User</span></h2>
+      <p><strong>Status:</strong> <span id="kycStatus" class="badge" style="background:#38bdf8;color:#fff;padding:0.3rem 0.6rem;border-radius:4px;">Pending</span></p>
+      <p><strong>Secure Wallet Balance:</strong> <span id="walletBalance">$0.00</span></p>
+      <button class="btn-primary" onclick="openKycModal()">Start KYC Verification</button>
+      <button class="btn-primary" style="margin-left:0.8rem;" onclick="openPasswordChangeModal()">Change Password</button>
+    </section>
+  </main>
+
+  <footer>
+    <nav aria-label="Legal links" style="margin-bottom:0.5rem;">
+      <a href="/privacy.html" style="color:#38bdf8; margin-right:1rem;">Privacy</a>
+      <a href="/terms.html" style="color:#38bdf8;">Terms</a>
+    </nav>
+    © 2026 PHCL Super – All Rights Reserved
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "database-security-workspace",
+  "version": "1.0.0",
+  "description": "Project configuration, Auth/KYC system, and test suite for database security rules",
+  "main": "kyc_router.js",
+  "scripts": {
+    "test": "jest tests/auth_kyc.test.js",
+    "test:rules": "firebase emulators:exec --only firestore 'jest'",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "audit:code": "node security_scanner.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
+    "express-rate-limit": "^7.5.1",
+    "firebase-admin": "^12.7.0",
+    "helmet": "^7.2.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.0",
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,83 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "phcl-check-exchange-http",
+			"type": "shell",
+			"command": "$ProgressPreference='SilentlyContinue'; try { $r=Invoke-WebRequest -Uri 'http://localhost:3000/exchange' -UseBasicParsing; Write-Host \"STATUS=$($r.StatusCode)\"; $c=$r.Content; if($c.Length -gt 1200){$c.Substring(0,1200)} else {$c} } catch { Write-Host 'REQUEST_FAILED'; Write-Host $_.Exception.Message; if($_.Exception.Response){ $resp=$_.Exception.Response; Write-Host (\"STATUS=\" + [int]$resp.StatusCode); $sr=New-Object System.IO.StreamReader($resp.GetResponseStream()); $body=$sr.ReadToEnd(); $sr.Close(); if($body.Length -gt 1200){$body.Substring(0,1200)} else {$body} } }",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-curl-exchange-500",
+			"type": "shell",
+			"command": "curl.exe -i http://localhost:3000/exchange",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-check-routes-status",
+			"type": "shell",
+			"command": "curl.exe -i http://localhost:3000/; echo '---'; curl.exe -i http://localhost:3000/exchange; echo '---'; curl.exe -i http://localhost:3000/api/exchange/rates",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-port-3000-owner",
+			"type": "shell",
+			"command": "netstat -ano | findstr :3000; $pid=(netstat -ano | findstr :3000 | ForEach-Object { ($_ -split '\\s+')[-1] } | Select-Object -First 1); if($pid){ Get-CimInstance Win32_Process -Filter \"ProcessId=$pid\" | Select-Object ProcessId, Name, CommandLine | Format-List }",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-inspect-pids-3000",
+			"type": "shell",
+			"command": "Get-CimInstance Win32_Process -Filter \"ProcessId=11092 OR ProcessId=1412\" | Select-Object ProcessId, Name, CommandLine | Format-List",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-inspect-pids-3000-lite",
+			"type": "shell",
+			"command": "Get-Process -Id 11092,1412 -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, Path, StartTime | Format-List",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-reset-port-3000",
+			"type": "shell",
+			"command": "$ids = netstat -ano | Select-String ':3000' | ForEach-Object { ($_.ToString().Trim() -split '\\s+')[-1] } | Where-Object { $_ -match '^[0-9]+$' } | Select-Object -Unique; foreach ($id in $ids) { Stop-Process -Id ([int]$id) -Force -ErrorAction SilentlyContinue }; Write-Host ('Stopped PIDs on :3000 -> ' + (($ids -join ', ')))",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-dev-mobile-run",
+			"type": "shell",
+			"command": "$env:Path='C:\\Program Files\\nodejs;'+$env:Path; & 'C:\\Program Files\\nodejs\\npm.cmd' run dev:mobile",
+			"isBackground": true
+		},
+		{
+			"label": "phcl-stop-stale-node",
+			"type": "shell",
+			"command": "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'PHCL_Super|next/dist/bin/next|npm-cli.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Write-Host 'Stopped stale Node processes for PHCL_Super.'",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-clean-next-cache",
+			"type": "shell",
+			"command": "if (Test-Path '.next') { Remove-Item '.next' -Recurse -Force -ErrorAction SilentlyContinue; Write-Host 'Removed .next cache.' } else { Write-Host '.next not found.' }",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-run-dev-mobile-clean",
+			"type": "shell",
+			"command": "$env:Path='C:\\Program Files\\nodejs;'+$env:Path; & 'C:\\Program Files\\nodejs\\npm.cmd' run dev:mobile",
+			"isBackground": true
+		},
+		{
+			"label": "phcl-verify-exchange-200",
+			"type": "shell",
+			"command": "curl.exe -i http://localhost:3000/exchange",
+			"isBackground": false
+		},
+		{
+			"label": "phcl-http-code-check",
+			"type": "shell",
+			"command": "curl.exe -s -o NUL -w \"%{http_code}\" http://localhost:3000/exchange; echo; curl.exe -s -o NUL -w \"%{http_code}\" http://localhost:3000/; echo; curl.exe -s -o NUL -w \"%{http_code}\" http://localhost:3000/api/exchange/rates; echo",
+			"isBackground": false
+		}
+	]
+}

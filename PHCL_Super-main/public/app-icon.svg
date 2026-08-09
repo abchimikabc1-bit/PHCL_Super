@@ -1,0 +1,30 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#F59E0B"/>
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="piGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FCD34D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F97316;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C084FC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Inner circle with gradient -->
+  <circle cx="256" cy="256" r="220" fill="url(#piGradient)"/>
+  
+  <!-- Pi symbol (π) -->
+  <g font-family="Georgia, serif" font-size="280" font-weight="bold" fill="white" text-anchor="middle">
+    <text x="256" y="340">π</text>
+  </g>
+  
+  <!-- Accent accents around pi -->
+  <circle cx="150" cy="120" r="20" fill="url(#accentGradient)" opacity="0.8"/>
+  <circle cx="362" cy="120" r="20" fill="url(#accentGradient)" opacity="0.8"/>
+  <circle cx="100" cy="256" r="15" fill="#00D084" opacity="0.7"/>
+  <circle cx="412" cy="256" r="15" fill="#3B82F6" opacity="0.7"/>
+</svg>

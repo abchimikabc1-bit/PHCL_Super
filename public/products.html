@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PHCL Super – Marketplace</title>
+  <meta name="description" content="Explore PHCL Super's premium marketplace. Browse high‑quality products, view details, and purchase securely with escrow protection." />
+  <meta property="og:title" content="PHCL Super – Marketplace" />
+  <meta property="og:description" content="Premium product catalog with glass‑morphism UI and secure escrow transactions." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://phclsuper.example.com/products.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: rgba(15, 23, 42, 0.9);
+      --primary: #6366f1;
+      --secondary: #10b981;
+      --gold: #fde047;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --glass-border: rgba(255,255,255,0.1);
+      --glass-border-accent: rgba(99,102,241,0.3);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',sans-serif;background:var(--bg-dark);color:var(--text-main);line-height:1.6;}
+    .skip-link{position:absolute;left:-999px;top:auto;width:1px;height:1px;overflow:hidden;}
+    .skip-link:focus{left:0;top:0;width:auto;height:auto;background:#fff;color:#000;padding:0.5rem 1rem;z-index:1000;}
+    header,nav,main,footer{padding:1rem;}
+    .container{max-width:960px;margin:0 auto;background:var(--bg-card);backdrop-filter:blur(20px);border:1px solid var(--glass-border-accent);border-radius:16px;padding:2rem;box-shadow:0 20px 50px rgba(0,0,0,0.6);}
+    .header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;border-bottom:1px solid var(--glass-border-accent);padding-bottom:1rem;margin-bottom:2rem;}
+    h1{font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;background:linear-gradient(135deg,#fff,#fff59d 30%,#fcd116 65%,#f59e0b 85%,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .btn-back{background:rgba(99,102,241,0.2);border:1px solid var(--glass-border-accent);color:#fff;padding:0.5rem 1.2rem;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;transition:background 0.25s;}
+    .btn-back:hover{background:var(--primary);}
+    .product-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem;}
+    .product-card{background:var(--bg-card);border:2px solid var(--gold);border-radius:12px;padding:1.2rem;text-align:center;box-shadow:0 0 20px rgba(253,224,71,0.4),0 0 40px rgba(56,189,248,0.3);transition:transform 0.3s,box-shadow 0.3s;}
+    .product-card:hover{transform:translateY(-4px);box-shadow:0 0 25px rgba(253,224,71,0.6),0 0 50px rgba(56,189,248,0.5);}
+    .product-card img{max-width:100%;border-radius:8px;margin-bottom:0.5rem;}
+    .product-card h3{margin:0.5rem 0;color:var(--gold);font-size:1.2rem;}
+    .product-card p{margin:0;color:#cbd5e1;}
+    footer{margin-top:3rem;border-top:1px solid var(--glass-border);text-align:center;font-size:0.85rem;color:var(--text-muted);}
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header class="header" role="banner">
+    <div>
+      <h1>🛒 Marketplace</h1>
+    </div>
+    <nav aria-label="Primary navigation">
+      <select id="globalLangSelect" aria-label="Select language">
+        <option value="en" selected>English</option>
+        <option value="sw">Swahili</option>
+        <option value="fr">Français</option>
+      </select>
+    </nav>
+  </header>
+  <main id="main" class="container" role="main">
+    <a href="/" class="btn-back" aria-label="Back to home">⬅️ Home</a>
+    <section class="product-grid" aria-label="Product catalogue">
+      <a href="product.html?sku=001" class="product-card" aria-describedby="prod1-desc">
+        <img src="/product_placeholder_1786181033366.jpg" alt="Product One" />
+        <h3>Product One</h3>
+        <p id="prod1-desc">TZS 15,000 – Premium quality item.</p>
+      </a>
+      <a href="product.html?sku=002" class="product-card" aria-describedby="prod2-desc">
+        <img src="/product_placeholder_1786181033366.jpg" alt="Product Two" />
+        <h3>Product Two</h3>
+        <p id="prod2-desc">TZS 25,000 – Best‑selling trusted product.</p>
+      </a>
+      <a href="product.html?sku=003" class="product-card" aria-describedby="prod3-desc">
+        <img src="/product_placeholder_1786181033366.jpg" alt="Product Three" />
+        <h3>Product Three</h3>
+        <p id="prod3-desc">TZS 35,000 – Exclusive limited edition.</p>
+      </a>
+      <!-- Add more product cards here -->
+    </section>
+  </main>
+  <footer class="footer" role="contentinfo">
+    © 2026 PHCL Super – All Rights Reserved
+  </footer>
+</body>
+</html>

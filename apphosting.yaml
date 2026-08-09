@@ -1,0 +1,14 @@
+# Firebase App Hosting Production Configuration Manifest
+service: antigravity-production-app
+env:
+  - name: NODE_ENV
+    value: production
+  - name: PORT
+    value: "3000"
+
+runConfig:
+  minInstances: 1
+  maxInstances: 10
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024

@@ -1,0 +1,12 @@
+{
+    "chat.editor.copilotCli.hideExtensionHost": true,
+    "terminal.integrated.initialHintCopilotCli": true,
+    "github.copilot.chat.claudeAgent.allowAutoPermissions": true,
+    "github.copilot.chat.claudeAgent.useSdkExtension": true,
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.alternateGeminiModelFPrompt.enabled": true,
+    "github.copilot.chat.alternateGptPrompt.enabled": true,
+    "github.copilot.chat.anthropic.tools.websearch.enabled": true,
+    "github.copilot.chat.anthropic.tools.websearch.maxUses": 15,
+    "search.useGlobalIgnoreFiles": true
+}

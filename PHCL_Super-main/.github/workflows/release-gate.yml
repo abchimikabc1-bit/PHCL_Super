@@ -1,0 +1,38 @@
+name: PHCL Release Gate
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  release-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create CI environment file
+        shell: bash
+        run: |
+          cat > .env.local << 'EOF'
+          NEXT_PUBLIC_SITE_URL=https://phclsuper.com
+          NEXT_PUBLIC_API_URL=https://api.phclsuper.com
+          NEXT_PUBLIC_APP_NAME=PHCL Super
+          EOF
+
+      - name: Run PHCL release verification
+        run: npm run release:verify
