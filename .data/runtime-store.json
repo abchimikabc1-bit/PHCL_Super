@@ -1,6 +1,6 @@
 {
-  "commerce_revision": 1,
-  "commerce_updated_at": "2026-08-09T09:45:00.173Z",
+  "commerce_revision": 4,
+  "commerce_updated_at": "2026-08-10T10:00:52.272Z",
   "rum_reports": [],
   "alert_preferences": [
     {
@@ -16,18 +16,37 @@
     }
   ],
   "alert_notifications": [],
-  "cart_items": [
+  "cart_items": [],
+  "commerce_orders": [],
+  "wallet_snapshot": {
+    "balances": {
+      "usd": 2500,
+      "tzs": 3497499,
+      "ntzs": 1500000,
+      "pi": 128.45
+    },
+    "updatedAt": "2026-08-10T09:40:14.759Z"
+  },
+  "wallet_ledger": [
     {
-      "id": "2",
-      "name": "Toyota Land Cruiser Prado VX",
-      "price": 69800,
-      "quantity": 1,
-      "image": "data:image/svg+xml;charset=utf-8,%0A%20%20%20%20%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22750%22%20viewBox%3D%220%200%201200%20750%22%20fill%3D%22none%22%3E%0A%20%20%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%231e293b%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%230f172a%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%20%20%3Crect%20width%3D%221200%22%20height%3D%22750%22%20rx%3D%2242%22%20fill%3D%22url(%23bg)%22%20%2F%3E%0A%20%20%20%20%20%20%3Ccircle%20cx%3D%22965%22%20cy%3D%22140%22%20r%3D%22120%22%20fill%3D%22%23f59e0b%22%20fill-opacity%3D%220.18%22%20%2F%3E%0A%20%20%20%20%20%20%3Ccircle%20cx%3D%22180%22%20cy%3D%22630%22%20r%3D%22180%22%20fill%3D%22%23f59e0b%22%20fill-opacity%3D%220.12%22%20%2F%3E%0A%20%20%20%20%20%20%3Crect%20x%3D%2268%22%20y%3D%2264%22%20width%3D%22220%22%20height%3D%2244%22%20rx%3D%2222%22%20fill%3D%22rgba(255%2C255%2C255%2C0.12)%22%20%2F%3E%0A%20%20%20%20%20%20%3Ctext%20x%3D%22104%22%20y%3D%2292%22%20fill%3D%22%23F8FAFC%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%2224%22%20font-weight%3D%22700%22%3EVehicles%3C%2Ftext%3E%0A%20%20%20%20%20%20%3Ctext%20x%3D%2268%22%20y%3D%22350%22%20fill%3D%22%23F8FAFC%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%22150%22%20font-weight%3D%22700%22%20opacity%3D%220.92%22%3ETL%3C%2Ftext%3E%0A%20%20%20%20%20%20%3Ctext%20x%3D%2268%22%20y%3D%22448%22%20fill%3D%22%23F8FAFC%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%2254%22%20font-weight%3D%22700%22%3EToyota%20Land%20Cruiser%20Prado%20VX%3C%2Ftext%3E%0A%20%20%20%20%20%20%3Ctext%20x%3D%2268%22%20y%3D%22510%22%20fill%3D%22%23f59e0b%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%2226%22%20font-weight%3D%22600%22%3EPHCL%20Super%20Verified%20Catalog%3C%2Ftext%3E%0A%20%20%20%20%3C%2Fsvg%3E%0A%20%20"
+      "id": "wallet-1786354814759-38089",
+      "type": "debit",
+      "currency": "tzs",
+      "amount": 1501,
+      "balanceAfter": 3497499,
+      "reason": "Transfer to axhd34knhouiyf",
+      "createdAt": "2026-08-10T09:40:14.759Z"
+    },
+    {
+      "id": "wallet-1786354649030-42420",
+      "type": "debit",
+      "currency": "tzs",
+      "amount": 1000,
+      "balanceAfter": 3499000,
+      "reason": "Withdrawal to Bank/Mobile",
+      "createdAt": "2026-08-10T09:37:29.032Z"
     }
   ],
-  "commerce_orders": [],
-  "wallet_snapshot": null,
-  "wallet_ledger": [],
   "order_status_map": {},
   "order_status_audit": [],
   "customer_override_map": {},

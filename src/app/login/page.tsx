@@ -1,6 +1,7 @@
 // src/app/login/page.tsx
 'use client';
 
+import Logo from '@/components/logo';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -158,12 +159,11 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.12),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_35%)]" />
 
       <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 sm:p-8 backdrop-blur-2xl shadow-2xl global-glass">
-        {/* Logo and Brand */}
-        <div className="text-center mb-6">
-          <span className="text-3xl">👑</span>
-          <h2 className="mt-2 text-2xl font-black text-amber-100 tracking-wide">PHCL Super</h2>
-          <p className="text-xs text-slate-400 mt-1">{copy.title}</p>
-        </div>
+        {/* Logo and Brand - Tumepachika nembo yetu ya kweli hapa! */}
+<div className="flex flex-col items-center justify-center text-center mb-6">
+  <Logo width={60} height={60} showText={true} />
+  <p className="text-xs text-slate-400 mt-2">{copy.title}</p>
+</div>
 
         {isResetMode ? (
           /* PASSWORD RESET FLOW */

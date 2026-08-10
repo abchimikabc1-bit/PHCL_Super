@@ -1,7 +1,7 @@
 {
   "hosting": {
     "site": "phcl-super-f0d21",
-    "public": "public",
+    "public": "out",
     "ignore": [
       "firebase.json",
       "**/.*",

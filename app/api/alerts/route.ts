@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { AlertNotification } from '@/lib/alert-service';
 import {
   sendAlertNotification,
   getAlertNotificationHistory,
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       return true; // Include both critical and warning
     });
 
-    const notifications = [];
+    const notifications: AlertNotification[] = [];
 
     for (const alert of filteredAlerts) {
       const sent = await sendAlertNotification(alert, prefs);

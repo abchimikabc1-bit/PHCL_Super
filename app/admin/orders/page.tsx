@@ -190,7 +190,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (searchParams.get('seed') !== 'demo') return;
+    if (searchParams?.get('seed') !== 'demo') return;
 
     seedDemoOrders();
     router.replace('/admin/orders');
@@ -198,7 +198,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (searchParams.get('clear') !== 'demo') return;
+    if (searchParams?.get('clear') !== 'demo') return;
 
     const result = clearDemoOrdersInStorage();
     resetDemoOrderMeta();
@@ -290,8 +290,8 @@ export default function AdminOrdersPage() {
       }
 
       withConsent += 1;
-      const termMismatch = consent.termsVersion !== policyBaseline.termsVersion;
-      const privMismatch = consent.privacyVersion !== policyBaseline.privacyVersion;
+const termMismatch = consent!.termsVersion !== policyBaseline.termsVersion;
+      const privMismatch = consent!.privacyVersion !== policyBaseline.privacyVersion;
       if (termMismatch) termsMismatch += 1;
       if (privMismatch) privacyMismatch += 1;
       if (termMismatch || privMismatch) {
@@ -1405,9 +1405,9 @@ export default function AdminOrdersPage() {
                           {(complianceSummary.byOrderId[detailOrder.id]?.status || 'missing') === 'mismatch' ? 'Version Mismatch' : 'Complete'}
                         </span>
                       </p>
-                      <p>Agreed At: {new Date(detailOrder.audit.consent.agreedAt).toLocaleString()}</p>
-                      <p>Terms Version: {detailOrder.audit.consent.termsVersion}</p>
-                      <p>Privacy Version: {detailOrder.audit.consent.privacyVersion}</p>
+                      <p>Agreed At: {detailOrder.audit?.consent?.agreedAt ? new Date(detailOrder.audit.consent.agreedAt).toLocaleString() : 'N/A'}</p>
+                      <p>Terms Version: {detailOrder.audit?.consent?.termsVersion ?? 'N/A'}</p>
+                      <p>Privacy Version: {detailOrder.audit?.consent?.privacyVersion ?? 'N/A'}</p>
                       <p>Active Baseline: Terms v{policyBaseline.termsVersion} / Privacy v{policyBaseline.privacyVersion}</p>
                     </div>
                   ) : (

@@ -1,0 +1,24 @@
+/* app/terms/terms.css */
+/* Premium glassmorphism background with brand palette (Zambarau, Dhahabu, Blue-bahari) */
+body {
+  background: linear-gradient(135deg, #FFBF00, #FFD700, #006994);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glassmorphism card style for any component */
+.glass-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 1rem;
+  color: #fff;
+}

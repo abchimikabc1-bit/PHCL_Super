@@ -155,7 +155,6 @@
     inset: 0;
     transform: translateX(-120%);
     background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.16), transparent);
-    animation: globalShimmer 4.5s ease-in-out infinite;
   }
 
   @keyframes globalShimmer {

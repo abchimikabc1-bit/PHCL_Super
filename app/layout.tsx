@@ -7,6 +7,9 @@ import GlobalQuickActions from '../components/global-quick-actions';
 export const metadata: Metadata = {
   title: 'PHCL Super - Cryptocurrency Trading Platform',
   description: 'Trade Bitcoin, Ethereum, Pi Network and more.',
+  icons: {
+    icon: '/phcl_logo.jpg',
+  },
 };
 
 export default function RootLayout({

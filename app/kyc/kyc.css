@@ -1,0 +1,23 @@
+/* app/kyc/kyc.css */
+/* Premium glassmorphism background with brand palette (Zambarau, Dhahabu, Blue-bahari) */
+body {
+  background: linear-gradient(135deg, #FFBF00, #FFD700, #006994);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.container {
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
