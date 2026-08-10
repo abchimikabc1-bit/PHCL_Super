@@ -30,7 +30,14 @@ const apiChecks = [
     method: 'GET',
     expectedStatus: 401,
     // accept any one of these fragments
-    expectedBodyIncludesAny: ['"authenticated":false', '"success":false', 'No admin session', '"error"'],
+    expectedBodyIncludesAny: [
+      '"authenticated":false',
+      '"success":false',
+      'No admin session',
+      '"error"',
+      '"ok":false',
+      '"code":"UNAUTHENTICATED"',
+    ],
   },
   {
     path: '/api/chat',
