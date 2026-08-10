@@ -17,7 +17,8 @@
     "release:check": "node scripts/release-readiness.mjs",
     "release:compliance": "node scripts/compliance-readiness.mjs",
     "release:smoke": "node scripts/post-build-smoke.mjs",
-    "test": "npm run release:smoke"
+    "test": "npm run release:smoke",
+    "release:verify": "npm run release:check && npm run release:compliance && npm run build && npm run release:smoke"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.73",
