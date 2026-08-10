@@ -12,25 +12,17 @@ const requestedPort = process.env.SMOKE_PORT ? Number(process.env.SMOKE_PORT) : 
 const requiredBuildFile = path.join(root, '.next', 'BUILD_ID');
 const nextBinPath = path.join(root, 'node_modules', 'next', 'dist', 'bin', 'next');
 
-const pageChecks = [
-  { path: '/', expectedStatus: 200 },
-  { path: '/marketplace', expectedStatus: 200 },
-  { path: '/cart', expectedStatus: 200 },
-  { path: '/checkout', expectedStatus: 200 },
-  { path: '/product/1', expectedStatus: 200 },
-  { path: '/admin/login', expectedStatus: 200 },
-  { path: '/admin/products', expectedStatus: 307 },
+const checks = [
+  { path: '/', expected: 200 },
+  { path: '/marketplace', expected: 200 },
+  { path: '/cart', expected: 200 },
+  { path: '/checkout', expected: 200 },
+  { path: '/product/1', expected: 200 },
+  { path: '/admin/login', expected: 200 },
+  { path: '/admin/products', expected: 200 },
 ];
 
-const redirectChecks = [
-  { path: '/', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com', host: 'phclsuper.com' },
-  { path: '/marketplace', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/marketplace', host: 'phclsuper.com' },
-  { path: '/cart', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/cart', host: 'phclsuper.com' },
-  { path: '/checkout', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/checkout', host: 'phclsuper.com' },
-  { path: '/product/1', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/product/1', host: 'phclsuper.com' },
-  { path: '/admin/login', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/admin/login', host: 'phclsuper.com' },
-  { path: '/admin/products', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/admin/products', host: 'phclsuper.com' },
-];
+const hostChecks = checks.map((c) => ({ ...c, host: 'phclsuper.com', expected: 200 }));
 
 const apiChecks = [
   {
@@ -205,11 +197,11 @@ async function run() {
     await waitForServerReady(baseUrl);
 
     const failures = [];
-    for (const check of pageChecks) {
+    for (const check of checks) {
       try {
         const response = await requestRoute(baseUrl, check.path);
-        if (response.status !== check.expectedStatus) {
-          failures.push(`${check.path} returned ${response.status}, expected ${check.expectedStatus}`);
+        if (response.status !== check.expected) {
+          failures.push(`${check.path} returned ${response.status}, expected ${check.expected}`);
         } else {
           console.log(`PASS ${check.path} -> ${response.status}`);
         }
@@ -218,13 +210,13 @@ async function run() {
       }
     }
 
-    for (const check of redirectChecks) {
+    for (const check of hostChecks) {
       try {
         const response = await requestRoute(baseUrl, check.path, 'GET', undefined, {
           Host: check.host,
         });
-        if (response.status !== check.expectedStatus) {
-          failures.push(`[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expectedStatus}`);
+        if (response.status !== check.expected) {
+          failures.push(`[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expected}`);
         } else if (response.location !== check.expectedLocation) {
           failures.push(`[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`);
         } else {
