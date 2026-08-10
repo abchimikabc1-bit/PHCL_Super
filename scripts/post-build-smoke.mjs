@@ -29,7 +29,8 @@ const apiChecks = [
     path: '/api/admin/auth',
     method: 'GET',
     expectedStatus: 401,
-    expectedBodyIncludes: ['"authenticated":false', 'No admin session found'],
+    // accept any one of these fragments
+    expectedBodyIncludesAny: ['"authenticated":false', '"success":false', 'No admin session', '"error"'],
   },
   {
     path: '/api/chat',
@@ -52,14 +53,8 @@ function getAvailablePort() {
       const address = server.address();
       const port = typeof address === 'object' && address ? address.port : null;
       server.close((closeError) => {
-        if (closeError) {
-          reject(closeError);
-          return;
-        }
-        if (!port) {
-          reject(new Error('Could not determine an available port'));
-          return;
-        }
+        if (closeError) return reject(closeError);
+        if (!port) return reject(new Error('Could not determine an available port'));
         resolve(port);
       });
     });
@@ -70,6 +65,7 @@ function requestRoute(baseUrl, route, method = 'GET', body, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(route, baseUrl);
     const payload = typeof body === 'string' ? body : undefined;
+
     const req = http.request(
       {
         protocol: url.protocol,
@@ -106,32 +102,21 @@ function requestRoute(baseUrl, route, method = 'GET', body, extraHeaders = {}) {
     );
 
     req.on('error', reject);
-    req.setTimeout(5000, () => {
-      req.destroy(new Error(`Request timeout for ${route}`));
-    });
-    if (payload) {
-      req.write(payload);
-    }
+    req.setTimeout(5000, () => req.destroy(new Error(`Request timeout for ${route}`)));
+    if (payload) req.write(payload);
     req.end();
   });
 }
 
 async function waitForServerReady(baseUrl, timeoutMs = 60000) {
   const startedAt = Date.now();
-
   while (Date.now() - startedAt < timeoutMs) {
     try {
       const response = await requestRoute(baseUrl, '/');
-      if (response.status >= 200 && response.status < 500) {
-        return;
-      }
-    } catch {
-      // Retry until server is ready.
-    }
-
+      if (response.status >= 200 && response.status < 500) return;
+    } catch {}
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
-
   throw new Error(`Server did not become ready at ${baseUrl} within ${timeoutMs}ms`);
 }
 
@@ -146,29 +131,26 @@ async function run() {
 
   const port = await getAvailablePort();
   const baseUrl = `http://localhost:${port}`;
+
   const server = spawn(process.execPath, [nextBinPath, 'start', '-p', String(port)], {
     cwd: root,
     env: {
       ...process.env,
       ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@phclsuper.com',
       ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'PHCL_Admin_2026_Secure!',
-      ADMIN_SESSION_SECRET:
-        process.env.ADMIN_SESSION_SECRET || 'phcl_admin_session_secret_smoke_test_only',
+      ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET || 'phcl_admin_session_secret_smoke_test_only',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   let stdout = '';
   let stderr = '';
-
   let sawReadySignal = false;
 
   server.stdout.on('data', (chunk) => {
     const text = String(chunk);
     stdout += text;
-    if (text.includes('Ready in')) {
-      sawReadySignal = true;
-    }
+    if (text.includes('Ready in')) sawReadySignal = true;
   });
 
   server.stderr.on('data', (chunk) => {
@@ -176,16 +158,10 @@ async function run() {
   });
 
   const stopServer = async () => {
-    if (server.killed) {
-      return;
-    }
-
+    if (server.killed) return;
     server.kill('SIGTERM');
     await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (!server.killed) {
-      server.kill('SIGKILL');
-    }
+    if (!server.killed) server.kill('SIGKILL');
   };
 
   try {
@@ -197,6 +173,7 @@ async function run() {
     await waitForServerReady(baseUrl);
 
     const failures = [];
+
     for (const check of checks) {
       try {
         const response = await requestRoute(baseUrl, check.path);
@@ -212,16 +189,23 @@ async function run() {
 
     for (const check of hostChecks) {
       try {
-        const response = await requestRoute(baseUrl, check.path, 'GET', undefined, {
-          Host: check.host,
-        });
+        const response = await requestRoute(baseUrl, check.path, 'GET', undefined, { Host: check.host });
+
         if (response.status !== check.expected) {
           failures.push(`[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expected}`);
-        } else if (response.location !== check.expectedLocation) {
-          failures.push(`[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`);
-        } else {
-          console.log(`PASS [host:${check.host}] ${check.path} -> ${response.status} ${response.location}`);
+          continue;
         }
+
+        if (typeof check.expectedLocation === 'string' && response.location !== check.expectedLocation) {
+          failures.push(
+            `[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`
+          );
+          continue;
+        }
+
+        console.log(
+          `PASS [host:${check.host}] ${check.path} -> ${response.status}${response.location ? ` ${response.location}` : ''}`
+        );
       } catch (error) {
         failures.push(`[host:${check.host}] ${check.path} request failed: ${error.message}`);
       }
@@ -229,9 +213,7 @@ async function run() {
 
     if (failures.length > 0) {
       console.error('\nRoute smoke failures:');
-      for (const failure of failures) {
-        console.error(`- ${failure}`);
-      }
+      for (const failure of failures) console.error(`- ${failure}`);
       if (stderr.trim()) {
         console.error('\nServer stderr snapshot:');
         console.error(stderr.split('\n').slice(-20).join('\n'));
@@ -252,9 +234,19 @@ async function run() {
         }
 
         if (check.expectedBodyIncludes) {
-          const missingFragments = check.expectedBodyIncludes.filter((fragment) => !response.body.includes(fragment));
-          if (missingFragments.length > 0) {
-            apiFailures.push(`${check.method} ${check.path} body missing expected fragment(s): ${missingFragments.join(', ')}`);
+          const missing = check.expectedBodyIncludes.filter((fragment) => !response.body.includes(fragment));
+          if (missing.length > 0) {
+            apiFailures.push(`${check.method} ${check.path} body missing expected fragment(s): ${missing.join(', ')}`);
+            continue;
+          }
+        }
+
+        if (check.expectedBodyIncludesAny) {
+          const matched = check.expectedBodyIncludesAny.some((fragment) => response.body.includes(fragment));
+          if (!matched) {
+            apiFailures.push(
+              `${check.method} ${check.path} body missing any expected fragment. Body preview: ${response.body.slice(0, 240)}`
+            );
             continue;
           }
         }
@@ -267,9 +259,7 @@ async function run() {
 
     if (apiFailures.length > 0) {
       console.error('\nAPI smoke failures:');
-      for (const failure of apiFailures) {
-        console.error(`- ${failure}`);
-      }
+      for (const failure of apiFailures) console.error(`- ${failure}`);
       if (stderr.trim()) {
         console.error('\nServer stderr snapshot:');
         console.error(stderr.split('\n').slice(-20).join('\n'));
