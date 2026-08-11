@@ -2,23 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, runTransaction, collection } from 'firebase/firestore';
-
-// Usanidi wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { doc, runTransaction, collection } from 'firebase/firestore';
+import { getFirebaseClientAuth, getFirebaseClientDb } from '@/lib/firebase-client';
 
 export default function WithdrawPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -31,6 +17,13 @@ export default function WithdrawPage() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
+    const auth = getFirebaseClientAuth();
+
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -61,6 +54,12 @@ export default function WithdrawPage() {
     setStatusMessage('Mchakato wa utoaji fedha unaendelea...');
 
     try {
+      const db = getFirebaseClientDb();
+
+      if (!db) {
+        throw new Error('Huduma ya usajili haijasanidiwa kikamilifu kwa sasa.');
+      }
+
       const senderRef = doc(db, 'users', user.uid);
       const txColRef = collection(db, 'transactions');
 
