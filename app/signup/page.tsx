@@ -1,36 +1,42 @@
 "use client";
 
 import Link from 'next/link';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { registerCustomer } from '@/lib/customer-registration';
 import { getPolicyVersions } from '@/lib/policy-compliance';
+import { validateKycRegistration } from '@/lib/security/kyc-validation';
 
 export default function SignupPage() {
   const router = useRouter();
   const versions = useMemo(() => getPolicyVersions(), []);
 
   const [form, setForm] = useState({
-    fullName: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     email: '',
-    phone: '',
-    country: '',
     password: '',
     confirmPassword: '',
+    fingerprintToken: '',
+    faceScanToken: '',
     agreedToTerms: false,
     agreedToPrivacy: false,
     marketingOptIn: false,
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSubmit =
-    form.fullName.trim().length >= 3 &&
+    form.firstName.trim().length >= 3 &&
+    form.middleName.trim().length >= 3 &&
+    form.lastName.trim().length >= 3 &&
     form.email.trim().length >= 6 &&
-    form.phone.trim().length >= 7 &&
-    form.country.trim().length >= 2 &&
     form.password.length >= 8 &&
     form.password === form.confirmPassword &&
+    form.fingerprintToken.trim().length >= 32 &&
+    form.faceScanToken.trim().length >= 32 &&
     form.agreedToTerms &&
     form.agreedToPrivacy;
 
@@ -38,32 +44,26 @@ export default function SignupPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (isSubmitting) {
-      return;
-    }
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-    if (form.password !== form.confirmPassword) {
-      toast.error('Password confirmation does not match.');
-      return;
-    }
+    const result = validateKycRegistration(form);
+    setErrors(result.errors as Record<string, string>);
+
+    if (!result.valid) return;
 
     setIsSubmitting(true);
     try {
-      const result = registerCustomer({
-        fullName: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        country: form.country,
-        password: form.password,
-        agreedToTerms: form.agreedToTerms,
-        agreedToPrivacy: form.agreedToPrivacy,
-        marketingOptIn: form.marketingOptIn,
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result.sanitized),
       });
 
-      if (!result.ok) {
-        toast.error(result.message);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setErrors((data?.errors as Record<string, string>) || { form: data?.message || 'Registration failed.' });
         return;
       }
 
@@ -72,7 +72,10 @@ export default function SignupPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
+
+  const inputClass =
+    'w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition placeholder:text-slate-400 focus:border-amber-400/70';
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] text-white">
@@ -89,6 +92,7 @@ export default function SignupPage() {
               Register with explicit consent to Terms of Service and Privacy Policy.
             </p>
           </div>
+
           <Link
             href="/"
             style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
@@ -98,63 +102,73 @@ export default function SignupPage() {
           </Link>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-amber-200/20 bg-slate-900/45 p-5 global-glass space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              value={form.fullName}
-              onChange={(e) => updateField('fullName', e.target.value)}
-              placeholder="Full name"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => updateField('email', e.target.value)}
-              placeholder="Email"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => updateField('phone', e.target.value)}
-              placeholder="Phone"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="text"
-              value={form.country}
-              onChange={(e) => updateField('country', e.target.value)}
-              placeholder="Country"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => updateField('password', e.target.value)}
-              placeholder="Password (min 8 chars)"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => updateField('confirmPassword', e.target.value)}
-              placeholder="Confirm password"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            className={inputClass}
+            value={form.firstName}
+            onChange={(e) => updateField('firstName', e.target.value)}
+            placeholder="First name"
+          />
+          {errors.firstName && <p className="text-sm text-red-400">{errors.firstName}</p>}
+
+          <input
+            className={inputClass}
+            value={form.middleName}
+            onChange={(e) => updateField('middleName', e.target.value)}
+            placeholder="Middle name"
+          />
+          {errors.middleName && <p className="text-sm text-red-400">{errors.middleName}</p>}
+
+          <input
+            className={inputClass}
+            value={form.lastName}
+            onChange={(e) => updateField('lastName', e.target.value)}
+            placeholder="Last name"
+          />
+          {errors.lastName && <p className="text-sm text-red-400">{errors.lastName}</p>}
+
+          <input
+            className={inputClass}
+            type="email"
+            value={form.email}
+            onChange={(e) => updateField('email', e.target.value)}
+            placeholder="Email"
+          />
+          {errors.email && <p className="text-sm text-red-400">{errors.email}</p>}
+
+          <input
+            className={inputClass}
+            type="password"
+            value={form.password}
+            onChange={(e) => updateField('password', e.target.value)}
+            placeholder="Password (8-12 chars)"
+          />
+          {errors.password && <p className="text-sm text-red-400">{errors.password}</p>}
+
+          <input
+            className={inputClass}
+            type="password"
+            value={form.confirmPassword}
+            onChange={(e) => updateField('confirmPassword', e.target.value)}
+            placeholder="Confirm password"
+          />
+          {errors.confirmPassword && <p className="text-sm text-red-400">{errors.confirmPassword}</p>}
+
+          <input
+            className={inputClass}
+            value={form.fingerprintToken}
+            onChange={(e) => updateField('fingerprintToken', e.target.value)}
+            placeholder="Fingerprint verification token"
+          />
+          {errors.fingerprintToken && <p className="text-sm text-red-400">{errors.fingerprintToken}</p>}
+
+          <input
+            className={inputClass}
+            value={form.faceScanToken}
+            onChange={(e) => updateField('faceScanToken', e.target.value)}
+            placeholder="Face verification token"
+          />
+          {errors.faceScanToken && <p className="text-sm text-red-400">{errors.faceScanToken}</p>}
 
           <div className="rounded-xl border border-amber-200/20 bg-amber-500/10 p-4 space-y-3 text-sm">
             <label className="flex items-start gap-2 text-amber-50">
@@ -166,12 +180,10 @@ export default function SignupPage() {
                 required
               />
               <span>
-                I voluntarily agree to the
-                {' '}
+                I voluntarily agree to the{' '}
                 <Link href="/terms-of-service" className="font-semibold text-amber-200 underline">
                   Terms of Service
-                </Link>
-                {' '}
+                </Link>{' '}
                 (version {versions.termsVersion}).
               </span>
             </label>
@@ -185,12 +197,10 @@ export default function SignupPage() {
                 required
               />
               <span>
-                I voluntarily agree to the
-                {' '}
+                I voluntarily agree to the{' '}
                 <Link href="/privacy-policy" className="font-semibold text-amber-200 underline">
                   Privacy Policy
-                </Link>
-                {' '}
+                </Link>{' '}
                 (version {versions.privacyVersion}).
               </span>
             </label>
@@ -206,6 +216,8 @@ export default function SignupPage() {
             </label>
           </div>
 
+          {errors.form && <p className="text-sm text-red-400">{errors.form}</p>}
+
           <button
             type="submit"
             disabled={!canSubmit || isSubmitting}
@@ -214,11 +226,11 @@ export default function SignupPage() {
           >
             {isSubmitting ? 'Creating account...' : 'Create Account'}
           </button>
-
-          <p className="text-xs text-amber-50/80">
-            Consent records are stored with timestamp and policy versions for compliance audit.
-          </p>
         </form>
+
+        <p className="mt-4 text-xs text-amber-50/80">
+          Consent records are stored with timestamp and policy versions for compliance audit.
+        </p>
       </section>
     </main>
   );
