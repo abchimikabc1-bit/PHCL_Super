@@ -35,8 +35,8 @@ export default function SignupPage() {
     form.email.trim().length >= 6 &&
     form.password.length >= 8 &&
     form.password === form.confirmPassword &&
-    form.fingerprintToken.trim().length >= 32 &&
-    form.faceScanToken.trim().length >= 32 &&
+    form.fingerprintToken.trim().length >= 16 &&
+    form.faceScanToken.trim().length >= 16 &&
     form.agreedToTerms &&
     form.agreedToPrivacy;
 

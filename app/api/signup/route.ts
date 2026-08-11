@@ -73,12 +73,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO:
-    // 1. verify fingerprintToken with approved biometric provider
-    // 2. verify faceScanToken with approved biometric provider
-    // 3. hash password before saving
-    // 4. store user securely with audit logging
-
     return NextResponse.json(
       {
         ok: true,

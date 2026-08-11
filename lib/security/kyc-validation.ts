@@ -7,6 +7,9 @@ export type KycRegistrationInput = {
   confirmPassword: string;
   fingerprintToken: string;
   faceScanToken: string;
+  agreedToTerms?: boolean;
+  agreedToPrivacy?: boolean;
+  marketingOptIn?: boolean;
 };
 
 export type KycValidationResult = {
@@ -33,6 +36,9 @@ export function validateKycRegistration(input: Partial<KycRegistrationInput>): K
     confirmPassword: typeof input.confirmPassword === 'string' ? input.confirmPassword : '',
     fingerprintToken: clean(input.fingerprintToken),
     faceScanToken: clean(input.faceScanToken),
+    agreedToTerms: Boolean(input.agreedToTerms),
+    agreedToPrivacy: Boolean(input.agreedToPrivacy),
+    marketingOptIn: Boolean(input.marketingOptIn),
   };
 
   const errors: KycValidationResult['errors'] = {};
@@ -73,6 +79,9 @@ export function validateKycRegistration(input: Partial<KycRegistrationInput>): K
   } else if (sanitized.faceScanToken.length < 16) {
     errors.faceScanToken = 'Face verification token is invalid.';
   }
+
+  if (!sanitized.agreedToTerms) errors.agreedToTerms = 'Terms agreement is required.';
+  if (!sanitized.agreedToPrivacy) errors.agreedToPrivacy = 'Privacy agreement is required.';
 
   return {
     valid: Object.keys(errors).length === 0,
