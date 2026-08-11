@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { USD_TO_TZS, PI_GCV_USD } from '@/components/currency';
 
 const COINGECKO_ID_BY_CODE: Record<string, string> = {
   BTC: 'bitcoin',
@@ -18,6 +19,12 @@ const COINGECKO_ID_BY_CODE: Record<string, string> = {
 };
 
 export async function GET() {
+  const base = {
+    usdToTzs: USD_TO_TZS,
+    piToUsd: PI_GCV_USD,
+    fetchedAt: Date.now(),
+  };
+
   try {
     const ids = Object.values(COINGECKO_ID_BY_CODE).join(',');
     const response = await fetch(
@@ -28,34 +35,40 @@ export async function GET() {
     if (!response.ok) {
       return NextResponse.json(
         {
-          success: false,
+          success: true,
           source: 'fallback',
-          error: `CoinGecko returned status ${response.status}`,
+          error: `CoinGecko status ${response.status}`,
           rates: {},
-          fetchedAt: Date.now(),
+          ...base,
         },
-        { status: 502 }
+        {
+          status: 200,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          },
+        }
       );
     }
 
     const data = (await response.json()) as Record<string, { usd?: number }>;
     const rates: Record<string, number> = {};
 
-    Object.entries(COINGECKO_ID_BY_CODE).forEach(([code, id]) => {
+    for (const [code, id] of Object.entries(COINGECKO_ID_BY_CODE)) {
       const usd = data?.[id]?.usd;
-      if (Number.isFinite(usd) && (usd as number) > 0) {
-        rates[code] = Number(usd);
+      if (typeof usd === 'number' && Number.isFinite(usd) && usd > 0) {
+        rates[code] = usd;
       }
-    });
+    }
 
     return NextResponse.json(
       {
         success: true,
         source: 'coingecko',
         rates,
-        fetchedAt: Date.now(),
+        ...base,
       },
       {
+        status: 200,
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         },
@@ -64,13 +77,13 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       {
-        success: false,
+        success: true,
         source: 'fallback',
         error: error instanceof Error ? error.message : 'Failed to fetch live rates',
         rates: {},
-        fetchedAt: Date.now(),
+        ...base,
       },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
