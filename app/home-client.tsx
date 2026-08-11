@@ -397,7 +397,7 @@ export default function HomeClient() {
                       {t.rating.toFixed(1)}
                     </div>
                   </div>
-                  <p className="text-sm italic text-gray-300">"{t.quote}"</p>
+                  <p className="text-sm italic text-gray-300">&quot;{t.quote}&quot;</p>
                   <div className="mt-4">
                     <p className="text-sm font-bold text-amber-300">{t.name}</p>
                     <p className="text-xs text-gray-500">{t.role}</p>

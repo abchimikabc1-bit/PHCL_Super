@@ -8,9 +8,7 @@ export default defineConfig([
       'react-hooks/exhaustive-deps': 'off',
       'react-hooks/purity': 'off',
       'react-hooks/set-state-in-effect': 'off',
-      'react/no-unescaped-entities': 'off',
       '@next/next/no-img-element': 'off',
-      'import/no-anonymous-default-export': 'off',
     },
   },
   globalIgnores([
