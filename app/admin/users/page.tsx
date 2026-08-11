@@ -120,18 +120,6 @@ export default function AdminUsersPage() {
   const adminActorName = useMemo(() => {
     if (typeof adminUser?.name === 'string' && adminUser.name.trim()) return adminUser.name.trim();
     if (typeof adminUser?.email === 'string' && adminUser.email.trim()) return adminUser.email.trim();
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem('phcl_admin_session');
-        if (raw) {
-          const parsed = JSON.parse(raw) as { user?: { name?: unknown; email?: unknown } };
-          if (typeof parsed?.user?.name === 'string' && parsed.user.name.trim()) return parsed.user.name.trim();
-          if (typeof parsed?.user?.email === 'string' && parsed.user.email.trim()) return parsed.user.email.trim();
-        }
-      } catch {
-        // fallback below
-      }
-    }
     return 'PHCL Administrator';
   }, [adminUser]);
 

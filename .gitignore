@@ -42,3 +42,20 @@ firebase-service-account.json
 # generated
 generated/security/*.log
 generated/security/*.json
+
+# TLS certificates and private keys — store in env secrets or a password manager
+.certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Build and debug output files that should not be committed
+build.log
+build-final.log
+build-log-cmd2.txt
+tsc-output.txt
+tsc-output-utf8.txt
+tatus
+trace.txt
