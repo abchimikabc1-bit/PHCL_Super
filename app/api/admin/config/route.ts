@@ -6,6 +6,7 @@ import { sanitizeAdminLanguageAudit, sanitizeAdminLanguageConfig } from '@/lib/a
 import type { AdminSettingsAuditEntry, AdminSystemSettings } from '@/lib/admin-settings';
 import { getDefaultAdminSettings, sanitizeAdminSettings, sanitizeAdminSettingsAudit } from '@/lib/admin-settings';
 import { getServerCommerceSnapshot, saveServerCommerceSnapshot } from '@/lib/server-commerce-store';
+import { requireAdminSession } from '@/lib/require-admin-session';
 
 type ConfigResource = 'settings' | 'currencies' | 'languages';
 
@@ -124,6 +125,9 @@ const createLanguageAudit = (
 };
 
 export async function POST(request: NextRequest) {
+  if (!requireAdminSession(request)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body = (await request.json()) as {
       resource?: ConfigResource;
