@@ -56,6 +56,7 @@ function encodeToken(payload: SessionPayload) {
 function decodeToken(token: string): SessionPayload | null {
   const [body, sig] = token.split('.');
   if (!body || !sig) return null;
+  if (!getConfiguredSecret()) return null;
 
   const expected = sign(body);
   const a = Buffer.from(sig);
