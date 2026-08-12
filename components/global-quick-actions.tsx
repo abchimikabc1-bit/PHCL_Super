@@ -5,7 +5,7 @@ import { Sparkles } from 'lucide-react';
 
 export default function GlobalQuickActions() {
   return (
-    <div className="fixed right-2 top-[120px] z-[100000] flex flex-col gap-2 sm:right-3 sm:top-[128px]">
+    <div className="fixed bottom-24 right-3 z-[100000] flex flex-col gap-2 sm:bottom-24 sm:right-4">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes ai-orbit {
           0% { transform: rotate(0deg); }

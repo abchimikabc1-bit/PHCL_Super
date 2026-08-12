@@ -158,8 +158,9 @@ export default function TermsOfServicePage() {
                       For any questions regarding these Terms, Security, or Compliance, please contact us at:
                     </p>
                     <div className="mt-3 space-y-2 rounded-xl border border-yellow-500/20 bg-purple-950/50 p-4">
-                      <p><strong>Support Email:</strong> support@phclsuper.com</p>
+                      <p><strong>Support Email:</strong> phubcompany@gmail.com</p>
                       <p><strong>Official Phone:</strong> +255 693 863 356</p>
+                      <p><strong>Website:</strong> https://phclsuper.com | www.phclsuper.com</p>
                       <p><strong>Corporate Address:</strong> Dar es Salaam, Tanzania</p>
                     </div>
                   </section>
@@ -253,8 +254,9 @@ export default function TermsOfServicePage() {
                       Kama una swali kuhusu Masharti haya ya Huduma au Usalama, tafadhali wasiliana nasi kwa:
                     </p>
                     <div className="mt-3 space-y-2 rounded-lg border border-yellow-500/20 bg-purple-950/50 p-4">
-                      <p><strong>Barua pepe ya Msaada:</strong> support@phclsuper.com</p>
+                      <p><strong>Barua pepe ya Msaada:</strong> phubcompany@gmail.com</p>
                       <p><strong>Simu Rasmi:</strong> +255 693 863 356</p>
+                      <p><strong>Tovuti:</strong> https://phclsuper.com | www.phclsuper.com</p>
                       <p><strong>Anwani ya Ofisi:</strong> Dar es Salaam, Tanzania</p>
                     </div>
                   </section>
