@@ -23,8 +23,24 @@ type SessionPayload = {
   idleExp: string;
 };
 
+function getConfiguredSecret() {
+  const secret = process.env.ADMIN_SESSION_SECRET?.trim();
+  return secret ? secret : null;
+}
+
+function getConfiguredAdminCredentials() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD?.trim();
+
+  if (!email || !password) {
+    return null;
+  }
+
+  return { email, password };
+}
+
 function getSecret() {
-  return process.env.ADMIN_SESSION_SECRET?.trim() || 'dev-only-secret-change-in-production';
+  return getConfiguredSecret() || '';
 }
 
 function sign(value: string) {
@@ -67,6 +83,15 @@ function clearCookie(res: NextResponse) {
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!token) return NextResponse.json({ ok: false, code: 'UNAUTHENTICATED' }, { status: 401 });
+
+  if (!getConfiguredSecret()) {
+    const res = NextResponse.json(
+      { ok: false, code: 'AUTH_NOT_CONFIGURED', message: 'Admin authentication is not configured.' },
+      { status: 503 }
+    );
+    clearCookie(res);
+    return res;
+  }
 
   const session = decodeToken(token);
   if (!session) {
@@ -130,10 +155,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: 'Email and password are required.' }, { status: 400 });
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@phclsuper.com').trim().toLowerCase();
-  const adminPassword = (process.env.ADMIN_PASSWORD || 'StrongPass123!').trim();
+  const configuredCredentials = getConfiguredAdminCredentials();
+  const sessionSecret = getConfiguredSecret();
 
-  if (email !== adminEmail || password !== adminPassword) {
+  if (!configuredCredentials || !sessionSecret) {
+    return NextResponse.json(
+      { ok: false, code: 'AUTH_NOT_CONFIGURED', message: 'Admin authentication is not configured.' },
+      { status: 503 }
+    );
+  }
+
+  if (email !== configuredCredentials.email || password !== configuredCredentials.password) {
     return NextResponse.json({ ok: false, message: 'Invalid email or password.' }, { status: 401 });
   }
 

@@ -16,10 +16,10 @@ Your platform now has a **professional-grade Admin Panel** with secure authentic
 - Role-based access control
 - Password validation
 
-**Credentials (Development):**
+**Credentials:**
 ```
-Email: admin@phclsuper.com
-Password: PHCL_Admin_2026_Secure!
+Email: value from ADMIN_EMAIL
+Password: value from ADMIN_PASSWORD
 ```
 
 ### 2. **Admin Context Provider** ✅
@@ -169,8 +169,8 @@ http://localhost:3000/admin/login
 
 ### 2. **Login**
 ```
-Email: admin@phclsuper.com
-Password: PHCL_Admin_2026_Secure!
+Email: value from ADMIN_EMAIL
+Password: value from ADMIN_PASSWORD
 ```
 
 ### 3. **Navigate Dashboard**

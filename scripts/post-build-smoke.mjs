@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import http from 'http';
 import net from 'net';
+import crypto from 'crypto';
 import { spawn } from 'child_process';
 
 const root = process.cwd();
@@ -138,14 +139,17 @@ async function run() {
 
   const port = await getAvailablePort();
   const baseUrl = `http://localhost:${port}`;
+  const smokeAdminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url');
+  const smokeAdminSessionSecret =
+    process.env.ADMIN_SESSION_SECRET || crypto.randomBytes(32).toString('base64url');
 
   const server = spawn(process.execPath, [nextBinPath, 'start', '-p', String(port)], {
     cwd: root,
     env: {
       ...process.env,
       ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@phclsuper.com',
-      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'PHCL_Admin_2026_Secure!',
-      ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET || 'phcl_admin_session_secret_smoke_test_only',
+      ADMIN_PASSWORD: smokeAdminPassword,
+      ADMIN_SESSION_SECRET: smokeAdminSessionSecret,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

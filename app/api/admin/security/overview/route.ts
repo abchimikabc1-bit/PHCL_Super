@@ -17,7 +17,6 @@ type SessionPayload = {
 };
 
 const COOKIE_NAME = 'admin_session';
-const DEV_SESSION_SECRET = 'phcl_admin_session_secret_dev_only_change_for_production';
 const RATE_LIMIT_POLICY = {
   windowMs: 10 * 60 * 1000,
   maxAttempts: 8,
@@ -65,7 +64,8 @@ const requireAdminSession = (request: NextRequest): SessionPayload | null => {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
-  const sessionSecret = process.env.ADMIN_SESSION_SECRET || DEV_SESSION_SECRET;
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET?.trim();
+  if (!sessionSecret) return null;
   return verifyToken(token, sessionSecret);
 };
 

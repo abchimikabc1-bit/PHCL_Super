@@ -14,10 +14,10 @@ The PHCL Super Admin Panel provides complete control over your e-commerce platfo
    - URL: `http://localhost:3000/admin/login`
    - Or navigate via: `yourdomain.com/admin/login`
 
-2. **Login Credentials** (Development)
+2. **Login Credentials**
    ```
-   Email: admin@phclsuper.com
-   Password: PHCL_Admin_2026_Secure!
+   Email: value from ADMIN_EMAIL
+   Password: value from ADMIN_PASSWORD
    ```
 
 3. **Dashboard**
@@ -314,9 +314,8 @@ The PHCL Super Admin Panel provides complete control over your e-commerce platfo
 ### Cannot Login
 
 **Issue**: "Invalid email or password"
-**Solution**: 
-- Verify email is: `admin@phclsuper.com`
-- Verify password is: `PHCL_Admin_2026_Secure!`
+**Solution**:
+- Verify `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set correctly
 - Clear browser cache
 - Try incognito mode
 
