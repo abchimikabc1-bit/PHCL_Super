@@ -21,19 +21,21 @@ type SessionPayload = {
   idleExp: string;
 };
 
-function getSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET?.trim() || 'dev-only-secret-change-in-production';
-}
-
-function sign(value: string): string {
-  return createHmac('sha256', getSecret()).update(value).digest('base64url');
+function getSecret(): string | null {
+  const fromEnv = process.env.ADMIN_SESSION_SECRET?.trim();
+  if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV === 'production') return null;
+  return 'dev-only-secret-change-in-production';
 }
 
 function decodeToken(token: string): SessionPayload | null {
+  const secret = getSecret();
+  if (!secret) return null;
+
   const [body, sig] = token.split('.');
   if (!body || !sig) return null;
 
-  const expected = sign(body);
+  const expected = createHmac('sha256', secret).update(body).digest('base64url');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return null;

@@ -2,40 +2,44 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Kurasa zote za usimamizi (admin) zinazotakiwa kulindwa Edge
-const protectedRoutes = [
-  '/admin/dashboard', 
-  '/admin/products', 
-  '/admin/currencies', 
-  '/admin/languages', 
-  '/admin/analytics', 
-  '/admin/users', 
-  '/admin/settings'
-];
+const ADMIN_LOGIN_PATH = '/admin/login';
+const ADMIN_AUTH_API_PATH = '/api/admin/auth';
+const ADMIN_COOKIE_NAME = 'phcl_admin_session';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const adminSession = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
 
-  // Angalia kama njia inayotafutwa ipo kwenye orodha ya kulindwa
-  if (protectedRoutes.some((route) => pathname.startsWith(route))) {
-    // Kusoma secure httpOnly cookie ya admin session kutoka kwenye kivinjari
-    const adminSession = request.cookies.get('phcl_admin_session')?.value;
-
-    if (!adminSession) {
-      // Kama session haipo, mfumo unamzuia na kumrudisha kwenye Login mara moja
-      const loginUrl = new URL('/admin/login', request.url);
-      
-      // Mbinu ya Kisasa: Tunahifadhi njia aliyotaka kwenda ili arudishwe huko baada ya kufanikiwa ku-login
-      loginUrl.searchParams.set('redirect', pathname);
-      
-      return NextResponse.redirect(loginUrl);
+  if (pathname.startsWith('/api/admin')) {
+    if (pathname === ADMIN_AUTH_API_PATH) {
+      return NextResponse.next();
     }
+    if (!adminSession) {
+      return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
+  if (!pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
+
+  if (pathname === ADMIN_LOGIN_PATH) {
+    if (adminSession) {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (!adminSession) {
+    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+    loginUrl.searchParams.set('redirect', `${pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
-// Config matcher ya Next.js kulinda njia zote za admin kiotomatiki
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
