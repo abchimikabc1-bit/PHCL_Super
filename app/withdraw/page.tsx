@@ -2,23 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, runTransaction, collection } from 'firebase/firestore';
-
-// Usanidi wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, runTransaction, collection } from 'firebase/firestore';
+import { getFirebaseAuthClient, getFirebaseDbClient, isFirebaseClientConfigured } from '@/lib/firebase-client';
 
 export default function WithdrawPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -31,6 +17,12 @@ export default function WithdrawPage() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
+    const auth = getFirebaseAuthClient();
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -61,6 +53,11 @@ export default function WithdrawPage() {
     setStatusMessage('Mchakato wa utoaji fedha unaendelea...');
 
     try {
+      const db = getFirebaseDbClient();
+      if (!db) {
+        throw new Error('Firebase client configuration is missing.');
+      }
+
       const senderRef = doc(db, 'users', user.uid);
       const txColRef = collection(db, 'transactions');
 
@@ -116,6 +113,20 @@ export default function WithdrawPage() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <p className="text-xl font-bold animate-pulse">Inapakia Usalama wa Utoaji... 🔐</p>
+      </div>
+    );
+  }
+
+  if (!isFirebaseClientConfigured()) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
+        <h1 className="text-3xl font-black mb-4 text-amber-400">Firebase Haijasanidiwa</h1>
+        <p className="text-gray-400 mb-6 text-center max-w-md">
+          Weka vigezo vya Firebase vya NEXT_PUBLIC_* kabla ya kutumia ukurasa huu wa utoaji.
+        </p>
+        <Link href="/" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
+          Rudi Nyumbani
+        </Link>
       </div>
     );
   }
