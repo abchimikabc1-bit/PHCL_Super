@@ -86,18 +86,6 @@ export const MARKETPLACE_PRODUCTS = [
     seller: "Elite Motors"
   },
   {
-    id: 4,
-    name: "Honda Civic RS Sedan",
-    category: "Vehicles",
-    priceUSD: 28900,
-    description: "Real compact sedan listing known for low running costs, efficient turbo performance, and dependable daily use.",
-    image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&h=600&fit=crop",
-    rating: 4.6,
-    reviews: 156,
-    inStock: true,
-    seller: "Honda Tanzania"
-  },
-  {
     id: 5,
     name: "Audi A4 35 TFSI",
     category: "Vehicles",
@@ -122,18 +110,6 @@ export const MARKETPLACE_PRODUCTS = [
     reviews: 89,
     inStock: true,
     seller: "Moto Sports Tanzania"
-  },
-  {
-    id: 7,
-    name: "Honda CB500F",
-    category: "Motorcycles",
-    priceUSD: 6890,
-    description: "Real A2-friendly street motorcycle balancing manageable power, easy handling, and everyday comfort.",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=600&fit=crop",
-    rating: 4.6,
-    reviews: 72,
-    inStock: true,
-    seller: "Honda Moto"
   },
   {
     id: 8,

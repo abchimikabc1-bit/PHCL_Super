@@ -255,6 +255,12 @@ export function MarketplaceCatalog({ currency = 'tzs' }: { currency?: DisplayCur
                 alt={p.name}
                 className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
                 loading="lazy"
+                onError={(event) => {
+                  const img = event.currentTarget;
+                  if (img.dataset.fallbackApplied === '1') return;
+                  img.dataset.fallbackApplied = '1';
+                  img.src = getMarketplaceProductImage(p);
+                }}
               />
               <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
                 Verified

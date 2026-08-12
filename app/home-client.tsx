@@ -249,8 +249,8 @@ export default function HomeClient() {
               <span className="mt-2 rounded-full border border-violet-300/35 bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-violet-200">Realtime</span>
             </Link>
 
-            {/* 5. Profaili Yako (My Profile / Admin Dashboard) */}
-            <Link href="/admin/dashboard" className="group flex flex-col items-center justify-center rounded-2xl border border-pink-500/20 bg-slate-950/55 p-5 hover:border-pink-400/50 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(236,72,153,0.14)]">
+            {/* 5. Profaili Yako (My Profile) */}
+            <Link href="/settings" className="group flex flex-col items-center justify-center rounded-2xl border border-pink-500/20 bg-slate-950/55 p-5 hover:border-pink-400/50 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(236,72,153,0.14)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-pink-500/10">
                 <User size={22} />
               </div>

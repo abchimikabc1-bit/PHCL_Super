@@ -26,6 +26,22 @@ export async function GET() {
   };
 
   try {
+    let liveUsdToTzs = USD_TO_TZS;
+    let ratesSource: 'fallback' | 'coingecko' | 'coingecko+fx' = 'fallback';
+
+    try {
+      const fxResponse = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-store' });
+      if (fxResponse.ok) {
+        const fxData = (await fxResponse.json()) as { rates?: Record<string, number> };
+        const tzsRate = Number(fxData?.rates?.TZS);
+        if (Number.isFinite(tzsRate) && tzsRate > 0) {
+          liveUsdToTzs = tzsRate;
+        }
+      }
+    } catch {
+      // fallback handled below
+    }
+
     const ids = Object.values(COINGECKO_ID_BY_CODE).join(',');
     const response = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
@@ -40,6 +56,7 @@ export async function GET() {
           error: `CoinGecko status ${response.status}`,
           rates: {},
           ...base,
+          usdToTzs: liveUsdToTzs,
         },
         {
           status: 200,
@@ -59,13 +76,15 @@ export async function GET() {
         rates[code] = usd;
       }
     }
+    ratesSource = liveUsdToTzs !== USD_TO_TZS ? 'coingecko+fx' : 'coingecko';
 
     return NextResponse.json(
       {
         success: true,
-        source: 'coingecko',
+        source: ratesSource,
         rates,
         ...base,
+        usdToTzs: liveUsdToTzs,
       },
       {
         status: 200,
