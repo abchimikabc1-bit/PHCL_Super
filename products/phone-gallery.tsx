@@ -37,18 +37,11 @@ export function ProductPhoneGallery({ product, darkMode, onAddToCart }: PhoneGal
     };
     return phones[productId]?.[imageType] || '📱';
   };
-    ],
-    69: [
-      { type: 'Front', url: '/placeholder.svg?height=500&width=300' },
-      { type: 'Back', url: '/placeholder.svg?height=500&width=300' },
-      { type: 'Side', url: '/placeholder.svg?height=500&width=300' },
-      { type: 'Box & Accessories', url: '/placeholder.svg?height=500&width=300' },
-    ],
-  };
 
   const getImages = () => {
     const imageTypes = ['Front', 'Back', 'Side', 'Box & Accessories', 'Unboxing'];
-    return imageTypes.slice(0, 5).map(type => ({ type }));
+    const placeholderUrl = '/placeholder.svg?height=500&width=300';
+    return imageTypes.slice(0, 5).map((type) => ({ type, url: placeholderUrl }));
   };
 
   const images = getImages();

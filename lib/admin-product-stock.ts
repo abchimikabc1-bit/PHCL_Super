@@ -46,6 +46,7 @@ const STORAGE_KEY = 'phcl_product_stock_config';
 const AUDIT_KEY = 'phcl_product_stock_audit';
 const MAX_AUDIT_ENTRIES = 120;
 let attemptedStockHydration = false;
+const canUseStorage = (): boolean => typeof window !== 'undefined' && !!window.localStorage;
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
-import { LANGUAGES } from '@/lib/currencies';
+import { LANGUAGE_OPTIONS as LANGUAGES } from '@/lib/currencies';
 
 interface LanguageSwitcherProps {
   darkMode: boolean;

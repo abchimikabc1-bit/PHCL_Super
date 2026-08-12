@@ -40,7 +40,9 @@ const MAX_ORDERS = 25;
 const MAX_LEDGER_ITEMS = 120;
 const MAX_CART_ITEMS = 100;
 
-const sanitizeCart = (input: unknown): CartStorageItem[] => sanitizeCartItems(input).slice(0, MAX_CART_ITEMS);
+const sanitizeCartPayload = (input: unknown): CartStorageItem[] => sanitizeCartItems(input).slice(0, MAX_CART_ITEMS);
+const sanitizeCartRows = (input: unknown): Record<string, unknown>[] =>
+  sanitizeCartPayload(input).map((item) => ({ ...item }));
 
 const sanitizeOrders = (input: unknown): ReturnType<typeof sanitizeStoredOrder>[] => {
   if (!Array.isArray(input)) return [];
@@ -61,13 +63,17 @@ const sanitizeWalletLedger = (input: unknown): WalletLedgerEntry[] => {
     .slice(0, MAX_LEDGER_ITEMS);
 };
 
+const toRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
+const toRecordArray = (values: unknown[]): Record<string, unknown>[] => values.map((value) => toRecord(value));
+
 export const getServerCommerceSnapshot = (): CommerceStatePayload => {
   const state = getRuntimeStoreState();
 
   return {
     revision: Number.isFinite(Number(state.commerce_revision)) ? Number(state.commerce_revision) : 0,
     updatedAt: typeof state.commerce_updated_at === 'string' ? state.commerce_updated_at : new Date(0).toISOString(),
-    cartItems: sanitizeCart(state.cart_items),
+    cartItems: sanitizeCartPayload(state.cart_items),
     adminSettings: sanitizeAdminSettings(state.admin_settings),
     adminSettingsAudit: sanitizeAdminSettingsAudit(state.admin_settings_audit) as AdminSettingsAuditEntry[],
     currencyConfig: sanitizeAdminCurrencyConfig(state.currency_config) as AdminCurrencyConfig,
@@ -88,43 +94,47 @@ export const saveServerCommerceSnapshot = (payload: CommerceSyncPayload): Commer
   const nowIso = new Date().toISOString();
   const nextState = updateRuntimeStoreState((state) => {
     if (payload.cartItems) {
-      state.cart_items = sanitizeCart(payload.cartItems);
+      state.cart_items = sanitizeCartRows(payload.cartItems);
     }
 
     if (payload.adminSettings !== undefined) {
-      state.admin_settings = sanitizeAdminSettings(payload.adminSettings);
+      const nextAdminSettings = sanitizeAdminSettings(payload.adminSettings);
+      state.admin_settings = nextAdminSettings ? toRecord(nextAdminSettings) : null;
     }
 
     if (payload.adminSettingsAudit) {
-      state.admin_settings_audit = sanitizeAdminSettingsAudit(payload.adminSettingsAudit);
+      state.admin_settings_audit = toRecordArray(sanitizeAdminSettingsAudit(payload.adminSettingsAudit));
     }
 
     if (payload.currencyConfig !== undefined) {
-      state.currency_config = sanitizeAdminCurrencyConfig(payload.currencyConfig);
+      const nextCurrencyConfig = sanitizeAdminCurrencyConfig(payload.currencyConfig);
+      state.currency_config = nextCurrencyConfig ? toRecord(nextCurrencyConfig) : null;
     }
 
     if (payload.currencyAudit) {
-      state.currency_audit = sanitizeAdminCurrencyAudit(payload.currencyAudit);
+      state.currency_audit = toRecordArray(sanitizeAdminCurrencyAudit(payload.currencyAudit));
     }
 
     if (payload.languageConfig !== undefined) {
-      state.language_config = sanitizeAdminLanguageConfig(payload.languageConfig);
+      const nextLanguageConfig = sanitizeAdminLanguageConfig(payload.languageConfig);
+      state.language_config = nextLanguageConfig ? toRecord(nextLanguageConfig) : null;
     }
 
     if (payload.languageAudit) {
-      state.language_audit = sanitizeAdminLanguageAudit(payload.languageAudit);
+      state.language_audit = toRecordArray(sanitizeAdminLanguageAudit(payload.languageAudit));
     }
 
     if (payload.orders) {
-      state.commerce_orders = sanitizeOrders(payload.orders);
+      state.commerce_orders = toRecordArray(sanitizeOrders(payload.orders));
     }
 
     if (payload.walletSnapshot !== undefined) {
-      state.wallet_snapshot = sanitizeWalletSnapshot(payload.walletSnapshot) as WalletSnapshot | null;
+      const nextWalletSnapshot = sanitizeWalletSnapshot(payload.walletSnapshot);
+      state.wallet_snapshot = nextWalletSnapshot ? toRecord(nextWalletSnapshot) : null;
     }
 
     if (payload.walletLedger) {
-      state.wallet_ledger = sanitizeWalletLedger(payload.walletLedger);
+      state.wallet_ledger = toRecordArray(sanitizeWalletLedger(payload.walletLedger));
     }
 
     if (payload.orderStatusMap) {
@@ -132,7 +142,7 @@ export const saveServerCommerceSnapshot = (payload: CommerceSyncPayload): Commer
     }
 
     if (payload.orderStatusAudit) {
-      state.order_status_audit = sanitizeOrderStatusAudit(payload.orderStatusAudit);
+      state.order_status_audit = toRecordArray(sanitizeOrderStatusAudit(payload.orderStatusAudit));
     }
 
     if (payload.customerOverrideMap) {
@@ -150,7 +160,7 @@ export const saveServerCommerceSnapshot = (payload: CommerceSyncPayload): Commer
   return {
     revision: Number.isFinite(Number(nextState.commerce_revision)) ? Number(nextState.commerce_revision) : 0,
     updatedAt: typeof nextState.commerce_updated_at === 'string' ? nextState.commerce_updated_at : nowIso,
-    cartItems: sanitizeCart(nextState.cart_items),
+    cartItems: sanitizeCartPayload(nextState.cart_items),
     adminSettings: sanitizeAdminSettings(nextState.admin_settings),
     adminSettingsAudit: sanitizeAdminSettingsAudit(nextState.admin_settings_audit) as AdminSettingsAuditEntry[],
     currencyConfig: sanitizeAdminCurrencyConfig(nextState.currency_config) as AdminCurrencyConfig,
