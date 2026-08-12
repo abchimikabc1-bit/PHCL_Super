@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
             <section>
               <h2 className="text-lg font-semibold text-slate-900">5. Contact</h2>
               <p>
-                For privacy inquiries, contact support@pihcl.tz.
+                For privacy inquiries, contact phubcompany@gmail.com.
               </p>
             </section>
 
@@ -107,6 +107,33 @@ export default function PrivacyPolicyPage() {
                 We may disclose data when required by lawful authority, court order, or anti-fraud obligations.
                 Security incidents are investigated, documented, and handled under internal response controls.
               </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-slate-900">11. PHCL Leadership and Official Channels</h2>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                <p className="font-semibold text-slate-900">Uongozi wa PHCL</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>Wilyfred J. Gallaba — CEO | Simu: +255655 599 555</li>
+                  <li>Alfred B. Chimika — Mkurugenzi wa Blockchain &amp; Technology, na ndiye Admin | Simu: +255693 863 356</li>
+                  <li>Abdalah H. Juma — Mkurugenzi wa Masoko na Mawasiliano | Simu: +255784 825 979</li>
+                </ul>
+                <div className="mt-3 space-y-1">
+                  <p>Email: phubcompany@gmail.com</p>
+                  <p>
+                    Web:{' '}
+                    <a href="https://phclsuper.com" className="font-medium text-emerald-700 underline">
+                      https://phclsuper.com
+                    </a>
+                  </p>
+                  <p>
+                    Web:{' '}
+                    <a href="https://www.phclsuper.com" className="font-medium text-emerald-700 underline">
+                      www.phclsuper.com
+                    </a>
+                  </p>
+                </div>
+              </div>
             </section>
           </div>
         </div>

@@ -2,24 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { collection, query, where, getDocs, orderBy, type Timestamp } from 'firebase/firestore';
 import { ArrowUpRight, ArrowDownLeft, Wallet, Calendar, AlertCircle } from 'lucide-react';
-
-// Usanidi wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { getFirebaseClientAuth, getFirebaseClientDb } from '@/lib/firebase-client';
 
 interface Transaction {
   id: string;
@@ -40,10 +26,24 @@ export default function TransactionsPage() {
   const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
+    const auth = getFirebaseClientAuth();
+
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         try {
+          const db = getFirebaseClientDb();
+
+          if (!db) {
+            setTransactions([]);
+            return;
+          }
+
           // Kusoma miamala yote ya mtumiaji kutoka Firestore (kuanzia mpya zaidi)
           const txRef = collection(db, 'transactions');
           const q = query(

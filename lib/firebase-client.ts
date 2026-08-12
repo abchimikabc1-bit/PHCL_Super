@@ -1,7 +1,7 @@
-import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -13,9 +13,42 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export const isFirebaseClientConfigured = [
+  firebaseConfig.apiKey,
+  firebaseConfig.authDomain,
+  firebaseConfig.projectId,
+  firebaseConfig.storageBucket,
+  firebaseConfig.messagingSenderId,
+  firebaseConfig.appId,
+].every((value) => typeof value === 'string' && value.trim().length > 0);
 
-export const firebaseApp = app;
-export const firebaseAuth = getAuth(app);
-export const firebaseDb = getFirestore(app);
-export const firebaseStorage = getStorage(app);
+let firebaseApp: FirebaseApp | null | undefined;
+
+export function getFirebaseClientApp(): FirebaseApp | null {
+  if (!isFirebaseClientConfigured) {
+    return null;
+  }
+
+  if (firebaseApp) {
+    return firebaseApp;
+  }
+
+  firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+  return firebaseApp;
+}
+
+export function getFirebaseClientAuth(): Auth | null {
+  const app = getFirebaseClientApp();
+  return app ? getAuth(app) : null;
+}
+
+export function getFirebaseClientDb(): Firestore | null {
+  const app = getFirebaseClientApp();
+  return app ? getFirestore(app) : null;
+}
+
+export function getFirebaseClientStorage(): FirebaseStorage | null {
+  const app = getFirebaseClientApp();
+  return app ? getStorage(app) : null;
+}

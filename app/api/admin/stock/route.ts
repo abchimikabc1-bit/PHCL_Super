@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ProductStockConfig } from '@/lib/admin-product-stock';
 import { getServerProductStockAudit, getServerProductStockConfig, saveServerProductStockConfig, updateServerProductStock } from '@/lib/server-product-stock-store';
+import { requireAdminSession } from '@/lib/require-admin-session';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!requireAdminSession(request)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     return NextResponse.json({
       success: true,
@@ -18,6 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!requireAdminSession(request)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body = (await request.json()) as {
       action?: 'save_config' | 'update_product';

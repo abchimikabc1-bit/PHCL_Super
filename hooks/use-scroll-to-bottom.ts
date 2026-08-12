@@ -9,7 +9,6 @@ export const useScrollToBottom = <T extends any[]>(dependencies: T) => {
 
   useEffect(() => {
     scrollToBottom()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, dependencies)
 
   return { bottomRef, scrollToBottom }

@@ -237,10 +237,9 @@ export default function VoiceAccessibility({ autoStartVoice = false }: VoiceAcce
     if (!autoStartVoice || !supported || !voiceLanguageReady || autoIntroDone) return;
     speakText(INTRO_BY_LANG[voiceLanguage], voiceLanguage);
     setAutoIntroDone(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStartVoice, supported, voiceLanguageReady, autoIntroDone, voiceLanguage]);
 
-  const speakText = (text: string, languageOverride?: VoiceLanguage) => {
+  function speakText(text: string, languageOverride?: VoiceLanguage) {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
     const selectedLanguage = languageOverride ?? voiceLanguage;
@@ -265,7 +264,7 @@ export default function VoiceAccessibility({ autoStartVoice = false }: VoiceAcce
     utterance.pitch = 1.0;
     utterance.onstart = () => setSpokenText(text);
     window.speechSynthesis.speak(utterance);
-  };
+  }
 
   const startListening = () => {
     if (!recognitionRef.current) return;

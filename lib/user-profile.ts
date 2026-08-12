@@ -8,9 +8,17 @@ import {
   serverTimestamp,
   increment,
 } from 'firebase/firestore';
+import { getFirebaseClientDb } from './firebase-client';
 
-// Kuanzisha Firestore instance
-export const db = getFirestore();
+function requireDb(): ReturnType<typeof getFirestore> {
+  const db = getFirebaseClientDb();
+
+  if (!db) {
+    throw new Error('Firebase database is unavailable because the public Firebase configuration is missing.');
+  }
+
+  return db;
+}
 
 export interface UserProfile {
   uid: string;
@@ -41,6 +49,7 @@ export async function createUserProfile(
   fullName: string,
   phone: string
 ): Promise<void> {
+  const db = requireDb();
   const userRef = doc(db, 'users', uid);
 
   const defaultProfile: Omit<UserProfile, 'uid' | 'createdAt' | 'updatedAt'> = {
@@ -69,6 +78,7 @@ export async function createUserProfile(
  * Inasoma taarifa za mtumiaji aliyeko active kwa usalama
  */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const db = requireDb();
   const userRef = doc(db, 'users', uid);
   const userDoc = await getDoc(userRef);
 
@@ -89,6 +99,7 @@ export async function updateUserProfile(
   uid: string,
   data: Partial<Omit<UserProfile, 'uid' | 'balances' | 'role' | 'createdAt' | 'updatedAt'>>
 ): Promise<void> {
+  const db = requireDb();
   const userRef = doc(db, 'users', uid);
   await updateDoc(userRef, {
     ...data,
@@ -105,6 +116,7 @@ export async function adjustUserBalance(
   currency: 'usd' | 'tzs' | 'ntzs' | 'pi',
   amount: number
 ): Promise<void> {
+  const db = requireDb();
   const userRef = doc(db, 'users', uid);
   const balanceField = `balances.${currency}`;
 

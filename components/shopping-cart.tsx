@@ -135,7 +135,6 @@ export function ShoppingCart({
                 className="flex gap-4 p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition"
               >
                 {item.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={item.image}
                     alt={item.name}

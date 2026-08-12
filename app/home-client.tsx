@@ -192,13 +192,17 @@ export default function HomeClient() {
         </div>
 
         {/* Hero Typography */}
-        <h1 className="mt-6 max-w-4xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl bg-gradient-to-r from-amber-100 via-white to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_24px_rgba(251,191,36,0.14)]">{copy.title}</h1>
-        <p className="mt-5 max-w-2xl text-base text-white/95 sm:text-lg ink-soft">{copy.subtitle}</p>
+        <div className="mt-6 max-w-4xl rounded-3xl border border-amber-300/35 bg-gradient-to-r from-amber-500/18 via-orange-500/12 to-amber-300/10 px-5 py-5 shadow-[0_0_36px_rgba(251,146,60,0.2)] backdrop-blur-xl">
+          <h1 className="text-4xl font-black leading-tight sm:text-5xl lg:text-6xl bg-gradient-to-r from-amber-100 via-orange-100 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_26px_rgba(251,146,60,0.28)]">
+            {copy.title}
+          </h1>
+          <p className="mt-4 max-w-2xl text-base text-white/95 sm:text-lg ink-soft">{copy.subtitle}</p>
+        </div>
 
         {/* ======================================================== */}
         {/* SECURE COMMAND CENTER GRID - NJIA ZA MKATO ZA HARAKA (SHORTCUTS) */}
         {/* ======================================================== */}
-        <div className="mt-12 rounded-3xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur-xl shadow-2xl">
+        <div className="mt-12 rounded-3xl border border-amber-200/20 bg-slate-900/45 p-6 backdrop-blur-xl shadow-2xl">
           <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 mb-5 flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
             {copy.shortcutsTitle}
@@ -206,51 +210,63 @@ export default function HomeClient() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             
             {/* 1. Soko (Marketplace) */}
-            <Link href="/marketplace" className="group flex flex-col items-center justify-center rounded-2xl border border-amber-200/10 bg-slate-950/40 p-5 hover:border-amber-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+            <Link href="/marketplace" className="group flex flex-col items-center justify-center rounded-2xl border border-amber-200/15 bg-slate-950/55 p-5 hover:border-amber-400/45 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(251,191,36,0.12)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-amber-500/10">
                 <ShoppingBag size={22} />
               </div>
               <span className="text-xs font-black text-slate-200 group-hover:text-amber-400 text-center transition">{copy.shortcutMarketplace}</span>
+              <span className="mt-1 text-[10px] tracking-wide text-amber-100/85">{MARKETPLACE_PRODUCTS.length} live listings</span>
+              <span className="mt-2 rounded-full border border-emerald-300/35 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-200">Live</span>
             </Link>
 
             {/* 2. Pochi (Wallet) */}
-            <Link href="/wallet" className="group flex flex-col items-center justify-center rounded-2xl border border-emerald-500/10 bg-slate-950/40 p-5 hover:border-emerald-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+            <Link href="/wallet" className="group flex flex-col items-center justify-center rounded-2xl border border-emerald-500/20 bg-slate-950/55 p-5 hover:border-emerald-400/50 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(16,185,129,0.14)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-emerald-500/10">
                 <Wallet size={22} />
               </div>
               <span className="text-xs font-black text-slate-200 group-hover:text-emerald-400 text-center transition">{copy.shortcutWallet}</span>
+              <span className="mt-1 text-[10px] tracking-wide text-emerald-100/80">Fast transfer flow</span>
+              <span className="mt-2 rounded-full border border-emerald-300/35 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-200">Active</span>
             </Link>
 
             {/* 3. Community Chat */}
-            <Link href="/chat" className="group flex flex-col items-center justify-center rounded-2xl border border-blue-500/10 bg-slate-950/40 p-5 hover:border-blue-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+            <Link href="/chat" className="group flex flex-col items-center justify-center rounded-2xl border border-blue-500/20 bg-slate-950/55 p-5 hover:border-blue-400/50 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(59,130,246,0.14)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-blue-500/10">
                 <MessageCircle size={22} />
               </div>
               <span className="text-xs font-black text-slate-200 group-hover:text-blue-400 text-center transition">{copy.shortcutChat}</span>
+              <span className="mt-1 text-[10px] tracking-wide text-blue-100/80">AI assistance ready</span>
+              <span className="mt-2 rounded-full border border-blue-300/35 bg-blue-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-blue-200">Online</span>
             </Link>
 
             {/* 4. Exchange */}
-            <Link href="/exchange" className="group flex flex-col items-center justify-center rounded-2xl border border-violet-500/10 bg-slate-950/40 p-5 hover:border-violet-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+            <Link href="/exchange" className="group flex flex-col items-center justify-center rounded-2xl border border-violet-500/20 bg-slate-950/55 p-5 hover:border-violet-400/50 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(139,92,246,0.14)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 flex items-center justify-center text-white mb-3 group-hover:scale-110 transition shadow-lg shadow-violet-500/10">
                 <RefreshCw size={22} />
               </div>
               <span className="text-xs font-black text-slate-200 group-hover:text-violet-400 text-center transition">{copy.shortcutExchange}</span>
+              <span className="mt-1 text-[10px] tracking-wide text-violet-100/80">Multi-currency engine</span>
+              <span className="mt-2 rounded-full border border-violet-300/35 bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-violet-200">Realtime</span>
             </Link>
 
-            {/* 5. Profaili Yako (My Profile / Admin Dashboard) */}
-            <Link href="/admin/dashboard" className="group flex flex-col items-center justify-center rounded-2xl border border-pink-500/10 bg-slate-950/40 p-5 hover:border-pink-400/40 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+            {/* 5. Profaili Yako (My Profile) */}
+            <Link href="/settings" className="group flex flex-col items-center justify-center rounded-2xl border border-pink-500/20 bg-slate-950/55 p-5 hover:border-pink-400/50 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(236,72,153,0.14)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center text-slate-950 mb-3 group-hover:scale-110 transition shadow-lg shadow-pink-500/10">
                 <User size={22} />
               </div>
               <span className="text-xs font-black text-slate-200 group-hover:text-pink-400 text-center transition">{copy.shortcutProfile}</span>
+              <span className="mt-1 text-[10px] tracking-wide text-pink-100/80">Secure account zone</span>
+              <span className="mt-2 rounded-full border border-pink-300/35 bg-pink-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200">Verified</span>
             </Link>
 
             {/* 6. Settings */}
-            <Link href="/settings" className="group flex flex-col items-center justify-center rounded-2xl border border-slate-700/30 bg-slate-950/40 p-5 hover:border-slate-500/50 hover:bg-slate-950/70 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+            <Link href="/settings" className="group flex flex-col items-center justify-center rounded-2xl border border-slate-500/30 bg-slate-950/55 p-5 hover:border-slate-300/60 hover:bg-slate-950/80 transition duration-300 transform hover:-translate-y-1 shadow-[0_16px_36px_rgba(148,163,184,0.12)]">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-slate-600 to-gray-600 flex items-center justify-center text-white mb-3 group-hover:scale-110 transition shadow-lg shadow-slate-500/10">
                 <Settings size={22} />
               </div>
               <span className="text-xs font-black text-slate-200 group-hover:text-slate-400 text-center transition">{copy.shortcutSettings}</span>
+              <span className="mt-1 text-[10px] tracking-wide text-slate-200/80">Fine tuning controls</span>
+              <span className="mt-2 rounded-full border border-slate-300/35 bg-slate-400/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-200">Ready</span>
             </Link>
 
           </div>
@@ -317,7 +333,7 @@ export default function HomeClient() {
               return (
                 <Link
                   key={product.id}
-                  href={`/marketplace/product/${product.id}`}
+                  href={`/product/${product.id}`}
                   className="group flex flex-col rounded-xl border border-white/5 bg-white/5 p-3 transition hover:border-amber-500/20 hover:bg-white/10"
                 >
                   <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-950">
@@ -397,7 +413,7 @@ export default function HomeClient() {
                       {t.rating.toFixed(1)}
                     </div>
                   </div>
-                  <p className="text-sm italic text-gray-300">"{t.quote}"</p>
+                  <p className="text-sm italic text-gray-300">&quot;{t.quote}&quot;</p>
                   <div className="mt-4">
                     <p className="text-sm font-bold text-amber-300">{t.name}</p>
                     <p className="text-xs text-gray-500">{t.role}</p>

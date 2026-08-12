@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import HomeClient from './home-client';
 
 export const metadata: Metadata = {
@@ -20,33 +21,63 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen">
-      {/* Msimbo wa CSS kwa ajili ya kuifanya bendera ipepee kama upepo halisi (Waving Flag) */}
+    <div className="flex flex-col items-start justify-start min-h-screen w-full">
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes cloth-sway {
-          0% { transform: perspective(980px) rotateY(0deg) rotateZ(0deg) translateY(0px); }
-          25% { transform: perspective(980px) rotateY(-7deg) rotateZ(-0.7deg) translateY(-1px); }
-          50% { transform: perspective(980px) rotateY(5deg) rotateZ(0.5deg) translateY(1px); }
-          75% { transform: perspective(980px) rotateY(-4deg) rotateZ(-0.4deg) translateY(-1px); }
-          100% { transform: perspective(980px) rotateY(0deg) rotateZ(0deg) translateY(0px); }
+          0% { transform: perspective(1100px) rotateY(0deg) rotateZ(0deg) translateY(0px); }
+          20% { transform: perspective(1100px) rotateY(-4deg) rotateZ(-0.45deg) translateY(-1px); }
+          45% { transform: perspective(1100px) rotateY(5deg) rotateZ(0.4deg) translateY(1px); }
+          70% { transform: perspective(1100px) rotateY(-3deg) rotateZ(-0.25deg) translateY(-1px); }
+          100% { transform: perspective(1100px) rotateY(0deg) rotateZ(0deg) translateY(0px); }
         }
         .animate-flag-wave {
-          animation: cloth-sway 2.6s ease-in-out infinite;
-          transform-origin: left center; /* Upepeaji unaanzia kushoto kama mlingoti wa bendera halisi */
+          animation: cloth-sway 3.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+          transform-origin: left center;
           will-change: transform;
+          filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.28));
+        }
+        @keyframes logo-breathe-glow {
+          0% {
+            box-shadow:
+              0 0 0 0 rgba(251, 191, 36, 0.34),
+              0 0 0 10px rgba(249, 115, 22, 0.2),
+              0 0 30px rgba(251, 146, 60, 0.4);
+          }
+          50% {
+            box-shadow:
+              0 0 0 7px rgba(251, 191, 36, 0.28),
+              0 0 0 22px rgba(249, 115, 22, 0.14),
+              0 0 52px rgba(251, 146, 60, 0.52);
+          }
+          100% {
+            box-shadow:
+              0 0 0 0 rgba(251, 191, 36, 0.34),
+              0 0 0 10px rgba(249, 115, 22, 0.2),
+              0 0 30px rgba(251, 146, 60, 0.4);
+          }
+        }
+        .animate-logo-breathe {
+          animation: logo-breathe-glow 3.2s ease-in-out infinite;
         }
       `}} />
 
-      {/* 1. Bendera ya Taifa Tanzania inayopepea live */}
-      <div className="flex flex-col items-center justify-center -mt-12 md:-mt-14 mb-1 w-full">
-        <div className="w-64 md:w-96 lg:w-[26rem] overflow-hidden rounded-sm border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.35)] animate-flag-wave">
+      <div className="flex items-center justify-between gap-3 md:gap-4 -mt-10 md:-mt-12 mb-2 w-full px-4 md:px-8 lg:px-12">
+        <div className="w-32 md:w-48 lg:w-52 overflow-hidden rounded-sm border border-white/25 shadow-[0_0_20px_rgba(0,0,0,0.35)] animate-flag-wave">
           <svg viewBox="0 0 900 600" className="h-auto w-full" role="img" aria-label="Bendera ya Taifa Tanzania">
             <defs>
+              <linearGradient id="clothLight" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
+                <stop offset="50%" stopColor="rgba(255,255,255,0.03)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0.12)" />
+              </linearGradient>
+              <pattern id="fabricTexture" width="18" height="18" patternUnits="userSpaceOnUse">
+                <path d="M0 9h18M9 0v18" stroke="rgba(255,255,255,0.05)" strokeWidth="0.8" />
+              </pattern>
               <filter id="clothWaveTop" x="-20%" y="-20%" width="140%" height="140%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.012 0.04" numOctaves="2" seed="7" result="noise">
-                  <animate attributeName="baseFrequency" dur="2.4s" values="0.012 0.04;0.018 0.055;0.012 0.04" repeatCount="indefinite" />
+                <feTurbulence type="fractalNoise" baseFrequency="0.01 0.035" numOctaves="2" seed="7" result="noise">
+                  <animate attributeName="baseFrequency" dur="3.4s" values="0.01 0.035;0.016 0.048;0.01 0.035" repeatCount="indefinite" />
                 </feTurbulence>
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="13" xChannelSelector="R" yChannelSelector="G" />
               </filter>
             </defs>
             <g filter="url(#clothWaveTop)">
@@ -56,12 +87,22 @@ export default function Home() {
                 <rect x="-260" y="230" width="1420" height="140" fill="#fcd116" />
                 <rect x="-260" y="255" width="1420" height="90" fill="#000000" />
               </g>
+              <rect width="900" height="600" fill="url(#fabricTexture)" />
+              <rect width="900" height="600" fill="url(#clothLight)" />
             </g>
           </svg>
         </div>
+        <div className="animate-logo-breathe relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/55 bg-[#2f0b63] md:h-20 md:w-20">
+          <Image
+            src="/phcl-logo.jpg"
+            alt="PHCL logo"
+            fill
+            className="object-cover object-center"
+            priority
+          />
+        </div>
       </div>
 
-      {/* 2. Kurasa kuu za mradi wako zinazosomwa hapa chini */}
       <div className="w-full">
         <HomeClient />
       </div>

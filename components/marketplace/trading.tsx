@@ -203,7 +203,7 @@ export default function Trading({
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-400 italic">"{offer.note}"</p>
+                      <p className="text-xs text-slate-400 italic">&quot;{offer.note}&quot;</p>
                     </motion.div>
                   );
                 })}

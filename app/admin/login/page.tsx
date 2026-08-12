@@ -81,6 +81,12 @@ export default function AdminLoginPage() {
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <div className="mt-5 rounded-xl border border-white/15 bg-black/20 p-3 text-xs text-slate-200">
+          <p className="font-semibold text-white">Admin Contacts</p>
+          <p className="mt-1">Email: admin@phclsuper.com</p>
+          <p>Phone: +255693 863 356 / +255655 599 555</p>
+        </div>
       </div>
     </div>
   );

@@ -11,8 +11,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Tunaagiza 'auth' na kazi za Firebase Client SDK tulizozisakinisha
-import { auth } from '@/lib/auth';
+import { getFirebaseClientAuth } from '@/lib/firebase-client';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 type LoginResult = {
@@ -91,6 +90,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
+      const auth = getFirebaseClientAuth();
+
+      if (!auth) {
+        const message = 'Firebase authentication is unavailable because the public Firebase configuration is missing.';
+        setIsAuthenticated(false);
+        setSessionInfo(null);
+        setError(message);
+        return { success: false, message };
+      }
+
       // 1. USALAMA MKUBWA: Kuhakiki barua pepe na neno la siri kupitia Firebase Client SDK kwanza upande wa Client
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
@@ -134,8 +143,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      const auth = getFirebaseClientAuth();
+
       // 1. Kutoka kwenye Firebase Client SDK
-      await signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
 
       // 2. Kufuta secure httpOnly session cookie kule kwenye seva
       await fetch('/api/admin/auth', {
