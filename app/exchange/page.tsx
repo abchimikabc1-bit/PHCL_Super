@@ -129,7 +129,7 @@ export default function ExchangePage() {
       <section className="relative mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/35 bg-violet-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-100">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
               <ArrowRightLeft size={14} />
               {copy.badge}
             </div>
@@ -153,14 +153,14 @@ export default function ExchangePage() {
           </div>
         </div>
 
-        <div className="exchange-lux-panel rounded-2xl border border-violet-200/25 bg-gradient-to-br from-slate-900/70 via-[#1b1337]/70 to-[#102437]/70 p-5 sm:p-6 shadow-[0_20px_50px_rgba(76,29,149,0.25)] global-glass">
+        <div className="exchange-lux-panel rounded-2xl border border-amber-300/30 bg-gradient-to-br from-slate-900/70 via-[#1b1337]/70 to-[#102437]/70 p-5 sm:p-6 shadow-[0_20px_50px_rgba(76,29,149,0.25)] exchange-orange-glow">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1 text-xs font-bold text-amber-100">
             <span>{copy.gcvAnchor}</span>
             <span className="h-1 w-1 rounded-full bg-amber-300" />
             <span>{copy.gcvText} ${PI_GCV_USD.toLocaleString('en-US')} {copy.gcvSuffix}</span>
           </div>
 
-          <h2 className="text-xl font-bold text-violet-100">{copy.converterTitle}</h2>
+          <h2 className="text-xl font-bold text-amber-300">{copy.converterTitle}</h2>
           <p className="mt-1 text-sm text-violet-50/85">{copy.converterSub}</p>
 
           <div className="mt-4">
@@ -174,7 +174,7 @@ export default function ExchangePage() {
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <section className="exchange-lux-panel rounded-2xl border border-cyan-200/25 bg-gradient-to-br from-slate-900/70 via-[#12263a]/70 to-[#1a3a4a]/70 p-5 shadow-[0_16px_40px_rgba(6,95,120,0.25)] global-glass">
+          <section className="exchange-lux-panel rounded-2xl border border-cyan-200/25 bg-gradient-to-br from-slate-900/70 via-[#12263a]/70 to-[#1a3a4a]/70 p-5 shadow-[0_16px_40px_rgba(6,95,120,0.25)] exchange-orange-glow">
             <div className="mb-3 flex items-center gap-2 text-cyan-100">
               <Coins size={18} />
               <h3 className="text-lg font-bold">{copy.popularTitle}</h3>
@@ -196,7 +196,7 @@ export default function ExchangePage() {
             </div>
           </section>
 
-          <section className="exchange-lux-panel rounded-2xl border border-emerald-200/25 bg-gradient-to-br from-slate-900/70 via-[#1a2b37]/70 to-[#153326]/70 p-5 shadow-[0_16px_40px_rgba(5,150,105,0.2)] global-glass">
+          <section className="exchange-lux-panel rounded-2xl border border-emerald-200/25 bg-gradient-to-br from-slate-900/70 via-[#1a2b37]/70 to-[#153326]/70 p-5 shadow-[0_16px_40px_rgba(5,150,105,0.2)] exchange-orange-glow">
             <div className="mb-3 flex items-center gap-2 text-emerald-100">
               <TrendingUp size={18} />
               <h3 className="text-lg font-bold">{copy.whyTitle}</h3>
