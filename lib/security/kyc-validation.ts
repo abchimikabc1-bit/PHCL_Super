@@ -2,6 +2,7 @@ export type KycRegistrationInput = {
   firstName: string;
   middleName: string;
   lastName: string;
+  phone: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -20,6 +21,7 @@ export type KycValidationResult = {
 
 const NAME_REGEX = /^[A-Za-z][A-Za-z\s'-]{1,39}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(?:\+255|0)(?:6|7)\d{8}$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,12}$/;
 
 function clean(value: unknown) {
@@ -27,10 +29,12 @@ function clean(value: unknown) {
 }
 
 export function validateKycRegistration(input: Partial<KycRegistrationInput>): KycValidationResult {
+  const rawPhone = clean(input.phone).replace(/\s+/g, '');
   const sanitized: KycRegistrationInput = {
     firstName: clean(input.firstName),
     middleName: clean(input.middleName),
     lastName: clean(input.lastName),
+    phone: rawPhone.startsWith('255') ? `+${rawPhone}` : rawPhone,
     email: clean(input.email).toLowerCase(),
     password: typeof input.password === 'string' ? input.password : '',
     confirmPassword: typeof input.confirmPassword === 'string' ? input.confirmPassword : '',
@@ -54,6 +58,11 @@ export function validateKycRegistration(input: Partial<KycRegistrationInput>): K
 
   if (!sanitized.email) errors.email = 'Email is required.';
   else if (!EMAIL_REGEX.test(sanitized.email)) errors.email = 'Email is invalid.';
+
+  if (!sanitized.phone) errors.phone = 'Phone number is required.';
+  else if (!PHONE_REGEX.test(sanitized.phone)) {
+    errors.phone = 'Phone must be a valid Tanzania number (e.g. +2557XXXXXXXX or 07XXXXXXXX).';
+  }
 
   if (!sanitized.password) {
     errors.password = 'Password is required.';

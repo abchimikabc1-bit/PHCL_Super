@@ -15,6 +15,7 @@ export default function SignupPage() {
     firstName: '',
     middleName: '',
     lastName: '',
+    phone: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -32,8 +33,10 @@ export default function SignupPage() {
     form.firstName.trim().length >= 3 &&
     form.middleName.trim().length >= 3 &&
     form.lastName.trim().length >= 3 &&
+    /^(?:\+255|0)(?:6|7)\d{8}$/.test(form.phone.trim().replace(/\s+/g, '')) &&
     form.email.trim().length >= 6 &&
     form.password.length >= 8 &&
+    form.password.length <= 12 &&
     form.password === form.confirmPassword &&
     form.fingerprintToken.trim().length >= 16 &&
     form.faceScanToken.trim().length >= 16 &&
@@ -126,6 +129,15 @@ export default function SignupPage() {
             placeholder="Last name"
           />
           {errors.lastName && <p className="text-sm text-red-400">{errors.lastName}</p>}
+
+          <input
+            className={inputClass}
+            type="tel"
+            value={form.phone}
+            onChange={(e) => updateField('phone', e.target.value)}
+            placeholder="Phone (+2557XXXXXXXX)"
+          />
+          {errors.phone && <p className="text-sm text-red-400">{errors.phone}</p>}
 
           <input
             className={inputClass}
