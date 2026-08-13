@@ -194,6 +194,7 @@ export default function Chat({
 
               {/* Product Reference Badge */}
               <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-2 rounded-xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={activeConv.product.image || activeConv.product.imageUrl || '/placeholder.png'}
                   alt={activeConv.product.name}

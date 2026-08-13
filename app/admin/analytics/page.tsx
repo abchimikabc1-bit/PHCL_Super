@@ -392,21 +392,25 @@ export default function AdminAnalyticsPage() {
       .slice(-7);
   }, [walletLedger]);
 
-  const reconciliationMetrics = useMemo(() => {
-    const orders = getOrders();
-    const withPaymentTxn = orders.filter((order) => order.audit?.paymentTransactionId).length;
-    const cancelledOrders = orders.filter((order) => order.audit?.cancellation?.cancelledAt);
-    const withRefundTxn = cancelledOrders.filter((order) => order.audit?.cancellation?.refundTransactionId).length;
+  const reconciliationOrders = getOrders();
 
-    return {
-      tracedOrders: withPaymentTxn,
-      missingPaymentRefs: orders.length - withPaymentTxn,
-      cancelledOrders: cancelledOrders.length,
-      missingRefundRefs: cancelledOrders.length - withRefundTxn,
-      paymentCoverage: orders.length > 0 ? (withPaymentTxn / orders.length) * 100 : 100,
-      refundCoverage: cancelledOrders.length > 0 ? (withRefundTxn / cancelledOrders.length) * 100 : 100,
-    };
-  }, [walletLedger, metrics]);
+  const reconciliationMetrics = {
+    tracedOrders: reconciliationOrders.filter((order) => order.audit?.paymentTransactionId).length,
+    missingPaymentRefs: 0,
+    cancelledOrders: 0,
+    missingRefundRefs: 0,
+    paymentCoverage: 100,
+    refundCoverage: 100,
+  };
+  const cancelledOrders = reconciliationOrders.filter((order) => order.audit?.cancellation?.cancelledAt);
+  const withRefundTxn = cancelledOrders.filter((order) => order.audit?.cancellation?.refundTransactionId).length;
+  reconciliationMetrics.missingPaymentRefs = reconciliationOrders.length - reconciliationMetrics.tracedOrders;
+  reconciliationMetrics.cancelledOrders = cancelledOrders.length;
+  reconciliationMetrics.missingRefundRefs = cancelledOrders.length - withRefundTxn;
+  reconciliationMetrics.paymentCoverage =
+    reconciliationOrders.length > 0 ? (reconciliationMetrics.tracedOrders / reconciliationOrders.length) * 100 : 100;
+  reconciliationMetrics.refundCoverage =
+    cancelledOrders.length > 0 ? (withRefundTxn / cancelledOrders.length) * 100 : 100;
 
   if (loading || !metrics) {
     return (

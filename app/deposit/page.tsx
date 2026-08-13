@@ -91,6 +91,7 @@ export default function DepositPage() {
 
           {/* QR Code ya Uthibitisho */}
           <div className="p-4 bg-white rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-center w-64 h-64 border border-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={qrCodeUrl} 
               alt="Wallet QR Code" 
