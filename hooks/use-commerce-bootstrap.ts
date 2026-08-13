@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { type DependencyList, useEffect } from 'react';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';
 
-export function useCommerceBootstrap(onReady: () => void, deps: unknown[] = []) {
+export function useCommerceBootstrap(onReady: () => void, deps: DependencyList = []) {
   useEffect(() => {
     let active = true;
 
@@ -16,5 +16,6 @@ export function useCommerceBootstrap(onReady: () => void, deps: unknown[] = []) 
     return () => {
       active = false;
     };
-  }, deps);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onReady, ...deps]);
 }

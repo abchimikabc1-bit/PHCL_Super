@@ -143,6 +143,7 @@ export default function Shop({
                   <div className="p-4 space-y-3">
                     {/* Image Box */}
                     <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={product.image || getMarketplaceProductImage(product)}
                         alt={product.name}

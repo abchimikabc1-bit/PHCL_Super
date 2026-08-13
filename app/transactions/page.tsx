@@ -2,24 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { ArrowUpRight, ArrowDownLeft, Wallet, Calendar, AlertCircle } from 'lucide-react';
-
-// Usanidi wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { getFirebaseAuthClient, getFirebaseDbClient, isFirebaseClientConfigured } from '@/lib/firebase-client';
 
 interface Transaction {
   id: string;
@@ -40,6 +26,13 @@ export default function TransactionsPage() {
   const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
+    const auth = getFirebaseAuthClient();
+    const db = getFirebaseDbClient();
+    if (!auth || !db) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -86,12 +79,16 @@ export default function TransactionsPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <h1 className="text-3xl font-black mb-4 text-purple-500">Ukurasa Imelindwa (Locked)</h1>
+        <h1 className="text-3xl font-black mb-4 text-purple-500">
+          {isFirebaseClientConfigured() ? 'Ukurasa Imelindwa (Locked)' : 'Firebase Haijasanidiwa'}
+        </h1>
         <p className="text-gray-400 mb-6 text-center max-w-md">
-          Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kuona historia yako ya miamala.
+          {isFirebaseClientConfigured()
+            ? 'Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kuona historia yako ya miamala.'
+            : 'Weka vigezo vya Firebase vya NEXT_PUBLIC_* kabla ya kutumia ukurasa huu.'}
         </p>
-        <Link href="/signup" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
-          Ingia kwenye Akaunti
+        <Link href={isFirebaseClientConfigured() ? '/signup' : '/'} className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
+          {isFirebaseClientConfigured() ? 'Ingia kwenye Akaunti' : 'Rudi Nyumbani'}
         </Link>
       </div>
     );

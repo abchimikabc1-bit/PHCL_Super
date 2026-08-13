@@ -122,6 +122,7 @@ export default function Trading({
 
         {/* Product Details Overview */}
         <div className="bg-slate-900 border border-slate-800/90 rounded-3xl p-6 flex flex-col sm:flex-row gap-6 items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={product.image || getMarketplaceProductImage(product)}
             alt={product.name}
@@ -203,7 +204,7 @@ export default function Trading({
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-400 italic">"{offer.note}"</p>
+                      <p className="text-xs text-slate-400 italic">&quot;{offer.note}&quot;</p>
                     </motion.div>
                   );
                 })}

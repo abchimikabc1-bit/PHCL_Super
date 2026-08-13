@@ -22,23 +22,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*",
-        "./src/*"
-      ],
-      "@currency": [
-        "./components/currency.tsx",
-        "./utils/currency.ts",
-        "./src/utils/currency.ts",
-        "./currency.ts"
-      ],
-      "@marketplace-products": [
-        "components/products.tsx",
-        "./src/components/marketplace-products.tsx"
-      ],
-      "@use-display-currency": [
-        "./components/use-display-currency.tsx",
-        "./hooks/use-display-currency.ts",
-        "./src/hooks/use-display-currency.ts"
+        "./*"
       ]
     },
     "plugins": [

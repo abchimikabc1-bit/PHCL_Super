@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import http from 'http';
 import net from 'net';
+import crypto from 'crypto';
 import { spawn } from 'child_process';
 
 const root = process.cwd();
@@ -17,12 +18,19 @@ const checks = [
   { path: '/marketplace', expected: 200 },
   { path: '/cart', expected: 200 },
   { path: '/checkout', expected: 200 },
+  { path: '/wallet', expected: 200 },
+  { path: '/settings', expected: 200 },
+  { path: '/feedback', expected: 200 },
   { path: '/product/1', expected: 200 },
   { path: '/admin/login', expected: 200 },
-  { path: '/admin/products', expected: 200 },
+  { path: '/admin', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin' },
+  { path: '/admin/dashboard', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fdashboard' },
+  { path: '/admin/orders', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Forders' },
+  { path: '/admin/products', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fproducts' },
+  { path: '/admin/security', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fsecurity' },
 ];
 
-const hostChecks = checks.map((c) => ({ ...c, host: 'phclsuper.com', expected: 200 }));
+const hostChecks = checks.map((c) => ({ ...c, host: 'phclsuper.com' }));
 
 const apiChecks = [
   {
@@ -115,6 +123,17 @@ function requestRoute(baseUrl, route, method = 'GET', body, extraHeaders = {}) {
   });
 }
 
+function normalizeLocation(location) {
+  if (!location) return '';
+
+  try {
+    const parsed = new URL(location);
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return location;
+  }
+}
+
 async function waitForServerReady(baseUrl, timeoutMs = 60000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -138,14 +157,17 @@ async function run() {
 
   const port = await getAvailablePort();
   const baseUrl = `http://localhost:${port}`;
+  const smokeAdminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url');
+  const smokeAdminSessionSecret =
+    process.env.ADMIN_SESSION_SECRET || crypto.randomBytes(32).toString('base64url');
 
   const server = spawn(process.execPath, [nextBinPath, 'start', '-p', String(port)], {
     cwd: root,
     env: {
       ...process.env,
       ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@phclsuper.com',
-      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'PHCL_Admin_2026_Secure!',
-      ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET || 'phcl_admin_session_secret_smoke_test_only',
+      ADMIN_PASSWORD: smokeAdminPassword,
+      ADMIN_SESSION_SECRET: smokeAdminSessionSecret,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -186,6 +208,13 @@ async function run() {
         const response = await requestRoute(baseUrl, check.path);
         if (response.status !== check.expected) {
           failures.push(`${check.path} returned ${response.status}, expected ${check.expected}`);
+        } else if (
+          typeof check.expectedLocation === 'string' &&
+          normalizeLocation(response.location) !== check.expectedLocation
+        ) {
+          failures.push(
+            `${check.path} redirected to ${normalizeLocation(response.location) || '(empty)'}, expected ${check.expectedLocation}`
+          );
         } else {
           console.log(`PASS ${check.path} -> ${response.status}`);
         }
@@ -203,9 +232,12 @@ async function run() {
           continue;
         }
 
-        if (typeof check.expectedLocation === 'string' && response.location !== check.expectedLocation) {
+        if (
+          typeof check.expectedLocation === 'string' &&
+          normalizeLocation(response.location) !== check.expectedLocation
+        ) {
           failures.push(
-            `[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`
+            `[host:${check.host}] ${check.path} redirected to ${normalizeLocation(response.location) || '(empty)'}, expected ${check.expectedLocation}`
           );
           continue;
         }

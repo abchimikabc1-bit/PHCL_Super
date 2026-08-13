@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
 import HomeClient from './home-client';
 
 export const metadata: Metadata = {
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen">
+    <div className="min-h-screen">
       {/* Msimbo wa CSS kwa ajili ya kuifanya bendera ipepee kama upepo halisi (Waving Flag) */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes cloth-sway {
@@ -37,29 +39,61 @@ export default function Home() {
         }
       `}} />
 
-      {/* 1. Bendera ya Taifa Tanzania inayopepea live */}
-      <div className="flex flex-col items-center justify-center -mt-12 md:-mt-14 mb-1 w-full">
-        <div className="w-64 md:w-96 lg:w-[26rem] overflow-hidden rounded-sm border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.35)] animate-flag-wave">
-          <svg viewBox="0 0 900 600" className="h-auto w-full" role="img" aria-label="Bendera ya Taifa Tanzania">
-            <defs>
-              <filter id="clothWaveTop" x="-20%" y="-20%" width="140%" height="140%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.012 0.04" numOctaves="2" seed="7" result="noise">
-                  <animate attributeName="baseFrequency" dur="2.4s" values="0.012 0.04;0.018 0.055;0.012 0.04" repeatCount="indefinite" />
-                </feTurbulence>
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
-              </filter>
-            </defs>
-            <g filter="url(#clothWaveTop)">
-              <rect width="900" height="600" fill="#1eb53a" />
-              <polygon points="0,600 900,0 900,600" fill="#00a3dd" />
-              <g transform="rotate(-33 450 300)">
-                <rect x="-260" y="230" width="1420" height="140" fill="#fcd116" />
-                <rect x="-260" y="255" width="1420" height="90" fill="#000000" />
-              </g>
-            </g>
-          </svg>
+      <section className="w-full px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-3xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <div className="flex min-w-0 flex-1 items-center justify-start">
+            <div className="w-20 max-w-full overflow-hidden rounded-sm border border-white/20 shadow-[0_0_16px_rgba(0,0,0,0.32)] animate-flag-wave sm:w-24 lg:w-32">
+              <svg viewBox="0 0 900 600" className="h-auto w-full" role="img" aria-label="Bendera ya Taifa Tanzania">
+                <defs>
+                  <filter id="clothWaveTop" x="-20%" y="-20%" width="140%" height="140%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.012 0.04" numOctaves="2" seed="7" result="noise">
+                      <animate attributeName="baseFrequency" dur="2.4s" values="0.012 0.04;0.018 0.055;0.012 0.04" repeatCount="indefinite" />
+                    </feTurbulence>
+                    <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
+                  </filter>
+                </defs>
+                <g filter="url(#clothWaveTop)">
+                  <rect width="900" height="600" fill="#1eb53a" />
+                  <polygon points="0,600 900,0 900,600" fill="#00a3dd" />
+                  <g transform="rotate(-33 450 300)">
+                    <rect x="-260" y="230" width="1420" height="140" fill="#fcd116" />
+                    <rect x="-260" y="255" width="1420" height="90" fill="#000000" />
+                  </g>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <div className="flex flex-1 justify-end">
+            <Link
+              href="/"
+              className="flex items-center gap-3 rounded-2xl border border-amber-300/20 bg-white/5 px-3 py-2 text-right shadow-[0_0_24px_rgba(251,191,36,0.08)] transition hover:bg-white/10"
+              aria-label="PHCL Super home brand"
+            >
+              <Image
+                src="/app-icon.svg"
+                alt="PHCL logo icon"
+                width={48}
+                height={48}
+                priority
+                className="h-10 w-10 rounded-xl border border-white/10 bg-white/5 p-1 sm:h-11 sm:w-11"
+              />
+              <div className="hidden text-right sm:block">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">PHCL Super</p>
+                <p className="text-sm text-white/75">Pi Hub Company Limited</p>
+              </div>
+              <Image
+                src="/placeholder-logo.svg"
+                alt="PHCL Super"
+                width={215}
+                height={48}
+                priority
+                className="h-8 w-auto max-w-[8rem] sm:h-9 sm:max-w-[10rem] lg:h-10 lg:max-w-[12rem]"
+              />
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* 2. Kurasa kuu za mradi wako zinazosomwa hapa chini */}
       <div className="w-full">

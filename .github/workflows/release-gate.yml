@@ -31,9 +31,12 @@ jobs:
         shell: bash
         run: |
           cat > .env.local << 'EOF'
-          NEXT_PUBLIC_SITE_URL=https://phclsuper.com
+          NEXT_PUBLIC_SITE_URL=https://www.phclsuper.com
           NEXT_PUBLIC_API_URL=https://api.phclsuper.com
           NEXT_PUBLIC_APP_NAME=PHCL Super
+          ADMIN_EMAIL=ci-admin@phclsuper.invalid
+          ADMIN_PASSWORD=ci-release-gate-password
+          ADMIN_SESSION_SECRET=ci-release-gate-session-placeholder-key
           EOF
 
       - name: Run PHCL release verification

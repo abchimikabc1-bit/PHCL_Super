@@ -1,7 +1,7 @@
 // currency-exchanger.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { CURRENCIES } from '@/lib/currencies';
 import { getExchangeRate } from '@/lib/currency-converter';
 import { PI_GCV_USD } from '@/components/currency';
@@ -35,36 +35,42 @@ export function CurrencyExchanger({
   const [liveMode, setLiveMode] = useState<'live' | 'fallback'>('fallback');
   const [lastSource, setLastSource] = useState<'coingecko' | 'fallback'>('fallback');
 
-  const getUsdValuePerUnit = (currencyCode: string): number => {
-    const code = (currencyCode || 'USD').toUpperCase();
-    if (code === 'USD') return 1;
+  const getUsdValuePerUnit = useCallback(
+    (currencyCode: string): number => {
+      const code = (currencyCode || 'USD').toUpperCase();
+      if (code === 'USD') return 1;
 
-    const livePrice = liveCryptoUsd[code];
-    if (Number.isFinite(livePrice) && livePrice > 0) {
-      return livePrice;
-    }
+      const livePrice = liveCryptoUsd[code];
+      if (Number.isFinite(livePrice) && livePrice > 0) {
+        return livePrice;
+      }
 
-    const fallback = getExchangeRate(code, 'USD');
-    if (Number.isFinite(fallback) && fallback > 0) {
-      return fallback;
-    }
+      const fallback = getExchangeRate(code, 'USD');
+      if (Number.isFinite(fallback) && fallback > 0) {
+        return fallback;
+      }
 
-    return 1;
-  };
-
-  const getEffectiveExchangeRate = (fromCode: string, toCode: string): number => {
-    const from = (fromCode || 'USD').toUpperCase();
-    const to = (toCode || 'USD').toUpperCase();
-    if (from === to) return 1;
-
-    const fromUsd = getUsdValuePerUnit(from);
-    const toUsd = getUsdValuePerUnit(to);
-    if (!Number.isFinite(fromUsd) || !Number.isFinite(toUsd) || toUsd <= 0) {
       return 1;
-    }
+    },
+    [liveCryptoUsd],
+  );
 
-    return fromUsd / toUsd;
-  };
+  const getEffectiveExchangeRate = useCallback(
+    (fromCode: string, toCode: string): number => {
+      const from = (fromCode || 'USD').toUpperCase();
+      const to = (toCode || 'USD').toUpperCase();
+      if (from === to) return 1;
+
+      const fromUsd = getUsdValuePerUnit(from);
+      const toUsd = getUsdValuePerUnit(to);
+      if (!Number.isFinite(fromUsd) || !Number.isFinite(toUsd) || toUsd <= 0) {
+        return 1;
+      }
+
+      return fromUsd / toUsd;
+    },
+    [getUsdValuePerUnit],
+  );
 
   useEffect(() => {
     let stopped = false;
@@ -132,7 +138,7 @@ export function CurrencyExchanger({
         rate,
       });
     }
-  }, [amount, fromCurrency, toCurrency, onExchange, liveCryptoUsd]);
+  }, [amount, fromCurrency, getEffectiveExchangeRate, onExchange, toCurrency]);
 
   const handleSwapCurrencies = () => {
     setFromCurrency(toCurrency);

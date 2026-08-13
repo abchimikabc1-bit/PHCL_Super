@@ -206,6 +206,7 @@ function CategoryRow({
           >
             <div>
               <div className="h-48 bg-slate-950 overflow-hidden relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={product.image || getMarketplaceProductImage(product)}
                   alt={product.name}

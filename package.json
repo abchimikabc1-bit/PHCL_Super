@@ -10,7 +10,7 @@
     "dev:https:3443": "next dev --webpack --experimental-https --experimental-https-key ./.certs/phclsuper.com-key.pem --experimental-https-cert ./.certs/phclsuper.com-cert.pem -H phclsuper.com -p 3443",
     "build": "next build --no-lint",
     "start": "next start",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint .",
     "seed:orders": "start http://localhost:3000/admin/orders?seed=demo",
     "clear:orders": "start http://localhost:3000/admin/orders?clear=demo",
     "release:check": "node scripts/release-readiness.mjs",

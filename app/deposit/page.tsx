@@ -2,22 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { Copy, Check } from 'lucide-react';
-
-// Usanidi thabiti wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
+import { getFirebaseAuthClient, isFirebaseClientConfigured } from '@/lib/firebase-client';
 
 export default function DepositPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,6 +13,12 @@ export default function DepositPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const auth = getFirebaseAuthClient();
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -51,12 +44,16 @@ export default function DepositPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <h1 className="text-3xl font-black mb-4 text-green-500">Ukurasa Imelindwa (Locked)</h1>
+        <h1 className="text-3xl font-black mb-4 text-green-500">
+          {isFirebaseClientConfigured() ? 'Ukurasa Imelindwa (Locked)' : 'Firebase Haijasanidiwa'}
+        </h1>
         <p className="text-gray-400 mb-6 text-center max-w-md">
-          Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kupata anwani yako ya pochi na QR code.
+          {isFirebaseClientConfigured()
+            ? 'Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kupata anwani yako ya pochi na QR code.'
+            : 'Weka vigezo vya Firebase vya NEXT_PUBLIC_* kabla ya kutumia ukurasa huu.'}
         </p>
-        <Link href="/signup" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
-          Ingia kwenye Akaunti
+        <Link href={isFirebaseClientConfigured() ? '/signup' : '/'} className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
+          {isFirebaseClientConfigured() ? 'Ingia kwenye Akaunti' : 'Rudi Nyumbani'}
         </Link>
       </div>
     );
@@ -94,6 +91,7 @@ export default function DepositPage() {
 
           {/* QR Code ya Uthibitisho */}
           <div className="p-4 bg-white rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-center w-64 h-64 border border-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={qrCodeUrl} 
               alt="Wallet QR Code" 

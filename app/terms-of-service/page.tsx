@@ -44,6 +44,9 @@ export default function TermsOfServicePage() {
                 ? 'Last Updated: May 2026' 
                 : 'Ilihaririwa Mwisho: May 2026'}
             </p>
+            <p className="text-gray-400 text-sm mt-1">
+              {language === 'en' ? 'Effective date: May 2026' : 'Tarehe ya kuanza kutumika: Mei 2026'}
+            </p>
           </div>
 
           {/* Core Legal Content Card */}
@@ -207,9 +210,9 @@ export default function TermsOfServicePage() {
 
           {/* Last Updated Footer */}
           <div className="text-center text-sm text-slate-500 border-t border-white/10 pt-4">
-            {language === 'en' 
-              ? 'Last updated: May 2026' 
-              : 'Ilisasishwa mwisho: May 2026'}
+            {language === 'en'
+              ? 'Last updated: May 2026 • Effective date: May 2026'
+              : 'Ilisasishwa mwisho: May 2026 • Tarehe ya kuanza kutumika: Mei 2026'}
           </div>
         </div>
       </main>

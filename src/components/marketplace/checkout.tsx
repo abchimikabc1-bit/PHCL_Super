@@ -258,6 +258,7 @@ export default function Checkout() {
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                 {cartItems.map(({ product, quantity }) => (
                   <div key={product.id} className="flex items-center gap-3 text-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={product.image || getMarketplaceProductImage(product)}
                       alt={product.name}

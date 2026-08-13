@@ -1,4 +1,3 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createAdminSession,
@@ -6,56 +5,41 @@ import {
   getAdminSession,
   touchAdminSession,
 } from '@/lib/admin-session-store';
+import { ADMIN_SESSION_COOKIE_NAME } from '@/lib/admin-auth-constants';
+import {
+  decodeAdminSessionToken,
+  encodeAdminSessionToken,
+  type AdminSessionTokenPayload,
+} from '@/lib/admin-session-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const COOKIE_NAME = 'phcl_admin_session';
 const MAX_AGE_SECONDS = Number(process.env.ADMIN_SESSION_MAX_AGE_SECONDS || 60 * 60 * 8);
 const IDLE_TIMEOUT_SECONDS = Number(process.env.ADMIN_SESSION_IDLE_TIMEOUT_SECONDS || 60 * 30);
 
-type SessionPayload = {
-  sessionId: string;
-  email: string;
-  role: 'admin';
-  iat: string;
-  exp: string;
-  idleExp: string;
-};
-
-function getSecret() {
-  return process.env.ADMIN_SESSION_SECRET?.trim() || 'dev-only-secret-change-in-production';
+function getConfiguredSecret() {
+  const secret = process.env.ADMIN_SESSION_SECRET?.trim();
+  return secret ? secret : null;
 }
 
-function sign(value: string) {
-  return createHmac('sha256', getSecret()).update(value).digest('base64url');
-}
+function getConfiguredAdminCredentials() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD?.trim();
 
-function encodeToken(payload: SessionPayload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-  const sig = sign(body);
-  return `${body}.${sig}`;
-}
-
-function decodeToken(token: string): SessionPayload | null {
-  const [body, sig] = token.split('.');
-  if (!body || !sig) return null;
-
-  const expected = sign(body);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return null;
-  if (!timingSafeEqual(a, b)) return null;
-
-  try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as SessionPayload;
-  } catch {
+  if (!email || !password) {
     return null;
   }
+
+  return { email, password };
+}
+
+function getSecret() {
+  return getConfiguredSecret() || '';
 }
 
 function clearCookie(res: NextResponse) {
-  res.cookies.set(COOKIE_NAME, '', {
+  res.cookies.set(ADMIN_SESSION_COOKIE_NAME, '', {
     path: '/',
     maxAge: 0,
     httpOnly: true,
@@ -65,10 +49,19 @@ function clearCookie(res: NextResponse) {
 }
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
   if (!token) return NextResponse.json({ ok: false, code: 'UNAUTHENTICATED' }, { status: 401 });
 
-  const session = decodeToken(token);
+  if (!getConfiguredSecret()) {
+    const res = NextResponse.json(
+      { ok: false, code: 'AUTH_NOT_CONFIGURED', message: 'Admin authentication is not configured.' },
+      { status: 503 }
+    );
+    clearCookie(res);
+    return res;
+  }
+
+  const session = decodeAdminSessionToken(token, getSecret());
   if (!session) {
     const res = NextResponse.json({ ok: false, code: 'INVALID_SESSION' }, { status: 401 });
     clearCookie(res);
@@ -86,7 +79,7 @@ export async function GET(request: NextRequest) {
     return res;
   }
 
-  const refreshed: SessionPayload = {
+  const refreshed: AdminSessionTokenPayload = {
     ...session,
     idleExp: new Date(now + IDLE_TIMEOUT_SECONDS * 1000).toISOString(),
   };
@@ -104,7 +97,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  res.cookies.set(COOKIE_NAME, encodeToken(refreshed), {
+  res.cookies.set(ADMIN_SESSION_COOKIE_NAME, encodeAdminSessionToken(refreshed, getSecret()), {
     path: '/',
     maxAge: MAX_AGE_SECONDS,
     httpOnly: true,
@@ -130,10 +123,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: 'Email and password are required.' }, { status: 400 });
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@phclsuper.com').trim().toLowerCase();
-  const adminPassword = (process.env.ADMIN_PASSWORD || 'StrongPass123!').trim();
+  const configuredCredentials = getConfiguredAdminCredentials();
+  const sessionSecret = getConfiguredSecret();
 
-  if (email !== adminEmail || password !== adminPassword) {
+  if (!configuredCredentials || !sessionSecret) {
+    return NextResponse.json(
+      { ok: false, code: 'AUTH_NOT_CONFIGURED', message: 'Admin authentication is not configured.' },
+      { status: 503 }
+    );
+  }
+
+  if (email !== configuredCredentials.email || password !== configuredCredentials.password) {
     return NextResponse.json({ ok: false, message: 'Invalid email or password.' }, { status: 401 });
   }
 
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     expiresAt: new Date(now + MAX_AGE_SECONDS * 1000).toISOString(),
     idleExpiresAt: new Date(now + IDLE_TIMEOUT_SECONDS * 1000).toISOString(),
   });
-  const payload: SessionPayload = {
+  const payload: AdminSessionTokenPayload = {
     sessionId: createdSession.sessionId,
     email,
     role: 'admin',
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  res.cookies.set(COOKIE_NAME, encodeToken(payload), {
+  res.cookies.set(ADMIN_SESSION_COOKIE_NAME, encodeAdminSessionToken(payload, getSecret()), {
     path: '/',
     maxAge: MAX_AGE_SECONDS,
     httpOnly: true,
@@ -177,8 +177,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  const session = token ? decodeToken(token) : null;
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
+  const session = token ? decodeAdminSessionToken(token, getSecret()) : null;
   if (session?.sessionId) {
     deleteAdminSession(session.sessionId);
   }
