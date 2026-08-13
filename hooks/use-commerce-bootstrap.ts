@@ -16,5 +16,6 @@ export function useCommerceBootstrap(onReady: () => void, deps: DependencyList =
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onReady, ...deps]);
 }
