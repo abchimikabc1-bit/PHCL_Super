@@ -31,7 +31,7 @@ export default function Header({ showChat = false }: HeaderProps) {
       <header className="sticky top-0 z-50 border-b border-purple-200/30 bg-gradient-to-r from-white/95 via-purple-50/80 to-white/95 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0 hover:opacity-80 transition-opacity">
+          <Link href="/home" className="flex-shrink-0 hover:opacity-80 transition-opacity">
             <div className="text-2xl font-bold text-purple-600">PiHCL</div>
           </Link>
 
@@ -76,7 +76,7 @@ export default function Header({ showChat = false }: HeaderProps) {
             </button>
 
             {/* CTA Button */}
-            <Link href="/" className="hidden sm:block">
+            <Link href="/home" className="hidden sm:block">
               <Button 
                 size="sm"
                 className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold shadow-md hover:shadow-lg transition-all"

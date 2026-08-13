@@ -23,7 +23,7 @@ export default async function ChatPage({
               Connect with buyers, sellers, and the PHCL Super support team in one fast communication channel.
             </p>
           </div>
-          <Link href="/" className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_16px_36px_rgba(251,191,36,0.24)] transition hover:-translate-y-0.5 hover:from-amber-200 hover:to-yellow-300">Back Home</Link>
+          <Link href="/home" className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_16px_36px_rgba(251,191,36,0.24)] transition hover:-translate-y-0.5 hover:from-amber-200 hover:to-yellow-300">Back Home</Link>
         </div>
 
         <div className="rounded-2xl border border-amber-200/15 bg-slate-900/45 p-6 global-glass">

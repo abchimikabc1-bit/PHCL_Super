@@ -47,7 +47,7 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/" className="text-purple-200 hover:text-white transition-colors">
+                <Link href="/welcome" className="text-purple-200 hover:text-white transition-colors">
                   {language === "en" ? "Home" : "Nyumbani"}
                 </Link>
               </li>

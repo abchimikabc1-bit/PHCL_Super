@@ -18,7 +18,7 @@ export default function SettingsPage() {
               Manage language, notifications, security preferences, and payment defaults from one clear control area.
             </p>
           </div>
-          <Link href="/" className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_14px_34px_rgba(251,191,36,0.24)] transition hover:-translate-y-0.5 hover:from-amber-200 hover:to-yellow-300">Back Home</Link>
+          <Link href="/home" className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_14px_34px_rgba(251,191,36,0.24)] transition hover:-translate-y-0.5 hover:from-amber-200 hover:to-yellow-300">Back Home</Link>
         </div>
 
         <div className="rounded-3xl border border-white/20 bg-white/10 p-6 global-glass">

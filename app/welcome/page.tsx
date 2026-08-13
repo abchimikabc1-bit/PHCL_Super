@@ -46,11 +46,17 @@ export default function WelcomePage() {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              href="/chat"
+              href="/home"
               className="inline-flex items-center gap-2 rounded-full bg-purple-700 px-6 py-3 font-semibold text-white shadow-lg transition hover:bg-purple-800"
             >
-              Start with Chat
+              Open Home Experience
               <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/chat"
+              className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white px-6 py-3 font-semibold text-purple-700 transition hover:bg-purple-50"
+            >
+              Start with Chat
             </Link>
             <Link
               href="/splash"
@@ -94,7 +100,7 @@ export default function WelcomePage() {
             </div>
             <div className="flex gap-3 rounded-2xl bg-purple-50 p-4">
               <Globe2 className="mt-0.5 h-5 w-5 text-purple-700" />
-              <p className="text-sm text-slate-700">Unaweza kuendelea kujaza maboresho juu yake bila kugongana na route kuu ya sasa.</p>
+              <p className="text-sm text-slate-700">Sasa route kuu imehamishiwa kwenye onboarding flow, huku command center ya zamani ikibaki salama kwenye <span className="font-semibold">/home</span>.</p>
             </div>
           </div>
         </div>
@@ -124,6 +130,20 @@ export default function WelcomePage() {
               </span>
             </Link>
           ))}
+        </div>
+
+        <div className="mt-8 rounded-3xl border border-purple-100 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-900">Migrated command center</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Muonekano uliokuwa kwenye root page umehamishwa kwenye <span className="font-semibold">/home</span> ili onboarding mpya ianze kwa splash na welcome bila kupoteza maboresho ya zamani.
+          </p>
+          <Link
+            href="/home"
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Open /home
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
     </main>

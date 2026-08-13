@@ -26,7 +26,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <Link href="/marketplace" className="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_14px_34px_rgba(251,191,36,0.24)] transition hover:-translate-y-0.5 hover:from-amber-200 hover:to-yellow-300">
                 Back to Marketplace
               </Link>
-              <Link href="/" className="inline-flex min-h-11 items-center rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white">
+              <Link href="/home" className="inline-flex min-h-11 items-center rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white">
                 Go Home
               </Link>
             </div>

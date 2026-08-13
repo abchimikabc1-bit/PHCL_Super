@@ -48,7 +48,7 @@ export default function SplashPage() {
             Enter App
           </Link>
           <Link
-            href="/"
+            href="/home"
             className="rounded-full border border-white/30 px-7 py-3 font-semibold text-white transition hover:bg-white/10"
           >
             Open Current Home

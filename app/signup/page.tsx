@@ -90,7 +90,7 @@ export default function SignupPage() {
             </p>
           </div>
           <Link
-            href="/"
+            href="/home"
             style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
             className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100"
           >
