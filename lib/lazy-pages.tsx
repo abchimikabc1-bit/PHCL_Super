@@ -6,12 +6,12 @@ export const ChatPage = dynamic(() => import('@/lib/empty-page'), {
   ssr: false // Don't render on server for faster initial load
 });
 
-export const MarketplacePage = dynamic(() => import('@/src/app/marketplace/page'), {
+export const MarketplacePage = dynamic(() => import('@/app/marketplace/page'), {
   loading: () => <div className="flex items-center justify-center h-screen">Loading...</div>,
   ssr: false
 });
 
-export const WalletPage = dynamic(() => import('@/src/app/wallet/page'), {
+export const WalletPage = dynamic(() => import('@/app/wallet/page'), {
   loading: () => <div className="flex items-center justify-center h-screen">Loading...</div>,
   ssr: false
 });

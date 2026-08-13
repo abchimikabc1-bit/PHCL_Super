@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import Navbar from '../components/navbar'; // Usanidi sahihi uliorekebishwa hapa!
+import Navbar from '../components/navbar';
 import ComingSoonTicker from '../components/ui/coming-soon-ticker';
 import GlobalQuickActions from '../components/global-quick-actions';
 
@@ -16,20 +16,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-purple-950 text-white min-h-screen">
-        {/* 1. Utepe kitembezi uliowekwa kwa njia sahihi kabisa ya kijiografia */}
-        <ComingSoonTicker />
+      <body className="min-h-screen bg-[#0a1f1d] text-white antialiased">
+        <div className="relative min-h-screen overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_24%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.16),transparent_28%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.14),transparent_30%)]" />
 
-        {/* 2. Menu ya juu (Navbar) iliyosahihishwa njia yake ya kijiografia */}
-        <Navbar />
+          <ComingSoonTicker />
+          <Navbar />
+          <GlobalQuickActions />
 
-        {/* 2.1 Vifungo vinavyoonekana muda wote: AI + Bendera */}
-        <GlobalQuickActions />
-
-        {/* 3. Sehemu kuu ya kurasa za mradi wako */}
-        <main className="pt-28">
-          {children}
-        </main>
+          <main className="relative z-10 mx-auto w-full max-w-7xl px-3 pb-10 pt-24 sm:px-5 lg:px-6">
+            <div className="rounded-[28px] border border-white/15 bg-white/5 shadow-[0_18px_60px_rgba(2,8,23,0.35)] backdrop-blur-2xl">
+              {children}
+            </div>
+          </main>
+        </div>
       </body>
     </html>
   );

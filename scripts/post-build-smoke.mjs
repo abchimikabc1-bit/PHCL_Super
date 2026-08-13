@@ -23,7 +23,7 @@ const pageChecks = [
 ];
 
 const redirectChecks = [
-  { path: '/', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com', host: 'phclsuper.com' },
+  { path: '/', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/', host: 'phclsuper.com' },
   { path: '/marketplace', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/marketplace', host: 'phclsuper.com' },
   { path: '/cart', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/cart', host: 'phclsuper.com' },
   { path: '/checkout', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/checkout', host: 'phclsuper.com' },

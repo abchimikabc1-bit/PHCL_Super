@@ -66,11 +66,29 @@ function clearCookie(res: NextResponse) {
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return NextResponse.json({ ok: false, code: 'UNAUTHENTICATED' }, { status: 401 });
+  if (!token) {
+    return NextResponse.json(
+      {
+        ok: false,
+        authenticated: false,
+        code: 'UNAUTHENTICATED',
+        message: 'No admin session found.',
+      },
+      { status: 401 }
+    );
+  }
 
   const session = decodeToken(token);
   if (!session) {
-    const res = NextResponse.json({ ok: false, code: 'INVALID_SESSION' }, { status: 401 });
+    const res = NextResponse.json(
+      {
+        ok: false,
+        authenticated: false,
+        code: 'INVALID_SESSION',
+        message: 'No admin session found.',
+      },
+      { status: 401 }
+    );
     clearCookie(res);
     return res;
   }
