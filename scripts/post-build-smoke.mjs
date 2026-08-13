@@ -32,6 +32,12 @@ const redirectChecks = [
   { path: '/admin/products', expectedStatus: 308, expectedLocation: 'https://www.phclsuper.com/admin/products', host: 'phclsuper.com' },
 ];
 
+const hostedDomainChecks = [
+  { path: '/', expectedStatus: 200, host: 'phcl-super-app-2--phcl-super-f0d21.us-east4.hosted.app' },
+  { path: '/marketplace', expectedStatus: 200, host: 'phcl-super-app-2--phcl-super-f0d21.us-east4.hosted.app' },
+  { path: '/admin/login', expectedStatus: 200, host: 'phcl-super-app-2--phcl-super-f0d21.us-east4.hosted.app' },
+];
+
 const apiChecks = [
   {
     path: '/api/admin/auth',
@@ -229,6 +235,21 @@ async function run() {
           failures.push(`[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`);
         } else {
           console.log(`PASS [host:${check.host}] ${check.path} -> ${response.status} ${response.location}`);
+        }
+      } catch (error) {
+        failures.push(`[host:${check.host}] ${check.path} request failed: ${error.message}`);
+      }
+    }
+
+    for (const check of hostedDomainChecks) {
+      try {
+        const response = await requestRoute(baseUrl, check.path, 'GET', undefined, {
+          Host: check.host,
+        });
+        if (response.status !== check.expectedStatus) {
+          failures.push(`[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expectedStatus}`);
+        } else {
+          console.log(`PASS [host:${check.host}] ${check.path} -> ${response.status}`);
         }
       } catch (error) {
         failures.push(`[host:${check.host}] ${check.path} request failed: ${error.message}`);

@@ -15,14 +15,15 @@ export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get('host') || '';
   const normalizedHost = host.toLowerCase();
-  const isAppHostingDefaultDomain = normalizedHost.endsWith('.hosted.app');
+  const hostname = normalizedHost.split(':')[0];
+  const isAppHostingDefaultDomain = hostname.endsWith('.hosted.app');
 
   if (
-    normalizedHost &&
-    !normalizedHost.startsWith('localhost') &&
-    !normalizedHost.startsWith('127.0.0.1') &&
-    !normalizedHost.startsWith('[::1]') &&
-    !normalizedHost.startsWith('www.') &&
+    hostname &&
+    !hostname.startsWith('localhost') &&
+    !hostname.startsWith('127.0.0.1') &&
+    !hostname.startsWith('[::1]') &&
+    !hostname.startsWith('www.') &&
     !isAppHostingDefaultDomain
   ) {
     const targetLocation = pathname === '/'
