@@ -16,6 +16,7 @@ export interface StoredOrder {
   }>;
   customer?: {
     fullName: string;
+    email?: string;
     phone: string;
     addressLine1: string;
     city: string;
@@ -181,6 +182,7 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
   let customer:
     | {
         fullName: string;
+        email?: string;
         phone: string;
         addressLine1: string;
         city: string;
@@ -191,6 +193,7 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
   if (row.customer && typeof row.customer === 'object') {
     const c = row.customer as {
       fullName?: unknown;
+      email?: unknown;
       phone?: unknown;
       addressLine1?: unknown;
       city?: unknown;
@@ -198,13 +201,14 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
     };
 
     const fullName = trimText(c.fullName, 120);
+    const email = trimText(c.email, 160);
     const phone = trimText(c.phone, 40);
     const addressLine1 = trimText(c.addressLine1, 200);
     const city = trimText(c.city, 80);
     const country = trimText(c.country, 80);
 
     if (fullName && phone && addressLine1 && city && country) {
-      customer = { fullName, phone, addressLine1, city, country };
+      customer = { fullName, email: email || undefined, phone, addressLine1, city, country };
     }
   }
 

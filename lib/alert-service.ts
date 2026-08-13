@@ -1,5 +1,6 @@
 import { getDatabase } from '@/lib/db';
 import type { PerformanceAlert } from '@/lib/performance-analytics';
+import { sendEmailMessage, sendSmsMessage } from '@/lib/server-notifications';
 
 export interface AlertNotification {
   id: string;
@@ -249,11 +250,15 @@ async function dispatchEmail(
     (a) => `• ${a.metric}: ${a.message} (current: ${a.value}, threshold: ${a.threshold})`
   ).join('\n');
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[EMAIL] To: ${emailAddress}\nSubject: ${subject}\n${lines}`);
-    return;
+  const result = await sendEmailMessage({
+    to: emailAddress,
+    subject,
+    text: lines,
+  });
+
+  if (!result.delivered && result.provider !== 'log') {
+    throw new Error(result.error || 'Email delivery failed');
   }
-  // Production: inject SendGrid / Nodemailer here via process.env.SENDGRID_API_KEY
 }
 
 async function dispatchSlack(
@@ -285,10 +290,12 @@ async function dispatchSlack(
 
 async function dispatchSms(alert: PerformanceAlert, phoneNumber: string): Promise<void> {
   const msg = `PHCL [${alert.severity.toUpperCase()}] ${alert.metric}: ${alert.message}. Value: ${alert.value}, Threshold: ${alert.threshold}`;
+  const result = await sendSmsMessage({
+    to: phoneNumber,
+    message: msg,
+  });
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[SMS] To: ${phoneNumber}\n${msg}`);
-    return;
+  if (!result.delivered && result.provider !== 'log') {
+    throw new Error(result.error || 'SMS delivery failed');
   }
-  // Production: inject Twilio here via process.env.TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN
 }

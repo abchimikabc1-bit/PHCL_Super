@@ -8,7 +8,7 @@ import { convertAmount } from '@/components/marketplace/currency-utils';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { useLanguage } from '@/hooks/use-language';
 import { getAdminSettings } from '@/lib/admin-settings';
-import { applyProductStockPurchase, canAddToCart } from '@/lib/admin-product-stock';
+import { applyProductStockPurchase, canAddToCart, revertProductStockPurchase } from '@/lib/admin-product-stock';
 import { reconcileCartItemsWithStock } from '@/lib/cart-stock-reconcile';
 import { CART_UPDATED_EVENT, CartStorageItem, getCartItems, getCartTotal, setCartItems } from '@/lib/cart-storage';
 import { REORDER_SOURCE_KEY, StoredOrder, saveOrder } from '@/lib/order-storage';
@@ -40,6 +40,7 @@ export default function CheckoutClient() {
         shippingDetails: 'Maelezo ya Usafirishaji',
         shippingRequired: 'Sehemu zote zinahitajika kabla ya kukamilisha ununuzi.',
         fullName: 'Jina kamili',
+        email: 'Barua pepe (hiari)',
         phone: 'Namba ya simu',
         addressLine: 'Anwani',
         city: 'Jiji',
@@ -73,6 +74,7 @@ export default function CheckoutClient() {
         mobileDetailsRequired: 'Kwa malipo ya TZS/nTZS, chagua mtandao wa simu na andika namba sahihi ya malipo.',
         mobileNetworkLabel: 'Mtandao wa Simu',
         paymentPhoneLabel: 'Namba ya Malipo',
+        paymentReference: 'Rejea ya Malipo',
         notProvided: 'Haijawekwa',
       }
         : {
@@ -93,6 +95,7 @@ export default function CheckoutClient() {
         shippingDetails: 'Shipping Details',
         shippingRequired: 'All fields are required before purchase completion.',
         fullName: 'Full name',
+        email: 'Email (optional)',
         phone: 'Phone number',
         addressLine: 'Address line',
         city: 'City',
@@ -126,6 +129,7 @@ export default function CheckoutClient() {
         mobileDetailsRequired: 'For TZS/nTZS payments, select a mobile network and enter a valid payment phone number.',
         mobileNetworkLabel: 'Mobile Network',
         paymentPhoneLabel: 'Payment Phone',
+        paymentReference: 'Payment Reference',
         notProvided: 'Not provided',
       },
     [isSwahili]
@@ -138,6 +142,7 @@ export default function CheckoutClient() {
   const [isMobile, setIsMobile] = useState(false);
   const [shipping, setShipping] = useState({
     fullName: '',
+    email: '',
     phone: '',
     addressLine1: '',
     city: '',
@@ -229,7 +234,7 @@ export default function CheckoutClient() {
 
   const policyConsentValid = checkoutConsent.agreedToTerms && checkoutConsent.agreedToPrivacy;
 
-  const completePurchase = (
+  const completePurchase = async (
     paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi',
     mobileDetails?: { network: string | null; phone: string }
   ) => {
@@ -366,14 +371,71 @@ export default function CheckoutClient() {
       return;
     }
 
-    saveOrder(order);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/checkout/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentMethod,
+          displayCurrency,
+          totalUsd: preflightTotal,
+          items: order.items,
+          customer: {
+            fullName: shipping.fullName.trim(),
+            email: shipping.email.trim() || undefined,
+            phone: shipping.phone.trim(),
+            addressLine1: shipping.addressLine1.trim(),
+            city: shipping.city.trim(),
+            country: shipping.country.trim(),
+          },
+          policyConsent: {
+            termsVersion: policyVersions.termsVersion,
+            privacyVersion: policyVersions.privacyVersion,
+          },
+          mobilePayment: isMobileNetworkPayment
+            ? {
+                network: (effectiveMobileDetails.network as "mpesa" | "tigopesa" | "airtelmoney" | "halopesa") || 'mpesa',
+                phone: normalizedMobilePhone,
+              }
+            : undefined,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: string;
+        order?: StoredOrder;
+      } | null;
+
+      if (!response.ok || !payload?.success || !payload.order) {
+        revertProductStockPurchase(
+          preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+          `order-revert:${order.id}`
+        );
+        toast.error(payload?.error || 'Unable to submit order');
+        return;
+      }
+
+      saveOrder(payload.order);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
+      }
+      setRecentOrder(payload.order);
+      setCartItems([]);
+      setItems([]);
+      toast.success(copy.orderConfirmedToast(payload.order.id));
+    } catch (error) {
+      revertProductStockPurchase(
+        preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+        `order-revert:${order.id}`
+      );
+      toast.error(error instanceof Error ? error.message : 'Unable to submit order');
+    } finally {
+      setIsSubmitting(false);
     }
-    setRecentOrder(order);
-    setCartItems([]);
-    setItems([]);
-    toast.success(copy.orderConfirmedToast(order.id));
   };
 
   return (
@@ -461,6 +523,7 @@ export default function CheckoutClient() {
               <p>{copy.orderId}: {recentOrder.id}</p>
               <p>{copy.items}: {recentOrder.itemCount}</p>
               <p>{copy.payment}: {recentOrder.paymentMethod.toUpperCase()}</p>
+              <p>{copy.paymentReference}: {recentOrder.audit?.paymentTransactionId || copy.notProvided}</p>
               {(recentOrder.paymentMethod === 'tzs' || recentOrder.paymentMethod === 'ntzs') && (
                 <>
                   <p>
@@ -499,6 +562,14 @@ export default function CheckoutClient() {
                   value={shipping.fullName}
                   onChange={(e) => setShipping((prev) => ({ ...prev, fullName: e.target.value }))}
                   placeholder={copy.fullName}
+                  style={{ minHeight: '44px' }}
+                  className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
+                />
+                <input
+                  type="email"
+                  value={shipping.email}
+                  onChange={(e) => setShipping((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder={copy.email}
                   style={{ minHeight: '44px' }}
                   className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
                 />
