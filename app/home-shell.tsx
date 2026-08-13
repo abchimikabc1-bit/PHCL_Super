@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import HomeClient from './home-client';
 
@@ -40,26 +41,31 @@ export default function HomeShell() {
         }}
       />
 
-      <div className="mb-1 -mt-12 flex w-full flex-col items-center justify-center md:-mt-14">
-        <div className="animate-flag-wave w-64 overflow-hidden rounded-sm border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.35)] md:w-96 lg:w-[26rem]">
-          <svg viewBox="0 0 900 600" className="h-auto w-full" role="img" aria-label="Bendera ya Taifa Tanzania">
-            <defs>
-              <filter id="clothWaveTop" x="-20%" y="-20%" width="140%" height="140%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.012 0.04" numOctaves="2" seed="7" result="noise">
-                  <animate attributeName="baseFrequency" dur="2.4s" values="0.012 0.04;0.018 0.055;0.012 0.04" repeatCount="indefinite" />
-                </feTurbulence>
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
-              </filter>
-            </defs>
-            <g filter="url(#clothWaveTop)">
-              <rect width="900" height="600" fill="#1eb53a" />
-              <polygon points="0,600 900,0 900,600" fill="#00a3dd" />
-              <g transform="rotate(-33 450 300)">
-                <rect x="-260" y="230" width="1420" height="140" fill="#fcd116" />
-                <rect x="-260" y="255" width="1420" height="90" fill="#000000" />
+      <div className="mb-4 -mt-12 w-full px-4 md:-mt-14 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-7xl items-start justify-between gap-4">
+          <div className="animate-flag-wave w-32 overflow-hidden rounded-sm border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.35)] md:w-48 lg:w-[13rem]">
+            <svg viewBox="0 0 900 600" className="h-auto w-full" role="img" aria-label="Bendera ya Taifa Tanzania">
+              <defs>
+                <filter id="clothWaveTop" x="-20%" y="-20%" width="140%" height="140%">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.012 0.04" numOctaves="2" seed="7" result="noise">
+                    <animate attributeName="baseFrequency" dur="2.4s" values="0.012 0.04;0.018 0.055;0.012 0.04" repeatCount="indefinite" />
+                  </feTurbulence>
+                  <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+              </defs>
+              <g filter="url(#clothWaveTop)">
+                <rect width="900" height="600" fill="#1eb53a" />
+                <polygon points="0,600 900,0 900,600" fill="#00a3dd" />
+                <g transform="rotate(-33 450 300)">
+                  <rect x="-260" y="230" width="1420" height="140" fill="#fcd116" />
+                  <rect x="-260" y="255" width="1420" height="90" fill="#000000" />
+                </g>
               </g>
-            </g>
-          </svg>
+            </svg>
+          </div>
+          <div className="relative h-20 w-28 overflow-hidden md:h-24 md:w-36 lg:h-28 lg:w-44">
+            <Image src="/flag.svg" alt="PHCL Super logo" fill priority className="object-contain object-right" />
+          </div>
         </div>
       </div>
 

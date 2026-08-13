@@ -385,9 +385,13 @@ export default function ProductsPage() {
                           />
                         </td>
                         <td className="px-6 py-4 text-white font-medium">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Package className="h-4 w-4 text-slate-400 shrink-0" />
-                            {product.productName}
+                            <span>{product.productName}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Complete
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
