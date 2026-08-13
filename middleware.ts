@@ -13,17 +13,19 @@ const ADMIN_PROTECTED_PATHS = [
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const host = request.headers.get('host') || '';
-  const normalizedHost = host.toLowerCase();
-  const hostname = normalizedHost.split(':')[0];
-  const isAppHostingDefaultDomain = hostname.endsWith('.hosted.app');
+  const forwardedHost =
+    request.headers.get('x-forwarded-host') ||
+    request.headers.get('host') ||
+    request.nextUrl.host;
+  const normalizedHostname = forwardedHost.toLowerCase().split(':')[0];
+  const isAppHostingDefaultDomain = normalizedHostname.endsWith('.hosted.app');
 
   if (
-    hostname &&
-    !hostname.startsWith('localhost') &&
-    !hostname.startsWith('127.0.0.1') &&
-    !hostname.startsWith('[::1]') &&
-    !hostname.startsWith('www.') &&
+    normalizedHostname &&
+    !normalizedHostname.startsWith('localhost') &&
+    !normalizedHostname.startsWith('127.0.0.1') &&
+    !normalizedHostname.startsWith('[::1]') &&
+    !normalizedHostname.startsWith('www.') &&
     !isAppHostingDefaultDomain
   ) {
     const targetLocation = pathname === '/'
