@@ -41,8 +41,8 @@ export default function Home() {
 
       <section className="w-full px-4 pt-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-3xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <div className="flex min-w-0 flex-1 items-center">
-            <div className="w-32 max-w-full overflow-hidden rounded-sm border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.35)] animate-flag-wave sm:w-44 lg:w-56">
+          <div className="flex min-w-0 flex-1 items-center justify-start">
+            <div className="w-20 max-w-full overflow-hidden rounded-sm border border-white/20 shadow-[0_0_16px_rgba(0,0,0,0.32)] animate-flag-wave sm:w-24 lg:w-32">
               <svg viewBox="0 0 900 600" className="h-auto w-full" role="img" aria-label="Bendera ya Taifa Tanzania">
                 <defs>
                   <filter id="clothWaveTop" x="-20%" y="-20%" width="140%" height="140%">
@@ -70,6 +70,14 @@ export default function Home() {
               className="flex items-center gap-3 rounded-2xl border border-amber-300/20 bg-white/5 px-3 py-2 text-right shadow-[0_0_24px_rgba(251,191,36,0.08)] transition hover:bg-white/10"
               aria-label="PHCL Super home brand"
             >
+              <Image
+                src="/app-icon.svg"
+                alt="PHCL logo icon"
+                width={48}
+                height={48}
+                priority
+                className="h-10 w-10 rounded-xl border border-white/10 bg-white/5 p-1 sm:h-11 sm:w-11"
+              />
               <div className="hidden text-right sm:block">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">PHCL Super</p>
                 <p className="text-sm text-white/75">Pi Hub Company Limited</p>
@@ -80,7 +88,7 @@ export default function Home() {
                 width={215}
                 height={48}
                 priority
-                className="h-9 w-auto max-w-[9rem] sm:h-10 sm:max-w-[12rem] lg:h-12 lg:max-w-[13.5rem]"
+                className="h-8 w-auto max-w-[8rem] sm:h-9 sm:max-w-[10rem] lg:h-10 lg:max-w-[12rem]"
               />
             </Link>
           </div>
