@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   // Angalia kama njia inayotafutwa ipo kwenye orodha ya kulindwa
   if (protectedRoutes.some((route) => pathname.startsWith(route))) {
     // Kusoma secure httpOnly cookie ya admin session kutoka kwenye kivinjari
-    const adminSession = request.cookies.get('admin_session')?.value;
+    const adminSession = request.cookies.get('phcl_admin_session')?.value;
 
     if (!adminSession) {
       // Kama session haipo, mfumo unamzuia na kumrudisha kwenye Login mara moja

@@ -89,6 +89,8 @@ function checkSecurityHeaders(nextConfigPath, nextConfigFileName = 'next.config.
   try {
     const configText = fs.readFileSync(nextConfigPath, 'utf8');
     const requiredHeaderKeys = [
+      'Content-Security-Policy',
+      'Strict-Transport-Security',
       'X-Content-Type-Options',
       'X-Frame-Options',
       'Referrer-Policy',

@@ -14,7 +14,10 @@ service cloud.firestore {
 
     // Kulinda taarifa za watumiaji na balansi za siri za pochi
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow update: if isOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
     }
 
     // Kulinda daftari la miamala (transactions ledger) dhidi ya ufutaji
@@ -27,6 +30,23 @@ service cloud.firestore {
       
       // HAKUNA ruhusa ya kubadilisha (update) au kufuta (delete) miamala iliyokamilika!
       allow update, delete: if false;
+    }
+
+    // Oda za wateja zinasomeka na mmiliki tu, na haziwezi kuhaririwa baada ya kuundwa
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Collections za ndani za afya ya mfumo hazipaswi kufikiwa moja kwa moja na client SDK
+    match /_health/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Zuia ufikiaji kwa collections zote ambazo hazijaruhusiwa wazi
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
