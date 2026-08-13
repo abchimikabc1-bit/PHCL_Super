@@ -105,7 +105,7 @@ export function Trading({ darkMode }: TradingProps) {
       </div>
 
       <div className={`mt-6 p-4 rounded-lg text-sm ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-blue-50 text-blue-700'}`}>
-        <p>Live prices update automatically every 5 seconds. Click "Update Rates" to refresh immediately.</p>
+        <p>Live prices update automatically every 5 seconds. Click &quot;Update Rates&quot; to refresh immediately.</p>
       </div>
     </div>
   );
