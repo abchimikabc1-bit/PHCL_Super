@@ -40,10 +40,8 @@ export function ProductPhoneGallery({ product, darkMode, onAddToCart }: PhoneGal
 
   const getImages = () => {
     const imageTypes = ['Front', 'Back', 'Side', 'Box & Accessories', 'Unboxing'];
-    return imageTypes.slice(0, 5).map(type => ({ 
-      type,
-      url: '/placeholder.svg?height=500&width=300' 
-    }));
+    const placeholderUrl = '/placeholder.svg?height=500&width=300';
+    return imageTypes.slice(0, 5).map((type) => ({ type, url: placeholderUrl }));
   };
 
   const images = getImages();
@@ -139,11 +137,11 @@ export function ProductPhoneGallery({ product, darkMode, onAddToCart }: PhoneGal
             </div>
             <div>
               <div className="text-xs opacity-75">TSh</div>
-              <div className="text-xl font-bold">{product.tzs?.toLocaleString() || product.tzs}</div>
+              <div className="text-xl font-bold">{product.tzs.toLocaleString()}</div>
             </div>
             <div>
               <div className="text-xs opacity-75">Pi Network</div>
-              <div className="text-xl font-bold">Π {product.pi?.toFixed(6) || product.pi}</div>
+              <div className="text-xl font-bold">Π {product.pi.toFixed(6)}</div>
             </div>
           </div>
         </div>

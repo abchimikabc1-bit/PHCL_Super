@@ -235,6 +235,7 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
         refundedAt?: string;
         refundAmount?: number;
         refundCurrency?: 'usd' | 'tzs' | 'ntzs' | 'pi';
+        refundTransactionId?: string;
       }
     | undefined;
 

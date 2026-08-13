@@ -1,4 +1,3 @@
-
 export type Language = "en" | "sw" | "zh" | "fr" | "es" | "ar" | "pt" | "de" | "ja" | "ko" | "it" | "ru" | "hi" | "vi" | "th" | "id";
 
 export const LANGUAGE_OPTIONS = [

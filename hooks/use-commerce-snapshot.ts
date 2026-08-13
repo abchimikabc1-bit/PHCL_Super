@@ -13,6 +13,8 @@ import { getOrders } from '@/lib/order-storage';
 import { getWalletLedger, getWalletSnapshot } from '@/lib/wallet-storage';
 
 const buildLocalFallback = (): CommerceStatePayload => ({
+  revision: 0,
+  updatedAt: new Date(0).toISOString(),
   cartItems: getCartItems(),
   adminSettings: getAdminSettings(),
   adminSettingsAudit: getAdminSettingsAudit(),
