@@ -18,9 +18,16 @@ const checks = [
   { path: '/marketplace', expected: 200 },
   { path: '/cart', expected: 200 },
   { path: '/checkout', expected: 200 },
+  { path: '/wallet', expected: 200 },
+  { path: '/settings', expected: 200 },
+  { path: '/feedback', expected: 200 },
   { path: '/product/1', expected: 200 },
   { path: '/admin/login', expected: 200 },
-  { path: '/admin/products', expected: 200 },
+  { path: '/admin', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin' },
+  { path: '/admin/dashboard', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fdashboard' },
+  { path: '/admin/orders', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Forders' },
+  { path: '/admin/products', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fproducts' },
+  { path: '/admin/security', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fsecurity' },
 ];
 
 const hostChecks = checks.map((c) => ({ ...c, host: 'phclsuper.com', expected: 200 }));

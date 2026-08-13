@@ -1,25 +1,14 @@
 // src/middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-// Kurasa zote za usimamizi (admin) zinazotakiwa kulindwa Edge
-const protectedRoutes = [
-  '/admin/dashboard', 
-  '/admin/products', 
-  '/admin/currencies', 
-  '/admin/languages', 
-  '/admin/analytics', 
-  '/admin/users', 
-  '/admin/settings'
-];
+import { ADMIN_SESSION_COOKIE_NAME } from '@/lib/admin-auth-constants';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Angalia kama njia inayotafutwa ipo kwenye orodha ya kulindwa
-  if (protectedRoutes.some((route) => pathname.startsWith(route))) {
+  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     // Kusoma secure httpOnly cookie ya admin session kutoka kwenye kivinjari
-    const adminSession = request.cookies.get('admin_session')?.value;
+    const adminSession = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
 
     if (!adminSession) {
       // Kama session haipo, mfumo unamzuia na kumrudisha kwenye Login mara moja

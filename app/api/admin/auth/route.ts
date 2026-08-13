@@ -1,4 +1,3 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createAdminSession,
@@ -6,22 +5,18 @@ import {
   getAdminSession,
   touchAdminSession,
 } from '@/lib/admin-session-store';
+import { ADMIN_SESSION_COOKIE_NAME } from '@/lib/admin-auth-constants';
+import {
+  decodeAdminSessionToken,
+  encodeAdminSessionToken,
+  type AdminSessionTokenPayload,
+} from '@/lib/admin-session-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const COOKIE_NAME = 'phcl_admin_session';
 const MAX_AGE_SECONDS = Number(process.env.ADMIN_SESSION_MAX_AGE_SECONDS || 60 * 60 * 8);
 const IDLE_TIMEOUT_SECONDS = Number(process.env.ADMIN_SESSION_IDLE_TIMEOUT_SECONDS || 60 * 30);
-
-type SessionPayload = {
-  sessionId: string;
-  email: string;
-  role: 'admin';
-  iat: string;
-  exp: string;
-  idleExp: string;
-};
 
 function getConfiguredSecret() {
   const secret = process.env.ADMIN_SESSION_SECRET?.trim();
@@ -43,36 +38,8 @@ function getSecret() {
   return getConfiguredSecret() || '';
 }
 
-function sign(value: string) {
-  return createHmac('sha256', getSecret()).update(value).digest('base64url');
-}
-
-function encodeToken(payload: SessionPayload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-  const sig = sign(body);
-  return `${body}.${sig}`;
-}
-
-function decodeToken(token: string): SessionPayload | null {
-  const [body, sig] = token.split('.');
-  if (!body || !sig) return null;
-  if (!getConfiguredSecret()) return null;
-
-  const expected = sign(body);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return null;
-  if (!timingSafeEqual(a, b)) return null;
-
-  try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as SessionPayload;
-  } catch {
-    return null;
-  }
-}
-
 function clearCookie(res: NextResponse) {
-  res.cookies.set(COOKIE_NAME, '', {
+  res.cookies.set(ADMIN_SESSION_COOKIE_NAME, '', {
     path: '/',
     maxAge: 0,
     httpOnly: true,
@@ -82,7 +49,7 @@ function clearCookie(res: NextResponse) {
 }
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
   if (!token) return NextResponse.json({ ok: false, code: 'UNAUTHENTICATED' }, { status: 401 });
 
   if (!getConfiguredSecret()) {
@@ -94,7 +61,7 @@ export async function GET(request: NextRequest) {
     return res;
   }
 
-  const session = decodeToken(token);
+  const session = decodeAdminSessionToken(token, getSecret());
   if (!session) {
     const res = NextResponse.json({ ok: false, code: 'INVALID_SESSION' }, { status: 401 });
     clearCookie(res);
@@ -112,7 +79,7 @@ export async function GET(request: NextRequest) {
     return res;
   }
 
-  const refreshed: SessionPayload = {
+  const refreshed: AdminSessionTokenPayload = {
     ...session,
     idleExp: new Date(now + IDLE_TIMEOUT_SECONDS * 1000).toISOString(),
   };
@@ -130,7 +97,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  res.cookies.set(COOKIE_NAME, encodeToken(refreshed), {
+  res.cookies.set(ADMIN_SESSION_COOKIE_NAME, encodeAdminSessionToken(refreshed, getSecret()), {
     path: '/',
     maxAge: MAX_AGE_SECONDS,
     httpOnly: true,
@@ -176,7 +143,7 @@ export async function POST(request: NextRequest) {
     expiresAt: new Date(now + MAX_AGE_SECONDS * 1000).toISOString(),
     idleExpiresAt: new Date(now + IDLE_TIMEOUT_SECONDS * 1000).toISOString(),
   });
-  const payload: SessionPayload = {
+  const payload: AdminSessionTokenPayload = {
     sessionId: createdSession.sessionId,
     email,
     role: 'admin',
@@ -198,7 +165,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  res.cookies.set(COOKIE_NAME, encodeToken(payload), {
+  res.cookies.set(ADMIN_SESSION_COOKIE_NAME, encodeAdminSessionToken(payload, getSecret()), {
     path: '/',
     maxAge: MAX_AGE_SECONDS,
     httpOnly: true,
@@ -210,8 +177,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  const session = token ? decodeToken(token) : null;
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
+  const session = token ? decodeAdminSessionToken(token, getSecret()) : null;
   if (session?.sessionId) {
     deleteAdminSession(session.sessionId);
   }

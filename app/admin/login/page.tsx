@@ -1,12 +1,20 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function AdminLoginPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('admin@phclsuper.com');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const requestedRedirect = searchParams.get('redirect') || '/admin/dashboard';
+  const redirectTarget =
+    requestedRedirect.startsWith('/admin') && !requestedRedirect.startsWith('/admin/login')
+      ? requestedRedirect
+      : '/admin/dashboard';
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,7 +41,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      window.location.replace('/admin/dashboard');
+      window.location.replace(redirectTarget);
     } catch {
       setLocalError('Network error. Please try again.');
     } finally {
