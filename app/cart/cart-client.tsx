@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { convertAmount, formatCurrencyAmount } from '@/components/currency';
 import { ShoppingCart } from '@/components/shopping-cart';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { getAdminSettings } from '@/lib/admin-settings';
-import { reconcileCartItemsWithStock } from '@/lib/cart-stock-reconcile';
+import { getCartTotal } from '@/lib/cart-utils';
 import { CART_UPDATED_EVENT, CartStorageItem, getCartItems, setCartItems } from '@/lib/cart-storage';
 
 export default function CartClient() {
@@ -18,6 +19,10 @@ export default function CartClient() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const { snapshot } = useCommerceSnapshot();
   const hasItems = useMemo(() => items.length > 0, [items]);
+  const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const subtotalUsd = useMemo(() => getCartTotal(items), [items]);
+  const estimatedTaxUsd = useMemo(() => subtotalUsd * 0.08, [subtotalUsd]);
+  const estimatedGrandTotalUsd = useMemo(() => subtotalUsd + estimatedTaxUsd, [subtotalUsd, estimatedTaxUsd]);
   const { displayCurrency, setCurrency, enabledDisplayCurrencies } = useDisplayCurrency('usd');
 
   useEffect(() => {
@@ -139,6 +144,32 @@ export default function CartClient() {
         {maintenanceMode && (
           <div className="mb-4 rounded-lg border border-amber-300/40 bg-amber-500/10 p-3 text-sm text-amber-100">
             Maintenance mode is active. You can review cart items, but checkout is temporarily paused.
+          </div>
+        )}
+
+        {hasItems && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-amber-200/15 bg-slate-900/45 p-4 global-glass">
+              <p className="text-xs uppercase tracking-[0.2em] text-amber-50/70">Cart pieces</p>
+              <p className="mt-2 text-2xl font-black text-white">{itemCount}</p>
+              <p className="mt-1 text-xs text-amber-50/70">{items.length} unique product line(s)</p>
+            </div>
+            <div className="rounded-2xl border border-amber-200/15 bg-slate-900/45 p-4 global-glass">
+              <p className="text-xs uppercase tracking-[0.2em] text-amber-50/70">Subtotal</p>
+              <p className="mt-2 text-2xl font-black text-white">
+                {formatCurrencyAmount(displayCurrency, convertAmount(subtotalUsd, 'usd', displayCurrency))}
+              </p>
+              <p className="mt-1 text-xs text-amber-50/70">before discounts and tax</p>
+            </div>
+            <div className="rounded-2xl border border-amber-200/15 bg-slate-900/45 p-4 global-glass">
+              <p className="text-xs uppercase tracking-[0.2em] text-amber-50/70">Estimated total</p>
+              <p className="mt-2 text-2xl font-black text-white">
+                {formatCurrencyAmount(displayCurrency, convertAmount(estimatedGrandTotalUsd, 'usd', displayCurrency))}
+              </p>
+              <p className="mt-1 text-xs text-amber-50/70">
+                includes estimated tax of {formatCurrencyAmount(displayCurrency, convertAmount(estimatedTaxUsd, 'usd', displayCurrency))}
+              </p>
+            </div>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   PAYMENT_METHODS, 
@@ -17,8 +17,8 @@ interface CheckoutProps {
   total?: number;
   currency?: string;
   language?: 'sw' | 'en';
-  onMobilePaymentDetailsChange?: (details: any) => void;
-  onCompletePurchase?: (details?: any) => void;
+  onMobilePaymentDetailsChange?: (details: { network: string | null; phone: string }) => void;
+  onCompletePurchase?: (paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi', mobileDetails?: { network: string | null; phone: string }) => boolean | void;
   canCompletePurchase?: boolean;
   isSubmitting?: boolean;
   allowPiPayments?: boolean;
@@ -26,6 +26,13 @@ interface CheckoutProps {
   onClose?: () => void;
   onSuccess?: () => void;
 }
+
+const MOBILE_NETWORK_OPTIONS = [
+  { id: 'mpesa', label: 'M-Pesa' },
+  { id: 'tigopesa', label: 'Tigo Pesa' },
+  { id: 'airtelmoney', label: 'Airtel Money' },
+  { id: 'halopesa', label: 'HaloPesa' },
+] as const;
 
 export default function Checkout({ 
   product, 
@@ -41,11 +48,46 @@ export default function Checkout({
   onClose, 
   onSuccess 
 }: CheckoutProps) {
-  const selectedProduct = product || MARKETPLACE_PRODUCTS[0];
-  const displayTotal = total || (selectedProduct.priceUSD * 2600);
-  
-  const [selectedMethod, setSelectedMethod] = useState<string>(PAYMENT_METHODS[0]?.id || 'cash');
+  const selectedProduct = product || null;
+  const fallbackProduct = MARKETPLACE_PRODUCTS[0];
+  const displayTotal = total || ((selectedProduct || fallbackProduct).priceUSD * 2600);
+  const normalizedCurrency = String(currency).toLowerCase();
+  const availableMethods = useMemo(() => {
+    const baseMethods = PAYMENT_METHODS.map((method) => ({
+      id: method.id as 'usd' | 'tzs' | 'pi',
+      name: method.name,
+      provider: method.provider,
+      supportedCurrencies: method.supportedCurrencies,
+      accountDetailsHint: method.accountDetailsHint,
+      icon: (method as PaymentMethod & { icon?: string }).icon,
+    }));
+
+    const methodsWithDigital = [
+      baseMethods[0],
+      {
+        id: 'ntzs' as const,
+        name: 'Digital Shilling (nTZS)',
+        provider: 'Vodacom/Tigo/Airtel',
+        supportedCurrencies: ['NTZS'],
+        accountDetailsHint: 'Select mobile money network and enter the receiving payment number.',
+        icon: '📲',
+      },
+      ...baseMethods.slice(1),
+    ];
+
+    return methodsWithDigital.filter((method) => allowPiPayments || method.id !== 'pi');
+  }, [allowPiPayments]);
+
+  const preferredMethod = availableMethods.some((method) => method.id === normalizedCurrency)
+    ? normalizedCurrency
+    : availableMethods[0]?.id || 'usd';
+
+  const [selectedMethod, setSelectedMethod] = useState<string>(preferredMethod);
   const [success, setSuccess] = useState(false);
+  const [mobileDetails, setMobileDetails] = useState<{ network: string | null; phone: string }>({
+    network: 'mpesa',
+    phone: '',
+  });
 
   // Form states
   const [formData, setFormData] = useState({
@@ -55,28 +97,55 @@ export default function Checkout({
     notes: '',
   });
 
+  useEffect(() => {
+    setSelectedMethod(preferredMethod);
+  }, [preferredMethod]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const updatedData = { ...formData, [name]: value };
-    setFormData(updatedData);
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-    if (name === 'phone' && onMobilePaymentDetailsChange) {
-      onMobilePaymentDetailsChange(updatedData);
-    }
+  const handleMobileDetailsChange = (field: 'network' | 'phone', value: string) => {
+    const nextDetails = {
+      ...mobileDetails,
+      [field]: field === 'network' ? value || null : value,
+    };
+    setMobileDetails(nextDetails);
+    onMobilePaymentDetailsChange?.(nextDetails);
   };
 
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const requiresMobileMoney = selectedMethod === 'tzs' || selectedMethod === 'ntzs';
+    const normalizedPhone = mobileDetails.phone.trim().replace(/[\s()-]/g, '');
+    if (requiresMobileMoney && (!mobileDetails.network || !/^\+?[0-9]{10,15}$/.test(normalizedPhone))) {
+      onBlockedPurchase?.('mobile_details');
+      return;
+    }
+
     if (!canCompletePurchase) {
       if (onBlockedPurchase) {
-        onBlockedPurchase('Tafadhali jaza taarifa zote zinazohitajika kwanza.');
+        onBlockedPurchase(requiresMobileMoney ? 'mobile_details' : 'blocked');
       }
       return;
     }
 
-    if (onCompletePurchase) {
-      onCompletePurchase(formData);
+    const purchaseResult = onCompletePurchase
+      ? onCompletePurchase(
+        selectedMethod as 'usd' | 'tzs' | 'ntzs' | 'pi',
+        requiresMobileMoney
+          ? {
+              network: mobileDetails.network,
+              phone: normalizedPhone,
+            }
+          : undefined
+      )
+      : true;
+
+    if (purchaseResult === false) {
+      return;
     }
 
     setSuccess(true);
@@ -191,7 +260,7 @@ export default function Checkout({
                 {language === 'sw' ? 'Njia ya Malipo' : 'Payment Method'}
               </h2>
               <div className="grid grid-cols-2 gap-3">
-                {PAYMENT_METHODS.map((method: PaymentMethod & { icon?: string }) => {
+                {availableMethods.map((method) => {
                   const isSelected = selectedMethod === method.id;
                   return (
                     <div
@@ -216,6 +285,40 @@ export default function Checkout({
                 </div>
               )}
 
+              {(selectedMethod === 'tzs' || selectedMethod === 'ntzs') && (
+                <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase">
+                      {language === 'sw' ? 'Mtandao wa Simu' : 'Mobile Network'}
+                    </label>
+                    <select
+                      value={mobileDetails.network || 'mpesa'}
+                      onChange={(e) => handleMobileDetailsChange('network', e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition"
+                    >
+                      {MOBILE_NETWORK_OPTIONS.map((network) => (
+                        <option key={network.id} value={network.id}>
+                          {network.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase">
+                      {language === 'sw' ? 'Namba ya Malipo' : 'Payment Phone'}
+                    </label>
+                    <input
+                      type="tel"
+                      value={mobileDetails.phone}
+                      onChange={(e) => handleMobileDetailsChange('phone', e.target.value)}
+                      placeholder={language === 'sw' ? 'Mf. 0712 345 678' : 'e.g. 0712 345 678'}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition"
+                    />
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -231,17 +334,30 @@ export default function Checkout({
                 {language === 'sw' ? 'Muhtasari wa Agizo' : 'Order Summary'}
               </h2>
 
-              <div className="flex items-center gap-4">
-                <img
-                  src={selectedProduct.image || getMarketplaceProductImage(selectedProduct)}
-                  alt={selectedProduct.name}
-                  className="w-16 h-16 rounded-2xl object-cover bg-slate-950 border border-slate-800"
-                />
-                <div>
-                  <h3 className="font-bold text-slate-100 text-sm">{selectedProduct.name}</h3>
-                  <p className="text-xs text-slate-400 capitalize">{selectedProduct.category}</p>
+              {selectedProduct ? (
+                <div className="flex items-center gap-4">
+                  <img
+                    src={selectedProduct.image || getMarketplaceProductImage(selectedProduct)}
+                    alt={selectedProduct.name}
+                    className="w-16 h-16 rounded-2xl object-cover bg-slate-950 border border-slate-800"
+                  />
+                  <div>
+                    <h3 className="font-bold text-slate-100 text-sm">{selectedProduct.name}</h3>
+                    <p className="text-xs text-slate-400 capitalize">{selectedProduct.category}</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <h3 className="font-bold text-slate-100 text-sm">
+                    {language === 'sw' ? 'Unakamilisha oda ya cart nzima' : 'You are completing a full cart order'}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {language === 'sw'
+                      ? 'Jumla itaendana na bidhaa zilizopo kwenye checkout hii.'
+                      : 'Totals reflect every item currently included in this checkout.'}
+                  </p>
+                </div>
+              )}
 
               <div className="border-t border-slate-800 pt-4 space-y-2 text-sm">
                 <div className="flex justify-between text-slate-400">

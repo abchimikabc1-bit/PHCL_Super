@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",
+    "main": "next.config.js",
   "scripts": {
+    "clean": "npx rimraf .next",
+    "prebuild": "npm run clean",
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0 -p 3000",
     "dev:mobile": "node scripts/mobile-dev.mjs",

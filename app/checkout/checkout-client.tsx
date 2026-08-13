@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import Checkout from '@/components/marketplace/checkout';
 import { convertAmount } from '@/components/marketplace/currency-utils';
+import { formatCurrencyAmount } from '@/components/currency';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { useLanguage } from '@/hooks/use-language';
 import { getAdminSettings } from '@/lib/admin-settings';
@@ -72,6 +73,15 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mtandao wa Simu',
         paymentPhoneLabel: 'Namba ya Malipo',
         notProvided: 'Haijawekwa',
+        orderReview: 'Mapitio ya Oda',
+        itemCountLabel: 'Idadi ya Vipande',
+        subtotalLabel: 'Jumla kabla ya kodi',
+        estimatedTaxLabel: 'Makadirio ya kodi (8%)',
+        estimatedTotalLabel: 'Makadirio ya jumla',
+        shippingStatusLabel: 'Hali ya usafirishaji',
+        policyStatusLabel: 'Hali ya ridhaa',
+        ready: 'Tayari',
+        pending: 'Inasubiri',
       }
     : {
         title: 'Checkout',
@@ -125,6 +135,15 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mobile Network',
         paymentPhoneLabel: 'Payment Phone',
         notProvided: 'Not provided',
+        orderReview: 'Order Review',
+        itemCountLabel: 'Item Count',
+        subtotalLabel: 'Subtotal before tax',
+        estimatedTaxLabel: 'Estimated tax (8%)',
+        estimatedTotalLabel: 'Estimated total',
+        shippingStatusLabel: 'Shipping status',
+        policyStatusLabel: 'Consent status',
+        ready: 'Ready',
+        pending: 'Pending',
       };
   const { displayCurrency, setCurrency, enabledDisplayCurrencies } = useDisplayCurrency('usd');
   const [recentOrder, setRecentOrder] = useState<StoredOrder | null>(null);
@@ -212,6 +231,9 @@ export default function CheckoutClient() {
     () => convertAmount(total, 'usd', displayCurrency),
     [total, displayCurrency]
   );
+  const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const estimatedTaxUsd = useMemo(() => total * 0.08, [total]);
+  const estimatedGrandTotalUsd = useMemo(() => total + estimatedTaxUsd, [total, estimatedTaxUsd]);
 
   const shippingValid = useMemo(() => {
     return (
@@ -229,147 +251,157 @@ export default function CheckoutClient() {
     paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi',
     mobileDetails?: { network: string | null; phone: string }
   ) => {
-    if (maintenanceMode) {
-      toast.error(copy.checkoutDisabledMaintenance);
-      return;
+    if (isSubmitting) {
+      return false;
     }
 
-    if (paymentMethod === 'pi' && !allowPiPayments) {
-      toast.error(copy.piDisabledByAdmin);
-      return;
-    }
-
-    if (items.length === 0 || total <= 0) {
-      toast.error(copy.cartEmpty);
-      return;
-    }
-
-    if (!shippingValid) {
-      toast.error(copy.completeShippingFirst);
-      return;
-    }
-
-    if (!policyConsentValid) {
-      toast.error(copy.agreePoliciesFirst);
-      return;
-    }
-
-    const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
-    const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
-    const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
-    const mobileDetailsValid =
-      !isMobileNetworkPayment ||
-      (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
-
-    if (!mobileDetailsValid) {
-      toast.error(copy.mobileDetailsRequired);
-      return;
-    }
-
-    const preflight = reconcileCartItemsWithStock(items);
-    if (preflight.changes.length > 0) {
-      setItems(preflight.items);
-      setCartItems(preflight.items);
-
-      const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
-      const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
-
-      if (removedCount > 0) {
-        toast.warning(copy.removedBeforeCheckout(removedCount));
+    setIsSubmitting(true);
+    try {
+      if (maintenanceMode) {
+        toast.error(copy.checkoutDisabledMaintenance);
+        return false;
       }
-      if (reducedCount > 0) {
-        toast.warning(copy.reducedBeforeCheckout(reducedCount));
+
+      if (paymentMethod === 'pi' && !allowPiPayments) {
+        toast.error(copy.piDisabledByAdmin);
+        return false;
       }
-    }
 
-    const preflightItems = preflight.items;
-    if (preflightItems.length === 0) {
-      toast.error(copy.cartEmpty);
-      return;
-    }
+      if (items.length === 0 || total <= 0) {
+        toast.error(copy.cartEmpty);
+        return false;
+      }
 
-    const preflightTotal = getCartTotal(preflightItems);
-    if (preflightTotal <= 0) {
-      toast.error(copy.cartEmpty);
-      return;
-    }
+      if (!shippingValid) {
+        toast.error(copy.completeShippingFirst);
+        return false;
+      }
 
-    const stockConflicts = preflightItems
-      .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
-      .filter(({ check }) => !check.allowed);
+      if (!policyConsentValid) {
+        toast.error(copy.agreePoliciesFirst);
+        return false;
+      }
 
-    if (stockConflicts.length > 0) {
-      const firstConflict = stockConflicts[0];
-      toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
-      return;
-    }
+      const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
+      const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
+      const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
+      const mobileDetailsValid =
+        !isMobileNetworkPayment ||
+        (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
 
-    const reorderSourceOrderId =
-      typeof window !== 'undefined'
-        ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
-        : undefined;
+      if (!mobileDetailsValid) {
+        toast.error(copy.mobileDetailsRequired);
+        return false;
+      }
 
-    const order: StoredOrder = {
-      id: `ORD-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
-      totalUsd: preflightTotal,
-      paymentMethod,
-      displayCurrency,
-      items: preflightItems.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-      })),
-      customer: {
-        fullName: shipping.fullName.trim(),
-        phone: shipping.phone.trim(),
-        addressLine1: shipping.addressLine1.trim(),
-        city: shipping.city.trim(),
-        country: shipping.country.trim(),
-      },
-      audit: {
-        schemaVersion: 4,
-        sourceRoute: '/checkout',
-        channel: 'web',
-        recordedAt: new Date().toISOString(),
-        reorderSourceOrderId,
-        mobilePayment: isMobileNetworkPayment
-          ? {
-              network: (effectiveMobileDetails.network as "mpesa" | "tigopesa" | "airtelmoney" | "halopesa") || 'mpesa',
-              phone: normalizedMobilePhone,
-            }
-          : undefined,
-        consent: {
-          agreedToTerms: true,
-          agreedToPrivacy: true,
-          agreedAt: new Date().toISOString(),
-          termsVersion: policyVersions.termsVersion,
-          privacyVersion: policyVersions.privacyVersion,
+      const preflight = reconcileCartItemsWithStock(items);
+      if (preflight.changes.length > 0) {
+        setItems(preflight.items);
+        setCartItems(preflight.items);
+
+        const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
+        const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
+
+        if (removedCount > 0) {
+          toast.warning(copy.removedBeforeCheckout(removedCount));
+        }
+        if (reducedCount > 0) {
+          toast.warning(copy.reducedBeforeCheckout(reducedCount));
+        }
+      }
+
+      const preflightItems = preflight.items;
+      if (preflightItems.length === 0) {
+        toast.error(copy.cartEmpty);
+        return false;
+      }
+
+      const preflightTotal = getCartTotal(preflightItems);
+      if (preflightTotal <= 0) {
+        toast.error(copy.cartEmpty);
+        return false;
+      }
+
+      const stockConflicts = preflightItems
+        .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
+        .filter(({ check }) => !check.allowed);
+
+      if (stockConflicts.length > 0) {
+        const firstConflict = stockConflicts[0];
+        toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
+        return false;
+      }
+
+      const reorderSourceOrderId =
+        typeof window !== 'undefined'
+          ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
+          : undefined;
+
+      const order: StoredOrder = {
+        id: `ORD-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
+        totalUsd: preflightTotal,
+        paymentMethod,
+        displayCurrency,
+        items: preflightItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+        })),
+        customer: {
+          fullName: shipping.fullName.trim(),
+          phone: shipping.phone.trim(),
+          addressLine1: shipping.addressLine1.trim(),
+          city: shipping.city.trim(),
+          country: shipping.country.trim(),
         },
-      },
-    };
+        audit: {
+          schemaVersion: 4,
+          sourceRoute: '/checkout',
+          channel: 'web',
+          recordedAt: new Date().toISOString(),
+          reorderSourceOrderId,
+          mobilePayment: isMobileNetworkPayment
+            ? {
+                network: (effectiveMobileDetails.network as "mpesa" | "tigopesa" | "airtelmoney" | "halopesa") || 'mpesa',
+                phone: normalizedMobilePhone,
+              }
+            : undefined,
+          consent: {
+            agreedToTerms: true,
+            agreedToPrivacy: true,
+            agreedAt: new Date().toISOString(),
+            termsVersion: policyVersions.termsVersion,
+            privacyVersion: policyVersions.privacyVersion,
+          },
+        },
+      };
 
-    const stockCommit = applyProductStockPurchase(
-      preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
-      `order:${order.id}`
-    );
+      const stockCommit = applyProductStockPurchase(
+        preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+        `order:${order.id}`
+      );
 
-    if (!stockCommit.success) {
-      toast.error(stockCommit.reason || copy.unableUpdateStock);
-      return;
+      if (!stockCommit.success) {
+        toast.error(stockCommit.reason || copy.unableUpdateStock);
+        return false;
+      }
+
+      saveOrder(order);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
+      }
+      setRecentOrder(order);
+      setCartItems([]);
+      setItems([]);
+      toast.success(copy.orderConfirmedToast(order.id));
+      return true;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    saveOrder(order);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
-    }
-    setRecentOrder(order);
-    setCartItems([]);
-    setItems([]);
-    toast.success(copy.orderConfirmedToast(order.id));
   };
 
   return (
@@ -485,6 +517,66 @@ export default function CheckoutClient() {
           <div className="space-y-4">
             <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-sm text-amber-50/90 global-glass">
               {copy.readyForCheckout(items.length)}
+            </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 p-4 global-glass">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-amber-50">{copy.orderReview}</h2>
+                  <p className="mt-1 text-xs text-amber-50/80">{copy.itemCountLabel}: {itemCount}</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                  <span className={`rounded-full border px-3 py-1 ${shippingValid ? 'border-green-300/40 bg-green-500/10 text-green-200' : 'border-amber-300/40 bg-amber-500/10 text-amber-100'}`}>
+                    {copy.shippingStatusLabel}: {shippingValid ? copy.ready : copy.pending}
+                  </span>
+                  <span className={`rounded-full border px-3 py-1 ${policyConsentValid ? 'border-green-300/40 bg-green-500/10 text-green-200' : 'border-amber-300/40 bg-amber-500/10 text-amber-100'}`}>
+                    {copy.policyStatusLabel}: {policyConsentValid ? copy.ready : copy.pending}
+                  </span>
+                  <span className="rounded-full border border-cyan-300/40 bg-cyan-500/10 px-3 py-1 text-cyan-100">
+                    {copy.estimatedTotalLabel}: {formatCurrencyAmount(displayCurrency, convertAmount(estimatedGrandTotalUsd, 'usd', displayCurrency))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-[1.3fr_0.9fr]">
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <div key={item.id} className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white">{item.name}</p>
+                          <p className="mt-1 text-xs text-amber-50/70">
+                            {formatCurrencyAmount(displayCurrency, convertAmount(item.price, 'usd', displayCurrency))} x {item.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold text-amber-100">
+                          {formatCurrencyAmount(displayCurrency, convertAmount(item.price * item.quantity, 'usd', displayCurrency))}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-4">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between gap-3 text-amber-50/90">
+                      <span>{copy.subtotalLabel}</span>
+                      <span className="font-semibold">{formatCurrencyAmount(displayCurrency, displayTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-amber-50/90">
+                      <span>{copy.estimatedTaxLabel}</span>
+                      <span className="font-semibold">
+                        {formatCurrencyAmount(displayCurrency, convertAmount(estimatedTaxUsd, 'usd', displayCurrency))}
+                      </span>
+                    </div>
+                    <div className="border-t border-amber-200/20 pt-3 flex items-center justify-between gap-3 text-base text-white">
+                      <span className="font-semibold">{copy.estimatedTotalLabel}</span>
+                      <span className="font-black">
+                        {formatCurrencyAmount(displayCurrency, convertAmount(estimatedGrandTotalUsd, 'usd', displayCurrency))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="rounded-xl border border-white/20 bg-white/10 p-4 global-glass">
               <h2 className="text-lg font-semibold text-amber-50">{copy.shippingDetails}</h2>

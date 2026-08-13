@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
 import { toast } from 'sonner';
 import { CART_UPDATED_EVENT, CartStorageItem, addCartItem, getCartItemCount, getCartItems, getCartTotal } from '@/lib/cart-storage';
@@ -25,32 +25,78 @@ export default function MarketplacePage() {
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(999999);
   const [minRating, setMinRating] = useState(0);
+  const [availability, setAvailability] = useState<'all' | 'in-stock' | 'out-of-stock'>('all');
+  const [sortBy, setSortBy] = useState<'featured' | 'price-low' | 'price-high' | 'rating' | 'reviews'>('featured');
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   const categories = ['All', ...new Set(MARKETPLACE_PRODUCTS.map((item) => item.category))];
-  const filteredProducts =
-    activeCategory === 'All'
+  const catalogProducts = useMemo(() => {
+    const baseProducts = activeCategory === 'All'
       ? MARKETPLACE_PRODUCTS
       : MARKETPLACE_PRODUCTS.filter((item) => item.category === activeCategory);
-  
-  const searchFilteredProducts = filteredProducts.filter((item) => {
-    const matchesSearch = searchQuery === '' || 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesPrice = item.priceUSD >= minPrice && item.priceUSD <= maxPrice;
-    const matchesRating = item.rating >= minRating;
-    
-    return matchesSearch && matchesPrice && matchesRating;
-  });
 
-  const totalPages = Math.max(1, Math.ceil(searchFilteredProducts.length / cardsPerPage));
-  const visibleProducts = searchFilteredProducts.slice(page * cardsPerPage, (page + 1) * cardsPerPage);
-  
+    const filtered = baseProducts
+      .map((item) => ({
+        item,
+        status: getStockStatus(String(item.id)),
+      }))
+      .filter(({ item, status }) => {
+        const matchesSearch = searchQuery === '' ||
+          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.seller.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesPrice = item.priceUSD >= minPrice && item.priceUSD <= maxPrice;
+        const matchesRating = item.rating >= minRating;
+        const matchesAvailability =
+          availability === 'all' ||
+          (availability === 'in-stock' && status.enabled) ||
+          (availability === 'out-of-stock' && !status.enabled);
+
+        return matchesSearch && matchesPrice && matchesRating && matchesAvailability;
+      });
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.item.priceUSD - b.item.priceUSD;
+        case 'price-high':
+          return b.item.priceUSD - a.item.priceUSD;
+        case 'rating':
+          return b.item.rating - a.item.rating || b.item.reviews - a.item.reviews;
+        case 'reviews':
+          return b.item.reviews - a.item.reviews || b.item.rating - a.item.rating;
+        case 'featured':
+        default:
+          return Number(b.status.enabled) - Number(a.status.enabled) || b.item.rating - a.item.rating || b.item.reviews - a.item.reviews;
+      }
+    });
+
+    return filtered;
+  }, [activeCategory, availability, maxPrice, minPrice, minRating, searchQuery, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(catalogProducts.length / cardsPerPage));
+  const visibleProducts = catalogProducts.slice(page * cardsPerPage, (page + 1) * cardsPerPage);
+
   const allPrices = MARKETPLACE_PRODUCTS.map(p => p.priceUSD);
   const maxAvailablePrice = Math.max(...allPrices);
+  const inStockCount = catalogProducts.filter(({ status }) => status.enabled).length;
+  const averageRating = catalogProducts.length > 0
+    ? catalogProducts.reduce((total, { item }) => total + item.rating, 0) / catalogProducts.length
+    : 0;
+  const highestVisiblePrice = catalogProducts.length > 0
+    ? Math.max(...catalogProducts.map(({ item }) => item.priceUSD))
+    : 0;
+  const filtersActive =
+    activeCategory !== 'All' ||
+    searchQuery !== '' ||
+    minPrice !== 0 ||
+    maxPrice !== 999999 ||
+    minRating !== 0 ||
+    availability !== 'all' ||
+    sortBy !== 'featured';
 
   useEffect(() => {
     const syncCartCount = () => {
@@ -105,7 +151,7 @@ export default function MarketplacePage() {
 
   useEffect(() => {
     setPage(0);
-  }, [activeCategory, cardsPerPage, searchQuery, minPrice, maxPrice, minRating]);
+  }, [activeCategory, availability, cardsPerPage, maxPrice, minPrice, minRating, searchQuery, sortBy]);
 
   useEffect(() => {
     if (page > totalPages - 1) {
@@ -150,6 +196,17 @@ export default function MarketplacePage() {
         <span className="text-xs text-amber-100/80 ml-1">({rating.toFixed(1)})</span>
       </div>
     );
+  };
+
+  const resetFilters = () => {
+    setActiveCategory('All');
+    setSearchQuery('');
+    setMinPrice(0);
+    setMaxPrice(999999);
+    setMinRating(0);
+    setAvailability('all');
+    setSortBy('featured');
+    setPage(0);
   };
 
   return (
@@ -334,10 +391,73 @@ export default function MarketplacePage() {
             <div>
               <label className="text-xs font-semibold text-amber-100">Results Found</label>
               <div className="mt-2 flex items-center rounded-lg border border-amber-200/20 bg-amber-500/10 px-3 py-2" style={{ minHeight: '44px' }}>
-                <p className="text-sm font-bold text-amber-100">{searchFilteredProducts.length}</p>
+                <p className="text-sm font-bold text-amber-100">{catalogProducts.length}</p>
                 <p className="ml-2 text-xs text-amber-50/80">of {MARKETPLACE_PRODUCTS.length} products</p>
               </div>
             </div>
+          </div>
+
+          <div className={`mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4 ${isMobile && !showFilters ? 'hidden' : ''}`}>
+            <div>
+              <label className="text-xs font-semibold text-amber-100">Availability</label>
+              <select
+                value={availability}
+                onChange={(e) => setAvailability(e.target.value as 'all' | 'in-stock' | 'out-of-stock')}
+                style={{ minHeight: '44px' }}
+                className="mt-2 w-full rounded-lg border border-amber-200/20 bg-slate-800/80 px-3 py-2 text-xs text-white focus:border-amber-300 focus:outline-none"
+              >
+                <option value="all">All Products</option>
+                <option value="in-stock">In Stock Only</option>
+                <option value="out-of-stock">Unavailable Only</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-amber-100">Sort Catalog</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'featured' | 'price-low' | 'price-high' | 'rating' | 'reviews')}
+                style={{ minHeight: '44px' }}
+                className="mt-2 w-full rounded-lg border border-amber-200/20 bg-slate-800/80 px-3 py-2 text-xs text-white focus:border-amber-300 focus:outline-none"
+              >
+                <option value="featured">Featured First</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="rating">Top Rated</option>
+                <option value="reviews">Most Reviewed</option>
+              </select>
+            </div>
+
+            <div className="rounded-lg border border-amber-200/20 bg-slate-800/50 px-3 py-2">
+              <p className="text-xs font-semibold text-amber-100">Available Now</p>
+              <p className="mt-1 text-lg font-bold text-white">{inStockCount}</p>
+              <p className="text-[11px] text-amber-50/70">ready for cart or checkout</p>
+            </div>
+
+            <div className="rounded-lg border border-amber-200/20 bg-slate-800/50 px-3 py-2">
+              <p className="text-xs font-semibold text-amber-100">Average Rating</p>
+              <p className="mt-1 text-lg font-bold text-white">{averageRating > 0 ? averageRating.toFixed(1) : '0.0'} ⭐</p>
+              <p className="text-[11px] text-amber-50/70">across the visible catalog</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-100">
+              Max visible price: {highestVisiblePrice > 0 ? `$${highestVisiblePrice.toLocaleString('en-US')}` : 'N/A'}
+            </span>
+            <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-3 py-1 text-[11px] text-amber-100">
+              Catalog cap: ${maxAvailablePrice.toLocaleString('en-US')}
+            </span>
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                style={{ minHeight: '44px' }}
+                className="rounded-full border border-rose-300/30 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/20"
+              >
+                Reset filters
+              </button>
+            )}
           </div>
         </div>
 
@@ -345,7 +465,7 @@ export default function MarketplacePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-white">Catalog Deck</p>
-              <p className="text-xs text-amber-50/80">Showing {visibleProducts.length} of {searchFilteredProducts.length} products</p>
+              <p className="text-xs text-amber-50/80">Showing {visibleProducts.length} of {catalogProducts.length} products</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -389,15 +509,24 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {searchFilteredProducts.length === 0 ? (
+        {catalogProducts.length === 0 ? (
           <div className="rounded-2xl border border-amber-200/20 bg-slate-900/45 p-12 text-center global-glass">
             <p className="text-lg font-semibold text-amber-100">No products found</p>
             <p className="mt-2 text-sm text-amber-50/70">Try adjusting your search filters or category selection.</p>
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                style={{ minHeight: '44px' }}
+                className="mt-4 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-5 py-2.5 text-sm font-semibold text-slate-900"
+              >
+                Reset Catalog Filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visibleProducts.map((item) => {
-              const status = getStockStatus(String(item.id));
+            {visibleProducts.map(({ item, status }, index) => {
               return (
                 <div
                   key={item.id}
@@ -422,7 +551,7 @@ export default function MarketplacePage() {
                         alt={item.name}
                         fill
                         category={item.category}
-                        priority={shouldPriorityLoad(visibleProducts.indexOf(item), cardsPerPage)}
+                        priority={shouldPriorityLoad(index, cardsPerPage)}
                         sizes={IMAGE_SIZES.PRODUCT_GRID}
                         className="object-cover transition duration-300 group-hover:scale-105"
                         containerClassName="w-full h-full"

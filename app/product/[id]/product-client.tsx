@@ -2,13 +2,14 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { addCartItem } from '@/lib/cart-storage';
 import { getAdminSettings } from '@/lib/admin-settings';
 import { canAddToCart, getStockStatus } from '@/lib/admin-product-stock';
-import { getMarketplaceProductImage } from '@/lib/marketplace-products';
+import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
 import { OptimizedImage } from '@/components/optimized-image';
 import { PI_GCV_USD, USD_TO_TZS, convertAmount, formatCurrencyAmount } from '@/components/currency';
 
@@ -27,6 +28,7 @@ interface ProductClientProps {
 }
 
 export default function ProductClient({ product }: ProductClientProps) {
+  const router = useRouter();
   const { displayCurrency, setCurrency, enabledDisplayCurrencies } = useDisplayCurrency('usd');
   const [addedToCart, setAddedToCart] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -66,6 +68,14 @@ export default function ProductClient({ product }: ProductClientProps) {
   const tzsPrice = usdPrice * USD_TO_TZS;
   const ntzsPrice = convertAmount(usdPrice, 'usd', 'ntzs');
   const piPrice = usdPrice / PI_GCV_USD;
+  const relatedProducts = useMemo(
+    () =>
+      MARKETPLACE_PRODUCTS
+        .filter((item) => item.id !== product.id && item.category === product.category)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.reviews || 0) - (a.reviews || 0))
+        .slice(0, 3),
+    [product.category, product.id]
+  );
 
   const handleAddToCart = () => {
     if (maintenanceMode) {
@@ -88,6 +98,29 @@ export default function ProductClient({ product }: ProductClientProps) {
     });
     setAddedToCart(true);
     toast.success(`${product.name} added to cart`);
+  };
+
+  const handleBuyNow = () => {
+    if (maintenanceMode) {
+      toast.error('Storefront is in maintenance mode. Cart actions are temporarily paused.');
+      return;
+    }
+
+    const stockCheck = canAddToCart(String(product.id), 1);
+    if (!stockCheck.allowed) {
+      toast.error(stockCheck.reason || 'Product is unavailable');
+      return;
+    }
+
+    addCartItem({
+      id: String(product.id),
+      name: product.name,
+      price: product.priceUSD,
+      quantity: 1,
+      image: getMarketplaceProductImage(product),
+    });
+    toast.success(`${product.name} added. Redirecting to checkout...`);
+    router.push('/checkout');
   };
 
   return (
@@ -192,6 +225,23 @@ export default function ProductClient({ product }: ProductClientProps) {
                 <p className="mt-1 text-2xl font-black text-yellow-100 drop-shadow-[0_0_18px_rgba(253,224,71,0.24)]">{formatCurrencyAmount(displayCurrency, displayPrice)}</p>
               </div>
 
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-50/75">Verified seller</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{product.seller || 'PHCL Verified Merchant'}</p>
+                  <p className="mt-1 text-xs text-white/75">Trusted listing with live pricing and stock-aware checkout.</p>
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-50/75">Market confidence</p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {typeof product.reviews === 'number' ? `${product.reviews} recent buyer signals` : 'Fresh premium listing'}
+                  </p>
+                  <p className="mt-1 text-xs text-white/75">
+                    Rated {typeof product.rating === 'number' ? product.rating.toFixed(1) : '4.5'} / 5 in the active catalog.
+                  </p>
+                </div>
+              </div>
+
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -212,12 +262,68 @@ export default function ProductClient({ product }: ProductClientProps) {
                         ? 'Added to Cart'
                         : 'Add to Cart'}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  disabled={maintenanceMode || !stockStatus.enabled}
+                  style={{ minHeight: '44px', paddingTop: '12px', paddingBottom: '12px' }}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                    maintenanceMode || !stockStatus.enabled
+                      ? 'cursor-not-allowed bg-white/15 text-white/60'
+                      : 'bg-emerald-400/90 text-slate-950 hover:bg-emerald-300'
+                  }`}
+                >
+                  Buy Now
+                </button>
                 <Link href="/cart" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }} className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white">View Cart</Link>
               </div>
             </div>
           </div>
           <p className="mt-4 text-xs text-white/85">Pi conversion rate: 1 PI = ${PI_GCV_USD.toLocaleString('en-US')} GCV</p>
         </div>
+
+        {relatedProducts.length > 0 && (
+          <div className="mt-8 rounded-3xl border border-white/20 bg-white/10 p-6 global-glass">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-100">Continue Browsing</p>
+                <h2 className="mt-2 text-2xl font-black text-white">Related in {product.category}</h2>
+              </div>
+              <Link href="/marketplace" className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white">
+                Open Catalog
+              </Link>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              {relatedProducts.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/product/${item.id}`}
+                  className="group overflow-hidden rounded-2xl border border-white/15 bg-slate-900/40 transition hover:-translate-y-1 hover:border-amber-300/40"
+                >
+                  <div className="relative aspect-video overflow-hidden">
+                    <OptimizedImage
+                      src={getMarketplaceProductImage(item)}
+                      alt={item.name}
+                      fill
+                      category={item.category}
+                      className="object-cover transition duration-300 group-hover:scale-105"
+                      containerClassName="h-full w-full"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm font-semibold text-white">{item.name}</p>
+                    <p className="mt-1 text-xs text-amber-50/70 line-clamp-2">{item.description}</p>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <span className="text-sm font-bold text-amber-100">${item.priceUSD.toLocaleString('en-US')}</span>
+                      <span className="text-xs text-white/70">{(item.rating || 0).toFixed(1)} ⭐</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );
