@@ -1,112 +1,34 @@
-# PHCL Bulk Purchase Discount System
+# PHCL Super Bulk Discount Guide
 
-## Overview
-The 10% bulk discount system is fully integrated into PHCL and automatically applies when customers purchase 3+ items.
+## Current Implementation
 
-## How It Works
+Bulk discount support is documented by the files that exist in the current repository:
 
-### Automatic Application
-- **Threshold**: 3 or more items
-- **Discount**: 10% off total purchase price
-- **Code**: BULK10 (optional - discount applies automatically)
-- **No expiry**: Always available
-- **Unlimited uses**: Applies to all customers
+- `lib/promo-system.ts` - promo and discount logic
+- `components/bulk-discount-calculator.tsx` - quantity-based discount calculator
+- `components/shopping-cart.tsx` - cart summary, promo application, and totals
+- `app/cart/cart-client.tsx` - cart page wiring
+- `app/bulk-discount-test/page.tsx` - internal verification screen for discount tiers
 
-### Where Users See It
+## Where the Feature Appears
 
-#### 1. Welcome Page (Before Registration)
-- **Location**: `/welcome` → Promotional Offers Section
-- **Display**: Shows BULK10 code with 10% discount amount
-- **Action**: Users can copy code before signup
-- **File**: `/app/welcome/page.tsx`
+### Cart flow
+- Route: `/cart`
+- File: `app/cart/page.tsx`
+- Purpose: review cart items, apply promo discounts, and continue to checkout
 
-#### 2. Marketplace Page (After Entry)
-- **Location**: `/marketplace` → Bulk Discount Calculator
-- **Display**: Interactive calculator showing:
-  - Add items → see 10% savings immediately
-  - Quick select buttons (3, 5, 10, 20 items)
-  - Exact savings amount
-- **File**: `/components/bulk-discount-calculator.tsx`
+### Bulk discount verification
+- Route: `/bulk-discount-test`
+- File: `app/bulk-discount-test/page.tsx`
+- Purpose: exercise the calculator against sample prices and quantity tiers
 
-#### 3. Shopping Cart (During Purchase)
-- **Location**: Shopping cart view
-- **Display**: Auto-detects 3+ items and shows:
-  - 10% discount applied
-  - Original price
-  - Discounted price
-  - Savings amount
-- **File**: `/components/shopping-cart.tsx`
+## Current Discount Tiers
 
-#### 4. Wallet Dashboard (Registered Users)
-- **Location**: `/wallet` → Special Offers & Discounts
-- **Display**: Available promotions with:
-  - BULK10 code details
-  - How to qualify (3+ items)
-  - Apply button
-- **File**: `/components/promo-dashboard.tsx`
+- 1-2 items: no discount
+- 3-4 items: 10% off
+- 5-9 items: 20% off
+- 10+ items: 25% off
 
-#### 5. Admin Panel (Manage Promotions)
-- **Location**: `/admin` → Promos tab
-- **Features**:
-  - View BULK10 statistics
-  - Edit discount percentage
-  - Change minimum quantity threshold
-  - Track usage (1240+ uses)
-- **File**: `/components/admin-promo-panel.tsx`
+## Cleanup Note
 
-## Technical Implementation
-
-### Data Structure
-```typescript
-{
-  id: "promo_bulk10",
-  code: "BULK10",
-  type: "bulk",
-  discount: 10,
-  description: "10% discount on bulk purchases of 3+ items",
-  minQuantity: 3,
-  bulkThreshold: 3,
-  maxUses: null,
-  usedCount: 1240,
-  expiryDate: "2025-12-31",
-  status: "active"
-}
-```
-
-### Validation Logic
-- Checks if order quantity >= bulkThreshold
-- Applies discount percentage to subtotal
-- Prevents double-discounting with other promos
-- Calculates final price with tax
-
-### Calculation Example
-- 5 items @ $100 each = $500
-- Apply 10% bulk discount = $500 × 0.90 = $450
-- Savings: $50
-
-## Multi-Language Support
-All bulk discount messaging is available in 10 languages:
-- English, Swahili, Chinese, French, Spanish, Arabic, Portuguese, German, Japanese, Korean
-
-## Key Features
-✓ Automatic application (no code entry required)
-✓ Real-time calculator on marketplace
-✓ Pre-registration visibility
-✓ Post-registration tracking
-✓ Admin management tools
-✓ Bilingual interface (10 languages)
-✓ Mobile responsive
-✓ No expiry date
-✓ Unlimited uses
-✓ Complete audit trail
-
-## Files Involved
-- `/lib/promo-system.ts` - Core logic
-- `/components/bulk-discount-calculator.tsx` - Interactive calculator
-- `/components/shopping-cart.tsx` - Cart with auto-discount
-- `/components/promo-dashboard.tsx` - User dashboard
-- `/components/admin-promo-panel.tsx` - Admin management
-- `/app/welcome/page.tsx` - Pre-registration display
-- `/app/marketplace/page.tsx` - Marketplace integration
-- `/app/wallet/page.tsx` - Post-registration display
-- `/app/admin/page.tsx` - Admin interface
+Do not document `/app/welcome/page.tsx`, `/app/admin/page.tsx`, `components/promo-dashboard.tsx`, or `components/admin-promo-panel.tsx` as active bulk-discount surfaces unless those files are added back.
