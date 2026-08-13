@@ -30,7 +30,7 @@ const checks = [
   { path: '/admin/security', expected: 307, expectedLocation: '/admin/login?redirect=%2Fadmin%2Fsecurity' },
 ];
 
-const hostChecks = checks.map((c) => ({ ...c, host: 'phclsuper.com', expected: 200 }));
+const hostChecks = checks.map((c) => ({ ...c, host: 'phclsuper.com' }));
 
 const apiChecks = [
   {
@@ -123,6 +123,17 @@ function requestRoute(baseUrl, route, method = 'GET', body, extraHeaders = {}) {
   });
 }
 
+function normalizeLocation(location) {
+  if (!location) return '';
+
+  try {
+    const parsed = new URL(location);
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return location;
+  }
+}
+
 async function waitForServerReady(baseUrl, timeoutMs = 60000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -197,6 +208,13 @@ async function run() {
         const response = await requestRoute(baseUrl, check.path);
         if (response.status !== check.expected) {
           failures.push(`${check.path} returned ${response.status}, expected ${check.expected}`);
+        } else if (
+          typeof check.expectedLocation === 'string' &&
+          normalizeLocation(response.location) !== check.expectedLocation
+        ) {
+          failures.push(
+            `${check.path} redirected to ${normalizeLocation(response.location) || '(empty)'}, expected ${check.expectedLocation}`
+          );
         } else {
           console.log(`PASS ${check.path} -> ${response.status}`);
         }
@@ -214,9 +232,12 @@ async function run() {
           continue;
         }
 
-        if (typeof check.expectedLocation === 'string' && response.location !== check.expectedLocation) {
+        if (
+          typeof check.expectedLocation === 'string' &&
+          normalizeLocation(response.location) !== check.expectedLocation
+        ) {
           failures.push(
-            `[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`
+            `[host:${check.host}] ${check.path} redirected to ${normalizeLocation(response.location) || '(empty)'}, expected ${check.expectedLocation}`
           );
           continue;
         }
