@@ -16,13 +16,26 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey &&
+    firebaseConfig.authDomain &&
+    firebaseConfig.projectId &&
+    firebaseConfig.storageBucket &&
+    firebaseConfig.messagingSenderId &&
+    firebaseConfig.appId
+);
+const app =
+  typeof window !== 'undefined' && hasFirebaseConfig
+    ? getApps().length === 0
+      ? initializeApp(firebaseConfig)
+      : getApp()
+    : null;
+const auth = app ? getAuth(app) : null;
+const db = app ? getFirestore(app) : null;
 
 export default function WithdrawPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(hasFirebaseConfig);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<'pi' | 'usdt' | 'tzs' | 'btc'>('pi');
   const [destination, setDestination] = useState('');
@@ -31,6 +44,11 @@ export default function WithdrawPage() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -40,7 +58,7 @@ export default function WithdrawPage() {
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !db) return;
     if (!amount || !destination) {
       setStatusMessage('Tafadhali jaza sehemu zote!');
       return;
@@ -116,6 +134,17 @@ export default function WithdrawPage() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <p className="text-xl font-bold animate-pulse">Inapakia Usalama wa Utoaji... 🔐</p>
+      </div>
+    );
+  }
+
+  if (!hasFirebaseConfig) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
+        <h1 className="text-3xl font-black mb-4 text-amber-300">Firebase config missing</h1>
+        <p className="text-gray-400 mb-6 text-center max-w-md">
+          Weka NEXT_PUBLIC_FIREBASE_* values zako kwanza kabla ya kutoa fedha.
+        </p>
       </div>
     );
   }

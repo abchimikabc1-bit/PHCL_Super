@@ -1,16 +1,14 @@
 // src/lib/user-profile.ts
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-  increment,
-} from 'firebase/firestore';
+import { getApp, getApps } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp, increment } from 'firebase/firestore';
 
-// Kuanzisha Firestore instance
-export const db = getFirestore();
+function getDb() {
+  if (getApps().length === 0) {
+    throw new Error('Firebase app has not been initialized.');
+  }
+
+  return getFirestore(getApp());
+}
 
 export interface UserProfile {
   uid: string;
@@ -41,6 +39,7 @@ export async function createUserProfile(
   fullName: string,
   phone: string
 ): Promise<void> {
+  const db = getDb();
   const userRef = doc(db, 'users', uid);
 
   const defaultProfile: Omit<UserProfile, 'uid' | 'createdAt' | 'updatedAt'> = {
@@ -69,6 +68,7 @@ export async function createUserProfile(
  * Inasoma taarifa za mtumiaji aliyeko active kwa usalama
  */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const db = getDb();
   const userRef = doc(db, 'users', uid);
   const userDoc = await getDoc(userRef);
 
@@ -89,6 +89,7 @@ export async function updateUserProfile(
   uid: string,
   data: Partial<Omit<UserProfile, 'uid' | 'balances' | 'role' | 'createdAt' | 'updatedAt'>>
 ): Promise<void> {
+  const db = getDb();
   const userRef = doc(db, 'users', uid);
   await updateDoc(userRef, {
     ...data,
@@ -105,6 +106,7 @@ export async function adjustUserBalance(
   currency: 'usd' | 'tzs' | 'ntzs' | 'pi',
   amount: number
 ): Promise<void> {
+  const db = getDb();
   const userRef = doc(db, 'users', uid);
   const balanceField = `balances.${currency}`;
 

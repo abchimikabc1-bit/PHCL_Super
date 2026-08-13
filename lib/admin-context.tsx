@@ -11,8 +11,8 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Tunaagiza 'auth' na kazi za Firebase Client SDK tulizozisakinisha
-import { auth } from '@/lib/auth';
+// Tunaagiza auth helper na kazi za Firebase Client SDK tulizozisakinisha
+import { getClientAuth } from '@/lib/auth';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 type LoginResult = {
@@ -92,6 +92,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
     try {
       // 1. USALAMA MKUBWA: Kuhakiki barua pepe na neno la siri kupitia Firebase Client SDK kwanza upande wa Client
+      const auth = getClientAuth();
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // 2. Kuchukua Firebase ID Token (JWT Token iliyosainiwa ki-cryptographic na Google)
@@ -135,6 +136,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       // 1. Kutoka kwenye Firebase Client SDK
+      const auth = getClientAuth();
       await signOut(auth);
 
       // 2. Kufuta secure httpOnly session cookie kule kwenye seva

@@ -20,15 +20,33 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Kuzuia kuanzisha upya App wakati wa Fast Refresh kwenye Next.js
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
+const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey &&
+    firebaseConfig.authDomain &&
+    firebaseConfig.projectId &&
+    firebaseConfig.storageBucket &&
+    firebaseConfig.messagingSenderId &&
+    firebaseConfig.appId
+);
+
+function getFirebaseAuth() {
+  if (!hasFirebaseConfig) {
+    throw new Error('Firebase configuration is missing.');
+  }
+
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  return getAuth(app);
+}
+
+export function getClientAuth() {
+  return getFirebaseAuth();
+}
 
 /**
  * 1. Kujisajili (Sign Up / Register)
  */
 export async function registerWithEmail(email: string, password: string): Promise<User> {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const userCredential = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
   return userCredential.user;
 }
 
@@ -36,7 +54,7 @@ export async function registerWithEmail(email: string, password: string): Promis
  * 2. Kuingia (Sign In / Login)
  */
 export async function loginWithEmail(email: string, password: string): Promise<User> {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const userCredential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
   return userCredential.user;
 }
 
@@ -44,14 +62,14 @@ export async function loginWithEmail(email: string, password: string): Promise<U
  * 3. Kutoka (Sign Out / Logout)
  */
 export async function logoutUser(): Promise<void> {
-  await signOut(auth);
+  await signOut(getFirebaseAuth());
 }
 
 /**
  * 4. Kurejesha/Kusahau Neno la Siri (Password Reset)
  */
 export async function resetUserPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
+  await sendPasswordResetEmail(getFirebaseAuth(), email);
 }
 
 /**
@@ -59,5 +77,10 @@ export async function resetUserPassword(email: string): Promise<void> {
  * Hii inafuatilia ikiwa mtumiaji ameingia au ametoka ili kubadilisha muonekano wa duka
  */
 export function subscribeToAuth(callback: (user: User | null) => void) {
-  return onAuthStateChanged(auth, callback);
+  if (!hasFirebaseConfig) {
+    callback(null);
+    return () => undefined;
+  }
+
+  return onAuthStateChanged(getFirebaseAuth(), callback);
 }
