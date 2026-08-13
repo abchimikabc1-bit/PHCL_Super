@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useAdmin } from '@/lib/admin-context';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
@@ -36,7 +36,7 @@ export default function AdminLanguagesPage() {
     setAuditEvents(snapshot.languageAudit);
   }, [snapshot]);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/admin/login');
       return;
@@ -46,7 +46,7 @@ export default function AdminLanguagesPage() {
       setConfig(getAdminLanguageConfig());
       setAuditEvents(getAdminLanguageAudit());
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router]));
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoadingGuardElapsed(true), 4000);

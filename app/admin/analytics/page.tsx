@@ -392,7 +392,7 @@ export default function AdminAnalyticsPage() {
       .slice(-7);
   }, [walletLedger]);
 
-  const reconciliationMetrics = useMemo(() => {
+  const reconciliationMetrics = (() => {
     const orders = getOrders();
     const withPaymentTxn = orders.filter((order) => order.audit?.paymentTransactionId).length;
     const cancelledOrders = orders.filter((order) => order.audit?.cancellation?.cancelledAt);
@@ -406,7 +406,7 @@ export default function AdminAnalyticsPage() {
       paymentCoverage: orders.length > 0 ? (withPaymentTxn / orders.length) * 100 : 100,
       refundCoverage: cancelledOrders.length > 0 ? (withRefundTxn / cancelledOrders.length) * 100 : 100,
     };
-  }, [walletLedger, metrics]);
+  })();
 
   if (loading || !metrics) {
     return (

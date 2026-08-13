@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CURRENCIES, CURRENCY_RATES } from '@/lib/currencies';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
@@ -38,7 +38,7 @@ export default function AdminCurrenciesPage() {
     setAuditEvents(snapshot.currencyAudit);
   }, [snapshot]);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/admin/login');
       return;
@@ -48,7 +48,7 @@ export default function AdminCurrenciesPage() {
       setConfig(getAdminCurrencyConfig());
       setAuditEvents(getAdminCurrencyAudit());
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router]));
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoadingGuardElapsed(true), 4000);

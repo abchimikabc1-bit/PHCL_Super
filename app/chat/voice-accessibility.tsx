@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -172,6 +172,32 @@ export default function VoiceAccessibility({ autoStartVoice = false }: VoiceAcce
 
   const introText = useMemo(() => INTRO_BY_LANG[voiceLanguage], [voiceLanguage]);
 
+  const speakText = useCallback((text: string, languageOverride?: VoiceLanguage) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    const selectedLanguage = languageOverride ?? voiceLanguage;
+    const selectedSpeechCode =
+      VOICE_LANG_OPTIONS.find((option) => option.code === selectedLanguage)?.speechCode || activeSpeechCode;
+
+    setSpokenText(text);
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = selectedSpeechCode;
+
+    const voices = window.speechSynthesis.getVoices();
+    const exactVoice = voices.find((voice) => voice.lang.toLowerCase() === selectedSpeechCode.toLowerCase());
+    const familyVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith(selectedSpeechCode.slice(0, 2).toLowerCase()));
+    if (exactVoice || familyVoice) {
+      utterance.voice = exactVoice || familyVoice || null;
+    }
+
+    utterance.rate = 0.96;
+    utterance.pitch = 1.0;
+    utterance.onstart = () => setSpokenText(text);
+    window.speechSynthesis.speak(utterance);
+  }, [activeSpeechCode, voiceLanguage]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -231,41 +257,13 @@ export default function VoiceAccessibility({ autoStartVoice = false }: VoiceAcce
 
       recognitionRef.current = recognition;
     }
-  }, [activeSpeechCode, voiceLanguage]);
+  }, [activeSpeechCode, speakText, voiceLanguage]);
 
   useEffect(() => {
     if (!autoStartVoice || !supported || !voiceLanguageReady || autoIntroDone) return;
-    speakText(INTRO_BY_LANG[voiceLanguage], voiceLanguage);
+    speakText(introText, voiceLanguage);
     setAutoIntroDone(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStartVoice, supported, voiceLanguageReady, autoIntroDone, voiceLanguage]);
-
-  const speakText = (text: string, languageOverride?: VoiceLanguage) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-
-    const selectedLanguage = languageOverride ?? voiceLanguage;
-    const selectedSpeechCode =
-      VOICE_LANG_OPTIONS.find((option) => option.code === selectedLanguage)?.speechCode || activeSpeechCode;
-
-    // Update UI instantly so users do not see stale previous-language text.
-    setSpokenText(text);
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = selectedSpeechCode;
-
-    const voices = window.speechSynthesis.getVoices();
-    const exactVoice = voices.find((voice) => voice.lang.toLowerCase() === selectedSpeechCode.toLowerCase());
-    const familyVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith(selectedSpeechCode.slice(0, 2).toLowerCase()));
-    if (exactVoice || familyVoice) {
-      utterance.voice = exactVoice || familyVoice || null;
-    }
-
-    utterance.rate = 0.96;
-    utterance.pitch = 1.0;
-    utterance.onstart = () => setSpokenText(text);
-    window.speechSynthesis.speak(utterance);
-  };
+  }, [autoStartVoice, autoIntroDone, introText, speakText, supported, voiceLanguage, voiceLanguageReady]);
 
   const startListening = () => {
     if (!recognitionRef.current) return;

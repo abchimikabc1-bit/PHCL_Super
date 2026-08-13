@@ -136,7 +136,6 @@ export function ProductPhoneGallery({ product, darkMode, onAddToCart }: PhoneGal
                   : 'border-gray-300 hover:border-blue-400'
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={img.url} alt={img.type} className="w-full h-full object-cover" />
               <span className="text-xs text-center block mt-1">{img.type}</span>
             </button>

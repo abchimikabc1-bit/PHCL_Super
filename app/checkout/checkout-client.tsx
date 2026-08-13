@@ -19,8 +19,10 @@ export default function CheckoutClient() {
   const { language } = useLanguage();
   const isSwahili = language === 'sw';
 
-  const copy = isSwahili
-    ? {
+  const copy = useMemo(
+    () =>
+      isSwahili
+        ? {
         title: 'Malipo',
         subtitle: 'Kamilisha ununuzi wako kwa kutumia USD, TZS, nTZS, au PI.',
         backToCart: 'Rudi Cart',
@@ -73,7 +75,7 @@ export default function CheckoutClient() {
         paymentPhoneLabel: 'Namba ya Malipo',
         notProvided: 'Haijawekwa',
       }
-    : {
+        : {
         title: 'Checkout',
         subtitle: 'Complete your purchase using USD, TZS, nTZS, or PI.',
         backToCart: 'Back to Cart',
@@ -125,7 +127,9 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mobile Network',
         paymentPhoneLabel: 'Payment Phone',
         notProvided: 'Not provided',
-      };
+      },
+    [isSwahili]
+  );
   const { displayCurrency, setCurrency, enabledDisplayCurrencies } = useDisplayCurrency('usd');
   const [recentOrder, setRecentOrder] = useState<StoredOrder | null>(null);
   const [allowPiPayments, setAllowPiPayments] = useState(true);
@@ -183,7 +187,7 @@ export default function CheckoutClient() {
       window.removeEventListener(CART_UPDATED_EVENT, sync);
       window.removeEventListener('storage', sync);
     };
-  }, []);
+  }, [copy]);
 
   useEffect(() => {
     const syncSettings = () => {

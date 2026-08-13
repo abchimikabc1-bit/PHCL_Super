@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAdmin } from '@/lib/admin-context';
@@ -33,7 +33,7 @@ export default function ProductsPage() {
     (typeof adminUser?.email === 'string' && adminUser.email.trim()) ||
     'PHCL Administrator';
 
-  const fetchStockData = async () => {
+  const fetchStockData = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/stock', { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch');
@@ -53,15 +53,15 @@ export default function ProductsPage() {
       setStocks(config.products);
       setAuditEvents(getProductStockAudit());
     }
-  };
+  }, []);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/admin/login');
       return;
     }
     void fetchStockData();
-  }, [isAuthenticated, isLoading, router]);
+  }, [fetchStockData, isAuthenticated, isLoading, router]));
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoadingGuardElapsed(true), 4000);

@@ -3,18 +3,20 @@
 import { useEffect } from 'react';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';
 
-export function useCommerceBootstrap(onReady: () => void, deps: unknown[] = []) {
+export function useCommerceBootstrap(onReady: () => void | (() => void)) {
   useEffect(() => {
     let active = true;
+    let cleanup: void | (() => void);
 
     void refreshCommerceClientCache().finally(() => {
       if (active) {
-        onReady();
+        cleanup = onReady();
       }
     });
 
     return () => {
       active = false;
+      cleanup?.();
     };
-  }, deps);
+  }, [onReady]);
 }

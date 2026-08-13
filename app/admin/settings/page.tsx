@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAdmin } from '@/lib/admin-context';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
@@ -54,12 +54,12 @@ export default function AdminSettingsPage() {
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
 
-  const refreshPolicyState = () => {
+  const refreshPolicyState = useCallback(() => {
     setPolicyRegistry(getPolicyRegistry());
     setPolicyVersions(getPolicyVersions());
-  };
+  }, []);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/admin/login');
       return;
@@ -70,7 +70,7 @@ export default function AdminSettingsPage() {
       setAuditEvents(getAdminSettingsAudit());
       refreshPolicyState();
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, refreshPolicyState, router]));
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoadingGuardElapsed(true), 4000);

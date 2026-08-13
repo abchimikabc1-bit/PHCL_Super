@@ -1,7 +1,7 @@
 // app/wallet/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { PI_GCV_USD, convertAmount, formatCurrencyAmount } from '@/components/currency';
@@ -138,7 +138,7 @@ export default function WalletPage() {
     setLedger(commerceSnapshot.walletLedger);
   }, [commerceSnapshot]);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     const syncWallet = () => {
       setSnapshot(getWalletSnapshot());
       setLedger(getWalletLedger());
@@ -152,7 +152,7 @@ export default function WalletPage() {
       window.removeEventListener(WALLET_UPDATED_EVENT, syncWallet);
       window.removeEventListener('storage', syncWallet);
     };
-  }, []);
+  }, []));
 
   const totalUsd = useMemo(() => {
     return (

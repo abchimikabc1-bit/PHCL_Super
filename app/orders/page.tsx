@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { convertAmount, formatCurrencyAmount } from '@/components/currency';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
@@ -24,7 +24,7 @@ export default function OrdersPage() {
     setOrders(snapshot.orders);
   }, [snapshot]);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     const syncOrders = () => setOrders(getOrders());
     syncOrders();
     window.addEventListener(ORDERS_UPDATED_EVENT, syncOrders);
@@ -36,7 +36,7 @@ export default function OrdersPage() {
       window.removeEventListener('storage', syncOrders);
       window.removeEventListener('focus', syncOrders);
     };
-  }, []);
+  }, []));
 
   const totalOrders = orders.length;
   const totalValueDisplay = useMemo(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAdmin } from '@/lib/admin-context';
@@ -58,7 +58,7 @@ export default function AdminDashboardPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  useCommerceBootstrap(() => {
+  useCommerceBootstrap(useCallback(() => {
     const syncDashboard = () => {
       setStockHealth(getProductStockHealthSummary());
       setCriticalStocks(getCriticalStockProducts(6));
@@ -124,7 +124,7 @@ export default function AdminDashboardPage() {
     syncDashboard();
     window.addEventListener('storage', syncDashboard);
     return () => window.removeEventListener('storage', syncDashboard);
-  }, []);
+  }, []));
 
   const revenueMetrics = useMemo(() => {
     return {

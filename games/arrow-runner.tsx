@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Trophy } from 'lucide-react';
 
 interface ArrowRunnerProps {
@@ -27,7 +27,7 @@ export function ArrowRunner({ darkMode }: ArrowRunnerProps) {
     setObstacles([]);
   };
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     if (score > highScore) setHighScore(score);
     setGameActive(false);
     setScore(0);
@@ -35,7 +35,7 @@ export function ArrowRunner({ darkMode }: ArrowRunnerProps) {
     setPlayerLane(1);
     setSpeed(5);
     setObstacles([]);
-  };
+  }, [highScore, score]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,7 +93,7 @@ export function ArrowRunner({ darkMode }: ArrowRunnerProps) {
     }, 50);
 
     return () => clearInterval(gameLoopRef.current);
-  }, [gameActive, distance, playerLane]);
+  }, [distance, gameActive, handleReset, playerLane, speed]);
 
   const lanes = [0, 1, 2];
 
