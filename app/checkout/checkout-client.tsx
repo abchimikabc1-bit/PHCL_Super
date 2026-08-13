@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import Checkout from '@/components/marketplace/checkout';
 import { convertAmount } from '@/components/marketplace/currency-utils';
@@ -11,11 +12,13 @@ import { getAdminSettings } from '@/lib/admin-settings';
 import { applyProductStockPurchase, canAddToCart, revertProductStockPurchase } from '@/lib/admin-product-stock';
 import { reconcileCartItemsWithStock } from '@/lib/cart-stock-reconcile';
 import { CART_UPDATED_EVENT, CartStorageItem, getCartItems, getCartTotal, setCartItems } from '@/lib/cart-storage';
-import { REORDER_SOURCE_KEY, StoredOrder, saveOrder } from '@/lib/order-storage';
+import { hydrateCommerceStateFromServer } from '@/lib/commerce-sync';
+import { REORDER_SOURCE_KEY, StoredOrder, getOrders, saveOrder } from '@/lib/order-storage';
 import { getPolicyVersions } from '@/lib/policy-compliance';
 
 export default function CheckoutClient() {
   const [items, setItems] = useState<CartStorageItem[]>([]);
+  const searchParams = useSearchParams();
   const { language } = useLanguage();
   const isSwahili = language === 'sw';
 
@@ -75,6 +78,11 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mtandao wa Simu',
         paymentPhoneLabel: 'Namba ya Malipo',
         paymentReference: 'Rejea ya Malipo',
+        paymentStatus: 'Hali ya Malipo',
+        redirectingToStripe: 'Inakupeleka Stripe kukamilisha malipo ya kadi.',
+        paymentPending: 'Malipo yamepokelewa kwenye oda; tunasubiri uthibitisho wa Stripe.',
+        paymentPaidToast: (orderId: string) => `Malipo ya oda ${orderId} yamethibitishwa`,
+        paymentCancelled: 'Malipo ya kadi yamesitishwa. Unaweza kujaribu tena kwa rejea hiyo hiyo ya oda.',
         notProvided: 'Haijawekwa',
       }
         : {
@@ -130,6 +138,11 @@ export default function CheckoutClient() {
         mobileNetworkLabel: 'Mobile Network',
         paymentPhoneLabel: 'Payment Phone',
         paymentReference: 'Payment Reference',
+        paymentStatus: 'Payment Status',
+        redirectingToStripe: 'Redirecting to Stripe to complete your card payment.',
+        paymentPending: 'Your order was received and is waiting for Stripe payment confirmation.',
+        paymentPaidToast: (orderId: string) => `Payment for order ${orderId} confirmed`,
+        paymentCancelled: 'Card payment was cancelled. You can retry using the same order reference.',
         notProvided: 'Not provided',
       },
     [isSwahili]
@@ -162,6 +175,12 @@ export default function CheckoutClient() {
     if (network === 'airtelmoney') return 'Airtel Money';
     if (network === 'halopesa') return 'HaloPesa';
     return network;
+  };
+  const resolvePaymentStatusLabel = (status?: string) => {
+    if (status === 'paid') return isSwahili ? 'Imelipwa' : 'Paid';
+    if (status === 'failed') return isSwahili ? 'Imeshindikana' : 'Failed';
+    if (status === 'requires_payment') return isSwahili ? 'Inahitaji malipo' : 'Requires payment';
+    return isSwahili ? 'Inasubiri' : 'Pending';
   };
 
   useEffect(() => {
@@ -214,6 +233,45 @@ export default function CheckoutClient() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    const orderId = searchParams.get('orderId')?.trim();
+    const paymentResult = searchParams.get('payment');
+    if (!orderId) return;
+
+    let active = true;
+    const localOrder = getOrders().find((order) => order.id === orderId) || null;
+    if (localOrder) {
+      setRecentOrder(localOrder);
+    }
+
+    void hydrateCommerceStateFromServer().then((snapshot) => {
+      if (!active) return;
+
+      const serverOrder = snapshot?.orders.find((order) => order.id === orderId) || localOrder;
+      if (serverOrder) {
+        saveOrder(serverOrder);
+        setRecentOrder(serverOrder);
+      }
+
+      if (paymentResult === 'cancelled') {
+        toast.error(copy.paymentCancelled);
+        return;
+      }
+
+      if (paymentResult === 'success') {
+        if (serverOrder?.audit?.paymentStatus === 'paid') {
+          toast.success(copy.paymentPaidToast(orderId));
+        } else {
+          toast.message(copy.paymentPending);
+        }
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [searchParams, copy]);
 
   const total = useMemo(() => getCartTotal(items), [items]);
   const policyVersions = useMemo(() => getPolicyVersions(), []);
@@ -408,6 +466,10 @@ export default function CheckoutClient() {
         success?: boolean;
         error?: string;
         order?: StoredOrder;
+        payment?: {
+          provider?: string;
+          paymentUrl?: string;
+        };
       } | null;
 
       if (!response.ok || !payload?.success || !payload.order) {
@@ -420,12 +482,17 @@ export default function CheckoutClient() {
       }
 
       saveOrder(payload.order);
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
-      }
       setRecentOrder(payload.order);
       setCartItems([]);
       setItems([]);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
+      }
+      if (payload.payment?.provider === 'stripe' && payload.payment.paymentUrl) {
+        toast.message(copy.redirectingToStripe);
+        window.location.assign(payload.payment.paymentUrl);
+        return;
+      }
       toast.success(copy.orderConfirmedToast(payload.order.id));
     } catch (error) {
       revertProductStockPurchase(
@@ -523,6 +590,7 @@ export default function CheckoutClient() {
               <p>{copy.orderId}: {recentOrder.id}</p>
               <p>{copy.items}: {recentOrder.itemCount}</p>
               <p>{copy.payment}: {recentOrder.paymentMethod.toUpperCase()}</p>
+              <p>{copy.paymentStatus}: {resolvePaymentStatusLabel(recentOrder.audit?.paymentStatus)}</p>
               <p>{copy.paymentReference}: {recentOrder.audit?.paymentTransactionId || copy.notProvided}</p>
               {(recentOrder.paymentMethod === 'tzs' || recentOrder.paymentMethod === 'ntzs') && (
                 <>

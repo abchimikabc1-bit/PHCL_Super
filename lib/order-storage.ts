@@ -28,6 +28,12 @@ export interface StoredOrder {
     channel: 'web';
     recordedAt: string;
     paymentTransactionId?: string;
+    paymentSessionId?: string;
+    paymentProvider?: 'stripe' | 'mobile-money' | 'pi-wallet' | 'manual';
+    paymentStatus?: 'requires_payment' | 'pending' | 'paid' | 'failed';
+    paymentReceivedAt?: string;
+    paymentFailureReason?: string;
+    paymentWebhookEventId?: string;
     reorderSourceOrderId?: string;
     mobilePayment?: {
       network: 'mpesa' | 'tigopesa' | 'airtelmoney' | 'halopesa';
@@ -216,6 +222,22 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
   let sourceRoute = '/checkout';
   let recordedAt = createdAt;
   let paymentTransactionId: string | undefined;
+  let paymentSessionId: string | undefined;
+  let paymentProvider:
+    | 'stripe'
+    | 'mobile-money'
+    | 'pi-wallet'
+    | 'manual'
+    | undefined;
+  let paymentStatus:
+    | 'requires_payment'
+    | 'pending'
+    | 'paid'
+    | 'failed'
+    | undefined;
+  let paymentReceivedAt: string | undefined;
+  let paymentFailureReason: string | undefined;
+  let paymentWebhookEventId: string | undefined;
   let mobilePayment:
     | {
         network: 'mpesa' | 'tigopesa' | 'airtelmoney' | 'halopesa';
@@ -251,11 +273,35 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
       consent?: unknown;
       cancellation?: unknown;
       paymentTransactionId?: unknown;
+      paymentSessionId?: unknown;
+      paymentProvider?: unknown;
+      paymentStatus?: unknown;
+      paymentReceivedAt?: unknown;
+      paymentFailureReason?: unknown;
+      paymentWebhookEventId?: unknown;
     };
     sourceRoute = trimText(audit.sourceRoute, 80) || '/checkout';
     recordedAt = trimText(audit.recordedAt, 60) || createdAt;
     reorderSourceOrderId = trimText(audit.reorderSourceOrderId, 100) || undefined;
     paymentTransactionId = trimText(audit.paymentTransactionId, 80) || undefined;
+    paymentSessionId = trimText(audit.paymentSessionId, 120) || undefined;
+    paymentProvider =
+      audit.paymentProvider === 'stripe' ||
+      audit.paymentProvider === 'mobile-money' ||
+      audit.paymentProvider === 'pi-wallet' ||
+      audit.paymentProvider === 'manual'
+        ? audit.paymentProvider
+        : undefined;
+    paymentStatus =
+      audit.paymentStatus === 'requires_payment' ||
+      audit.paymentStatus === 'pending' ||
+      audit.paymentStatus === 'paid' ||
+      audit.paymentStatus === 'failed'
+        ? audit.paymentStatus
+        : undefined;
+    paymentReceivedAt = trimText(audit.paymentReceivedAt, 60) || undefined;
+    paymentFailureReason = trimText(audit.paymentFailureReason, 220) || undefined;
+    paymentWebhookEventId = trimText(audit.paymentWebhookEventId, 120) || undefined;
 
     if (audit.mobilePayment && typeof audit.mobilePayment === 'object') {
       const rawMobile = audit.mobilePayment as {
@@ -355,6 +401,12 @@ const normalizeOrder = (raw: unknown): { order: StoredOrder | null; reason?: str
       channel: 'web',
       recordedAt,
       paymentTransactionId,
+      paymentSessionId,
+      paymentProvider,
+      paymentStatus,
+      paymentReceivedAt,
+      paymentFailureReason,
+      paymentWebhookEventId,
       reorderSourceOrderId,
       mobilePayment,
       consent,

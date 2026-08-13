@@ -1,15 +1,23 @@
+import Stripe from 'stripe';
+
 export type CheckoutPaymentMethod = 'usd' | 'tzs' | 'ntzs' | 'pi';
 
 export interface PaymentSession {
   provider: 'stripe' | 'mobile-money' | 'pi-wallet' | 'manual';
   status: 'requires_payment' | 'pending';
   paymentTransactionId: string;
+  paymentSessionId?: string;
   paymentUrl?: string;
   clientSecret?: string;
   instructions: string;
   amountDue: number;
   currency: string;
 }
+
+const getStripeClient = (): Stripe | null => {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  return secretKey ? new Stripe(secretKey) : null;
+};
 
 const roundMoney = (value: number): number => Number(value.toFixed(2));
 
@@ -20,40 +28,53 @@ export async function createPaymentSession(input: {
   phoneNumber?: string;
   mobileNetwork?: string | null;
   piUsdRate?: number;
+  customerEmail?: string | null;
+  successUrl?: string;
+  cancelUrl?: string;
 }): Promise<PaymentSession> {
   if (input.paymentMethod === 'usd') {
-    const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
-    if (secretKey) {
-      const params = new URLSearchParams({
-        amount: String(Math.max(1, Math.round(input.totalUsd * 100))),
-        currency: 'usd',
-        description: `PHCL Super order ${input.orderId}`,
-        'metadata[orderId]': input.orderId,
-      });
-
-      const response = await fetch('https://api.stripe.com/v1/payment_intents', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + secretKey,
-          'Content-Type': 'application/x-www-form-urlencoded',
+    const stripe = getStripeClient();
+    if (stripe && input.successUrl && input.cancelUrl) {
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        customer_email: input.customerEmail || undefined,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `PHCL Super order ${input.orderId}`,
+                description: 'Secure Stripe card payment',
+              },
+              unit_amount: Math.max(1, Math.round(input.totalUsd * 100)),
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          orderId: input.orderId,
         },
-        body: params.toString(),
+        payment_intent_data: {
+          description: `PHCL Super order ${input.orderId}`,
+          metadata: {
+            orderId: input.orderId,
+          },
+        },
       });
-
-      const payload = (await response.json().catch(() => null)) as
-        | { id?: string; client_secret?: string; error?: { message?: string } }
-        | null;
-
-      if (!response.ok || !payload?.id) {
-        throw new Error(payload?.error?.message || `Stripe returned ${response.status}`);
+      if (!session.id || !session.url) {
+        throw new Error('Stripe checkout session was created without a redirect URL.');
       }
 
       return {
         provider: 'stripe',
-        status: 'requires_payment',
-        paymentTransactionId: payload.id,
-        clientSecret: payload.client_secret,
-        instructions: 'Complete card payment using the generated Stripe payment reference.',
+        status: 'pending',
+        paymentTransactionId: session.payment_intent && typeof session.payment_intent === 'string' ? session.payment_intent : session.id,
+        paymentSessionId: session.id,
+        paymentUrl: session.url,
+        instructions: 'Complete card payment on the secure Stripe checkout page.',
         amountDue: roundMoney(input.totalUsd),
         currency: 'USD',
       };

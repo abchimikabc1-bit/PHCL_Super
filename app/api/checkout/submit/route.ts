@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
     const liveRates = await getLiveCryptoUsdRates();
     const piUsdRate = liveRates.rates.PI;
     const orderId = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    const requestUrl = new URL(request.url);
     const payment = await createPaymentSession({
       orderId,
       paymentMethod: body.paymentMethod,
@@ -150,6 +151,9 @@ export async function POST(request: NextRequest) {
       phoneNumber: phone,
       mobileNetwork: mobilePayment?.network,
       piUsdRate,
+      customerEmail: email,
+      successUrl: `${requestUrl.origin}/checkout?orderId=${encodeURIComponent(orderId)}&payment=success`,
+      cancelUrl: `${requestUrl.origin}/checkout?orderId=${encodeURIComponent(orderId)}&payment=cancelled`,
     });
 
     const order: StoredOrder = {
@@ -174,6 +178,9 @@ export async function POST(request: NextRequest) {
         channel: 'web',
         recordedAt: new Date().toISOString(),
         paymentTransactionId: payment.paymentTransactionId,
+        paymentSessionId: payment.paymentSessionId,
+        paymentProvider: payment.provider,
+        paymentStatus: payment.status,
         mobilePayment,
         consent: {
           agreedToTerms: true,
