@@ -12,16 +12,18 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+
 // 1. Kuanzisha Firebase App kienyeji
-const app = initializeApp(firebaseConfig);
+const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : undefined as any;
 
 // 2. Kuanzisha huduma ya salama ya AI Logic ya Firebase
-const ai = getAI(app, { backend: new GoogleAIBackend() });
+const ai = app ? getAI(app, { backend: new GoogleAIBackend() }) : null as any;
 
 // 3. Kuchukua ile Template yetu ya ushindi tuliyoiunda kule kwenye Console
-export const phclAgent = getTemplateGenerativeModel(ai, {
+export const phclAgent = ai ? getTemplateGenerativeModel(ai, {
   name: "you-are-the-official-phcl-super-ai-assistant-you-are-friendly-p"
-} as any);
+} as any) : null as any;
 // 4. Kazi isiyo na gharama (no-cost) ya kusoma maandishi yoyote kwa sauti
 export function speakText(text: string, lang: 'sw' | 'en' = 'en') {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {

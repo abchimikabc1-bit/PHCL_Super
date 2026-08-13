@@ -20,14 +20,23 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+
 // Kuzuia kuanzisha upya App wakati wa Fast Refresh kwenye Next.js
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
+const app = hasFirebaseConfig
+  ? getApps().length === 0
+    ? initializeApp(firebaseConfig)
+    : getApp()
+  : undefined as any;
+export const auth = app ? getAuth(app) : null as any;
 
 /**
  * 1. Kujisajili (Sign Up / Register)
  */
 export async function registerWithEmail(email: string, password: string): Promise<User> {
+  if (!auth) {
+    throw new Error('Firebase authentication is not configured.');
+  }
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   return userCredential.user;
 }
@@ -36,6 +45,9 @@ export async function registerWithEmail(email: string, password: string): Promis
  * 2. Kuingia (Sign In / Login)
  */
 export async function loginWithEmail(email: string, password: string): Promise<User> {
+  if (!auth) {
+    throw new Error('Firebase authentication is not configured.');
+  }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   return userCredential.user;
 }
@@ -44,6 +56,9 @@ export async function loginWithEmail(email: string, password: string): Promise<U
  * 3. Kutoka (Sign Out / Logout)
  */
 export async function logoutUser(): Promise<void> {
+  if (!auth) {
+    return;
+  }
   await signOut(auth);
 }
 
@@ -51,6 +66,9 @@ export async function logoutUser(): Promise<void> {
  * 4. Kurejesha/Kusahau Neno la Siri (Password Reset)
  */
 export async function resetUserPassword(email: string): Promise<void> {
+  if (!auth) {
+    throw new Error('Firebase authentication is not configured.');
+  }
   await sendPasswordResetEmail(auth, email);
 }
 
@@ -59,5 +77,9 @@ export async function resetUserPassword(email: string): Promise<void> {
  * Hii inafuatilia ikiwa mtumiaji ameingia au ametoka ili kubadilisha muonekano wa duka
  */
 export function subscribeToAuth(callback: (user: User | null) => void) {
+  if (!auth) {
+    callback(null);
+    return () => undefined;
+  }
   return onAuthStateChanged(auth, callback);
 }

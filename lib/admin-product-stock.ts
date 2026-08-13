@@ -3,8 +3,6 @@
 
 import { hydrateCommerceStateFromServer } from '@/lib/commerce-sync';
 import { MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
-// Ongeza kazi hii hapa juu ili kuzuia kosa la "canUseStorage is not defined"
-const canUseStorage = (): boolean => typeof window !== 'undefined' && !!window.localStorage;
 
 export interface ProductStock {
   productId: string;

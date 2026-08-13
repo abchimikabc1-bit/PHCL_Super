@@ -16,9 +16,12 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+const app = hasFirebaseConfig
+  ? getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+  : undefined as any;
+const auth = app ? getAuth(app) : null as any;
+const db = app ? getFirestore(app) : null as any;
 
 export default function TransferPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -30,6 +33,12 @@ export default function TransferPage() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
+    if (!auth) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
