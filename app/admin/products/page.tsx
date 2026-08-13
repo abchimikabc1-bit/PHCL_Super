@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAdmin } from '@/lib/admin-context';
+import { getAdminCsrfToken } from '@/lib/admin-csrf-client';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import {
   getProductStockConfig,
@@ -84,9 +85,10 @@ export default function ProductsPage() {
 
     setIsSaving(true);
     try {
+      const csrfToken = await getAdminCsrfToken();
       const response = await fetch('/api/admin/stock', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
         body: JSON.stringify({
           action: 'update_product',
           actor,
@@ -131,6 +133,7 @@ export default function ProductsPage() {
 
     setIsSaving(true);
     try {
+      const csrfToken = await getAdminCsrfToken();
       const requests = selectedIds.map((productId) => {
         const current = stocks[productId];
         if (!current) return Promise.resolve();
@@ -146,7 +149,7 @@ export default function ProductsPage() {
 
         return fetch('/api/admin/stock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
           body: JSON.stringify({ action: 'update_product', actor, productId, updates }),
         });
       });

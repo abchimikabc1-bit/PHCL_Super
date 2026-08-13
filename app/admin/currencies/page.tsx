@@ -9,7 +9,8 @@ import { CURRENCIES, CURRENCY_RATES } from '@/lib/currencies';
 import { useCommerceSnapshot } from '@/hooks/use-commerce-snapshot';
 import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import { refreshCommerceClientCache } from '@/lib/commerce-client-cache';
-import { useAdmin } from '@/lib/admin-context'; // <-- Hili ndilo lililokosekana na nime liongeza!
+import { useAdmin } from '@/lib/admin-context';
+import { getAdminCsrfToken } from '@/lib/admin-csrf-client'; // <-- Hili ndilo lililokosekana na nime liongeza!
 import {
   AdminCurrencyAuditEntry,
   AdminCurrencyConfig,
@@ -84,9 +85,10 @@ export default function AdminCurrenciesPage() {
       (typeof adminUser?.email === 'string' && adminUser.email.trim()) ||
       'admin';
     void (async () => {
+      const csrfToken = await getAdminCsrfToken();
       const response = await fetch('/api/admin/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
         body: JSON.stringify({
           resource: 'currencies',
           actor,

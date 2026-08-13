@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { getAdminCsrfToken } from '@/lib/admin-csrf-client';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('admin@phclsuper.com');
@@ -19,9 +20,13 @@ export default function AdminLoginPage() {
 
     setIsSubmitting(true);
     try {
+      const csrfToken = await getAdminCsrfToken();
       const response = await fetch('/api/admin/auth', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       });

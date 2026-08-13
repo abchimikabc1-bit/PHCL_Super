@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAdminCsrfToken } from '@/lib/admin-csrf-client';
 
 // Tunaagiza auth helper na kazi za Firebase Client SDK tulizozisakinisha
 import { getClientAuth } from '@/lib/auth';
@@ -140,8 +141,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
 
       // 2. Kufuta secure httpOnly session cookie kule kwenye seva
+      const csrfToken = await getAdminCsrfToken();
       await fetch('/api/admin/auth', {
         method: 'DELETE',
+        headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined,
         credentials: 'include',
       });
     } catch {

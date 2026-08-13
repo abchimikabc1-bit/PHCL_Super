@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getServerCommerceSnapshot, saveServerCommerceSnapshot } from '@/lib/server-commerce-store';
 import type { StoredOrder } from '@/lib/order-storage';
+import { appendStripeWebhookAuditEvent } from '@/lib/stripe-webhook-audit';
 
 const getStripeClient = (): Stripe => {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
@@ -126,19 +127,50 @@ export async function POST(request: NextRequest) {
     const stripe = getStripeClient();
     const event = stripe.webhooks.constructEvent(payload, signature, getWebhookSecret());
 
+    let handled = false;
+    let orderId: string | undefined;
+    let paymentSessionId: string | undefined;
+    let paymentTransactionId: string | undefined;
+
     if (
       event.type === 'checkout.session.completed' ||
       event.type === 'checkout.session.async_payment_succeeded' ||
       event.type === 'checkout.session.async_payment_failed'
     ) {
-      handleCheckoutSessionEvent(event, event.data.object as Stripe.Checkout.Session);
+      const session = event.data.object as Stripe.Checkout.Session;
+      orderId = normalizeOrderId(session.metadata?.orderId);
+      paymentSessionId = session.id;
+      paymentTransactionId =
+        typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
+      handled = handleCheckoutSessionEvent(event, session);
     } else if (event.type === 'payment_intent.payment_failed') {
-      handlePaymentIntentFailed(event, event.data.object as Stripe.PaymentIntent);
+      const intent = event.data.object as Stripe.PaymentIntent;
+      orderId = normalizeOrderId(intent.metadata?.orderId);
+      paymentTransactionId = intent.id;
+      handled = handlePaymentIntentFailed(event, intent);
     }
+
+    await appendStripeWebhookAuditEvent({
+      eventId: event.id,
+      eventType: event.type,
+      status: handled ? 'processed' : 'ignored',
+      orderId,
+      paymentSessionId,
+      paymentTransactionId,
+      detail: handled ? 'Webhook event applied to order state.' : 'Webhook event received without matching order update.',
+      at: new Date().toISOString(),
+    });
 
     return NextResponse.json({ success: true, received: true });
   } catch (error) {
     console.error('Stripe webhook processing failed:', error);
+    await appendStripeWebhookAuditEvent({
+      eventId: 'unknown',
+      eventType: 'webhook.error',
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'Stripe webhook processing failed',
+      at: new Date().toISOString(),
+    });
     return NextResponse.json(
       {
         success: false,

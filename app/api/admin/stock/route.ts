@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ProductStockConfig } from '@/lib/admin-product-stock';
+import { requireAdminSession, validateCsrf } from '@/lib/admin-security';
 import { getServerProductStockAudit, getServerProductStockConfig, saveServerProductStockConfig, updateServerProductStock } from '@/lib/server-product-stock-store';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = requireAdminSession(request);
+    const isAdmin = !auth.response;
+
     return NextResponse.json({
       success: true,
       config: getServerProductStockConfig(),
-      audit: getServerProductStockAudit(),
+      audit: isAdmin ? getServerProductStockAudit() : [],
     });
   } catch (error) {
     return NextResponse.json(
@@ -18,6 +22,15 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdminSession(request);
+  if (auth.response) {
+    return auth.response;
+  }
+
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+  }
+
   try {
     const body = (await request.json()) as {
       action?: 'save_config' | 'update_product';

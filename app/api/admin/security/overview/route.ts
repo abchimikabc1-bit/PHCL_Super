@@ -5,42 +5,17 @@ import {
   readAuthAuditEvents,
   readRateLimitEntries,
 } from '@/lib/admin-auth-security';
-import { getAdminSession } from '@/lib/admin-session-store';
-import {
-  ADMIN_SESSION_COOKIE_NAME,
-  decodeAdminSessionToken,
-  isAdminSessionSecretConfigured,
-} from '@/lib/admin-session-token';
-const RATE_LIMIT_POLICY = {
-  windowMs: 10 * 60 * 1000,
-  maxAttempts: 8,
-  blockMs: 15 * 60 * 1000,
-};
-
-const requireAdminSession = (request: NextRequest) => {
-  if (!isAdminSessionSecretConfigured()) return null;
-
-  const token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
-  const session = decodeAdminSessionToken(token);
-  if (!session) return null;
-  return getAdminSession(session.sessionId);
-};
+import { ADMIN_RATE_LIMIT_POLICY, requireAdminSession } from '@/lib/admin-security';
 
 export async function GET(request: NextRequest) {
-  if (!isAdminSessionSecretConfigured()) {
-    return NextResponse.json({ message: 'Admin session secret is not configured.' }, { status: 503 });
-  }
-
-  const session = requireAdminSession(request);
-
-  if (!session) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = requireAdminSession(request);
+  if (auth.response) {
+    return auth.response;
   }
 
   const [auditEvents, rateLimitEntries] = await Promise.all([
     readAuthAuditEvents(80),
-    readRateLimitEntries(RATE_LIMIT_POLICY),
+    readRateLimitEntries(ADMIN_RATE_LIMIT_POLICY),
   ]);
 
   const lockouts = rateLimitEntries
@@ -73,8 +48,8 @@ export async function GET(request: NextRequest) {
     {
       generatedAt: new Date().toISOString(),
       actor: {
-        email: session.email,
-        role: session.role,
+        email: auth.session?.email || 'unknown',
+        role: auth.session?.role || 'admin',
       },
       summary: {
         auditEventCount: auditEvents.length,

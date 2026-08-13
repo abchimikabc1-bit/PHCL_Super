@@ -198,6 +198,7 @@ export default function AdminDashboardPage() {
     { title: 'Analytics', description: 'View system analytics', icon: '📊', href: '/admin/analytics', color: 'from-orange-500 to-red-500' },
     { title: 'Users', description: 'Manage user accounts', icon: '👥', href: '/admin/users', color: 'from-indigo-500 to-purple-500' },
     { title: 'Orders', description: 'Review customer orders', icon: '🧾', href: '/admin/orders', color: 'from-amber-500 to-orange-500' },
+    { title: 'Payments', description: 'Stripe webhook and payment audit', icon: '💳', href: '/admin/transactions', color: 'from-fuchsia-500 to-violet-500' },
     { title: 'Wallet Ledger', description: 'Trace debits, refunds, and balances', icon: '💼', href: '/admin/wallet', color: 'from-cyan-500 to-teal-500' },
     { title: 'Settings', description: 'System configuration', icon: '⚙️', href: '/admin/settings', color: 'from-slate-500 to-gray-500' },
     { title: 'Converter', description: 'Currency conversion tool', icon: '🔄', href: '/admin/converter', color: 'from-cyan-500 to-blue-500' },

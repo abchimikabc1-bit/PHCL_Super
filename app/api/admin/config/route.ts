@@ -5,6 +5,7 @@ import type { AdminLanguageAuditEntry, AdminLanguageConfig } from '@/lib/admin-l
 import { sanitizeAdminLanguageAudit, sanitizeAdminLanguageConfig } from '@/lib/admin-language-settings';
 import type { AdminSettingsAuditEntry, AdminSystemSettings } from '@/lib/admin-settings';
 import { getDefaultAdminSettings, sanitizeAdminSettings, sanitizeAdminSettingsAudit } from '@/lib/admin-settings';
+import { requireAdminSession, validateCsrf } from '@/lib/admin-security';
 import { getServerCommerceSnapshot, saveServerCommerceSnapshot } from '@/lib/server-commerce-store';
 
 type ConfigResource = 'settings' | 'currencies' | 'languages';
@@ -124,6 +125,15 @@ const createLanguageAudit = (
 };
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdminSession(request);
+  if (auth.response) {
+    return auth.response;
+  }
+
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+  }
+
   try {
     const body = (await request.json()) as {
       resource?: ConfigResource;
