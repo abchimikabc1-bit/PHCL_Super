@@ -1,0 +1,1 @@
+// Prisma client configuration for Prisma 7+\nimport { defineConfig } from '@prisma/client';\n\nexport default defineConfig({\n  datasource: {\n    db: {\n      // Use SQLite file in the project root. Adjust path if needed.\n      url: process.env.DATABASE_URL || 'file:./dev.db',\n    },\n  },\n});\n
