@@ -12,51 +12,48 @@ export default function SignupPage() {
   const versions = useMemo(() => getPolicyVersions(), []);
 
   const [form, setForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    country: '',
-    password: '',
-    confirmPassword: '',
-    agreedToTerms: false,
-    agreedToPrivacy: false,
-    marketingOptIn: false,
+    fullName: '', email: '', phone: '', country: '', password: '', confirmPassword: '',
+    tier: 'regular' as 'regular' | 'small_business' | 'corporate',
+    idType: '', idNumber: '', companyName: '', companyRegNo: '', mfaEnabled: false,
+    agreedToTerms: false, agreedToPrivacy: false, marketingOptIn: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Kizuizi kali cha Nenosiri kuwa herufi 8 hadi 12 pekee na vitambulisho kukamilika
   const canSubmit =
     form.fullName.trim().length >= 3 &&
     form.email.trim().length >= 6 &&
     form.phone.trim().length >= 7 &&
-    form.country.trim().length >= 2 &&
     form.password.length >= 8 &&
+    form.password.length <= 12 &&
     form.password === form.confirmPassword &&
     form.agreedToTerms &&
-    form.agreedToPrivacy;
+    form.agreedToPrivacy &&
+    (form.tier === 'regular' || (form.idType !== '' && form.idNumber.trim().length >= 5)) &&
+    (form.tier !== 'corporate' || (form.companyName.trim().length >= 3 && form.companyRegNo.trim().length >= 3));
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (isSubmitting) {
-      return;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      toast.error('Password confirmation does not match.');
-      return;
-    }
+    if (isSubmitting || !canSubmit) return;
 
     setIsSubmitting(true);
     try {
-      const result = registerCustomer({
+      const result = await registerCustomer({
         fullName: form.fullName,
         email: form.email,
         phone: form.phone,
         country: form.country,
         password: form.password,
+        tier: form.tier,
+        idType: form.tier !== 'regular' ? form.idType : undefined,
+        idNumber: form.tier !== 'regular' ? form.idNumber : undefined,
+        companyName: form.tier === 'corporate' ? form.companyName : undefined,
+        companyRegNo: form.tier === 'corporate' ? form.companyRegNo : undefined,
+        mfaEnabled: form.tier !== 'regular' ? form.mfaEnabled : false,
         agreedToTerms: form.agreedToTerms,
         agreedToPrivacy: form.agreedToPrivacy,
         marketingOptIn: form.marketingOptIn,
@@ -67,8 +64,10 @@ export default function SignupPage() {
         return;
       }
 
-      toast.success('Account created successfully. You can now continue with shopping.');
+      toast.success('Akaunti imeundwa! KYC/KYB inafanyiwa uhakiki.');
       router.push('/marketplace');
+    } catch {
+      toast.error('Kosa limetokea wakati wa usajili.');
     } finally {
       setIsSubmitting(false);
     }
@@ -76,150 +75,12 @@ export default function SignupPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_26%),radial-gradient(circle_at_bottom_center,rgba(245,158,11,0.12),transparent_25%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_26%)]" />
 
       <section className="relative mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="inline-flex rounded-full border border-amber-300/35 bg-amber-200/15 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-amber-100">
-              CUSTOMER ONBOARDING
+              SECURE ONBOARDING
             </p>
-            <h1 className="mt-3 text-3xl font-black sm:text-4xl">Create Account</h1>
-            <p className="mt-2 text-sm text-amber-50/85">
-              Register with explicit consent to Terms of Service and Privacy Policy.
-            </p>
-          </div>
-          <Link
-            href="/"
-            style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
-            className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100"
-          >
-            Back Home
-          </Link>
-        </div>
-
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-amber-200/20 bg-slate-900/45 p-5 global-glass space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              value={form.fullName}
-              onChange={(e) => updateField('fullName', e.target.value)}
-              placeholder="Full name"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => updateField('email', e.target.value)}
-              placeholder="Email"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => updateField('phone', e.target.value)}
-              placeholder="Phone"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="text"
-              value={form.country}
-              onChange={(e) => updateField('country', e.target.value)}
-              placeholder="Country"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => updateField('password', e.target.value)}
-              placeholder="Password (min 8 chars)"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-            <input
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => updateField('confirmPassword', e.target.value)}
-              placeholder="Confirm password"
-              style={{ minHeight: '44px' }}
-              className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
-              required
-            />
-          </div>
-
-          <div className="rounded-xl border border-amber-200/20 bg-amber-500/10 p-4 space-y-3 text-sm">
-            <label className="flex items-start gap-2 text-amber-50">
-              <input
-                type="checkbox"
-                checked={form.agreedToTerms}
-                onChange={(e) => updateField('agreedToTerms', e.target.checked)}
-                className="mt-1"
-                required
-              />
-              <span>
-                I voluntarily agree to the
-                {' '}
-                <Link href="/terms-of-service" className="font-semibold text-amber-200 underline">
-                  Terms of Service
-                </Link>
-                {' '}
-                (version {versions.termsVersion}).
-              </span>
-            </label>
-
-            <label className="flex items-start gap-2 text-amber-50">
-              <input
-                type="checkbox"
-                checked={form.agreedToPrivacy}
-                onChange={(e) => updateField('agreedToPrivacy', e.target.checked)}
-                className="mt-1"
-                required
-              />
-              <span>
-                I voluntarily agree to the
-                {' '}
-                <Link href="/privacy-policy" className="font-semibold text-amber-200 underline">
-                  Privacy Policy
-                </Link>
-                {' '}
-                (version {versions.privacyVersion}).
-              </span>
-            </label>
-
-            <label className="flex items-start gap-2 text-amber-50/90">
-              <input
-                type="checkbox"
-                checked={form.marketingOptIn}
-                onChange={(e) => updateField('marketingOptIn', e.target.checked)}
-                className="mt-1"
-              />
-              <span>I agree to receive product updates and service announcements.</span>
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={!canSubmit || isSubmitting}
-            style={{ minHeight: '44px' }}
-            className="w-full rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? 'Creating account...' : 'Create Account'}
-          </button>
-
-          <p className="text-xs text-amber-50/80">
-            Consent records are stored with timestamp and policy versions for compliance audit.
-          </p>
-        </form>
-      </section>
-    </main>
-  );
-}
+            <h1 className="mt-3 text-3xl font-black sm:text-4xl">FNo response
