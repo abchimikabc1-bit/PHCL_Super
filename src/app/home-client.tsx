@@ -323,7 +323,7 @@ export default function HomeClient() {
               return (
                 <Link
                   key={product.id}
-                  href={`/marketplace/product/${product.id}`}
+                  href={`/product/${product.id}`
                   className="group flex flex-col rounded-xl border border-white/5 bg-white/5 p-3 transition hover:border-amber-500/20 hover:bg-white/10"
                 >
                   <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-950">

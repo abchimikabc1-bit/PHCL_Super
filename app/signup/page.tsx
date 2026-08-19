@@ -10,7 +10,6 @@ import { getPolicyVersions } from '@/lib/policy-compliance';
 export default function SignupPage() {
   const router = useRouter();
   const versions = useMemo(() => getPolicyVersions(), []);
-
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', country: '', password: '', confirmPassword: '',
     tier: 'regular' as 'regular' | 'small_business' | 'corporate',
@@ -19,68 +18,74 @@ export default function SignupPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Kizuizi kali cha Nenosiri kuwa herufi 8 hadi 12 pekee na vitambulisho kukamilika
-  const canSubmit =
-    form.fullName.trim().length >= 3 &&
-    form.email.trim().length >= 6 &&
-    form.phone.trim().length >= 7 &&
-    form.password.length >= 8 &&
-    form.password.length <= 12 &&
-    form.password === form.confirmPassword &&
-    form.agreedToTerms &&
-    form.agreedToPrivacy &&
-    (form.tier === 'regular' || (form.idType !== '' && form.idNumber.trim().length >= 5)) &&
-    (form.tier !== 'corporate' || (form.companyName.trim().length >= 3 && form.companyRegNo.trim().length >= 3));
+  const canSubmit = form.fullName && form.email && form.password === form.confirmPassword && form.agreedToTerms && form.agreedToPrivacy;
 
-  const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const updateField = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (isSubmitting || !canSubmit) return;
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
     try {
       const result = await registerCustomer({
-        fullName: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        country: form.country,
-        password: form.password,
-        tier: form.tier,
-        idType: form.tier !== 'regular' ? form.idType : undefined,
-        idNumber: form.tier !== 'regular' ? form.idNumber : undefined,
-        companyName: form.tier === 'corporate' ? form.companyName : undefined,
-        companyRegNo: form.tier === 'corporate' ? form.companyRegNo : undefined,
-        mfaEnabled: form.tier !== 'regular' ? form.mfaEnabled : false,
-        agreedToTerms: form.agreedToTerms,
-        agreedToPrivacy: form.agreedToPrivacy,
-        marketingOptIn: form.marketingOptIn,
+        fullName: form.fullName, email: form.email, phone: form.phone, country: form.country,
+        password: form.password, tier: form.tier, idType: form.idType, idNumber: form.idNumber,
+        companyName: form.companyName, companyRegNo: form.companyRegNo, mfaEnabled: form.mfaEnabled,
+        agreedToTerms: form.agreedToTerms, agreedToPrivacy: form.agreedToPrivacy, marketingOptIn: form.marketingOptIn
       });
-
-      if (!result.ok) {
-        toast.error(result.message);
-        return;
-      }
-
-      toast.success('Akaunti imeundwa! KYC/KYB inafanyiwa uhakiki.');
+      if (!result.ok) { toast.error(result.message); return; }
+      toast.success('Akaunti imeundwa kikamilifu!');
       router.push('/marketplace');
     } catch {
-      toast.error('Kosa limetokea wakati wa usajili.');
-    } finally {
-      setIsSubmitting(false);
-    }
+      toast.error('Usajili umegonga mwamba.');
+    } finally { setIsSubmitting(false); }
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_26%)]" />
+    <main className="min-h-screen bg-slate-950 p-6 text-white">
+      <div className="mx-auto max-w-xl space-y-6">
+        <h1 className="text-3xl font-black">Fungua Akaunti</h1>
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-white/10 bg-slate-900 p-6">
+          <select value={form.tier} onChange={(e) => updateField('tier', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white">
+            <option value="regular">Regular User (Tier 1)</option>
+            <option value="small_business">Small Business (Tier 2)</option>
+            <option value="corporate">Corporate (Tier 3)</option>
+          </select>
+          <input type="text" placeholder="Majina matatu" value={form.fullName} onChange={(e) => updateField('fullName', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+          <input type="email" placeholder="Email" value={form.email} onChange={(e) => updateField('email', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+          <input type="tel" placeholder="Phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+          <input type="text" placeholder="Country" value={form.country} onChange={(e) => updateField('country', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+          <input type="password" placeholder="Password (8-12)" value={form.password} onChange={(e) => updateField('password', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+          <input type="password" placeholder="Confirm Password" value={form.confirmPassword} onChange={(e) => updateField('confirmPassword', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
 
-      <section className="relative mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="inline-flex rounded-full border border-amber-300/35 bg-amber-200/15 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-amber-100">
-              SECURE ONBOARDING
-            </p>
-            <h1 className="mt-3 text-3xl font-black sm:text-4xl">FNo response
+          {form.tier !== 'regular' && (
+            <div className="border-t border-white/10 pt-4 space-y-3">
+              <select value={form.idType} onChange={(e) => updateField('idType', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required>
+                <option value="">Chagua Aina ya Kitambulisho</option>
+                <option value="NIDA">NIDA</option>
+                <option value="PASSPORT">Passport</option>
+                <option value="DRIVING_LICENSE">Leseni</option>
+              </select>
+              <input type="text" placeholder="Namba ya Kitambulisho" value={form.idNumber} onChange={(e) => updateField('idNumber', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+            </div>
+          )}
+
+          {form.tier === 'corporate' && (
+            <div className="space-y-3">
+              <input type="text" placeholder="Jina la Kampuni" value={form.companyName} onChange={(e) => updateField('companyName', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+              <input type="text" placeholder="Namba ya Usajili" value={form.companyRegNo} onChange={(e) => updateField('companyRegNo', e.target.value)} className="w-full rounded bg-slate-800 p-2 h-11 text-sm text-white" required />
+            </div>
+          )}
+
+          <div className="space-y-2 text-xs">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.agreedToTerms} onChange={(e) => updateField('agreedToTerms', e.target.checked)} required /><span>Ninakubali Terms (v{versions.termsVersion})</span></label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.agreedToPrivacy} onChange={(e) => updateField('agreedToPrivacy', e.target.checked)} required /><span>Ninakubali Privacy (v{versions.privacyVersion})</span></label>
+          </div>
+
+          <button type="submit" disabled={isSubmitting || !canSubmit} className="w-full rounded bg-amber-500 p-3 font-bold text-slate-950 disabled:opacity-50 h-11">
+            {isSubmitting ? 'Inasajili...' : 'Sajili Akaunti'}
+          </button>
+        </form>
+      </div>
+    </main>
+  );
+}
