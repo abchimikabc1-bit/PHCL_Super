@@ -27,6 +27,26 @@ const app = Object.values(firebaseConfig).every(Boolean)
 
 // Kuanzisha Firestore instance
 export const db = app ? getFirestore(app) : null as any;
+export interface UserProfile {
+  uid: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  addressLine1?: string;
+  city?: string;
+  country?: string;s
+  createdAt: any;
+  updatedAt: any;
+  balances: {
+    usd: number;
+    tzs: number;
+    ntzs: number;
+    pi: number;
+  };
+  role: 'user' | 'admin';
+  tier?: 'regular' | 'small_business' | 'corporate'; // TUMEONGEZA HAPA KWA USALAMA
+  kycStatus?: 'NOT_STARTED' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'; // TUMEONGEZA HAPA
+}
 
 export interface UserProfile {
   uid: string;
