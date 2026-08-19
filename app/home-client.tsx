@@ -1,11 +1,9 @@
-// src/app/home-client.tsx
 'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight,
   ShieldCheck,
   Wallet,
   ShoppingBag,
@@ -13,11 +11,10 @@ import {
   Sparkles,
   Mail,
   Phone,
-  MapPin,
   Star,
-  User,       // Tumeongeza kwa ajili ya Profile
-  Settings,   // Tumeongeza kwa ajili ya Settings
-  RefreshCw,  // Tumeongeza kwa ajili ya Exchange
+  User,       
+  Settings,   
+  RefreshCw,  
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
@@ -158,10 +155,20 @@ export default function HomeClient() {
       
       <section className="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 sm:pt-24 lg:px-8">
         
-        {/* Top Header Row with Badges and Language Toggle */}
+        {/* MKATABA WA JUU (HEADER ROW) - MABANO YAMEPANGILIWA KWA 100% USAHIHI */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-200/15 px-3 py-1 text-xs font-semibold tracking-wide text-white shadow-[0_0_20px_rgba(251,191,36,0.25)] global-shimmer ink-glow animate-pulse">
-            <Sparkles size={14} />
+          {/* AI WA KWANZA - MUONEKANO MDOGO WA ZAMBARAU NA NYOTA (SPARKLE) */}
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/35 bg-violet-950/25 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-violet-200 shadow-[0_0_12px_rgba(109,40,217,0.45)] backdrop-blur-md animate-pulse">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#microAiGrad)" />
+              <defs>
+                <linearGradient id="microAiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#f472b6" />
+                  <stop offset="50%" stopColor="#c084fc" />
+                  <stop offset="100%" stopColor="#22d3ee" />
+                </linearGradient>
+              </defs>
+            </svg>
             {copy.badge}
           </div>
 
@@ -183,7 +190,7 @@ export default function HomeClient() {
             </button>
           </div>
         </div>
-
+         
         {/* Global Reach Tag */}
         <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-white/5 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white global-glass ink-soft">
           {copy.globalReach}
@@ -254,7 +261,7 @@ export default function HomeClient() {
             </Link>
 
           </div>
-        </div>
+         </div>
 
         {/* FEATURED PRODUCTS SECTION */}
         <section className="mt-12 rounded-2xl border border-amber-200/15 bg-slate-900/45 p-5 sm:p-6 global-glass">
@@ -361,7 +368,7 @@ export default function HomeClient() {
         <section className="mt-16">
           <div className="mb-8 flex flex-col items-center justify-center gap-3 text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-200">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               {isSw ? 'Maoni Hai' : 'Live Feedback'}
             </div>
             <h2 className="text-2xl font-black tracking-tight sm:text-3xl bg-gradient-to-r from-white to-amber-200 bg-clip-text text-transparent">
