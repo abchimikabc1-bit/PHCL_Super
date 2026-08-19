@@ -1,7 +1,9 @@
 "use client";
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getUserProfile, UserProfile } from '@/lib/user-profile';
 import { ArrowRightLeft, TrendingUp, Coins } from 'lucide-react';
 import { CurrencyExchanger } from '@/components/currency-exchanger';
 import { getExchangeRate } from '@/lib/currency-converter';
@@ -15,12 +17,29 @@ export default function ExchangePage() {
   const { language } = useLanguage();
   const isSw = language === 'sw';
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  // KUSIKILIZA NA KUPAKIA SALIO LA MTUMIAJI LA FIRESTORE PAPO HAPO (LIVE)
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        const userProfile = await getUserProfile(user.uid);
+        setProfile(userProfile);
+      } else {
+        setProfile(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const copy = isSw
     ? {
         badge: 'Kituo cha Exchange',
         title: 'Exchange & Converter',
-        subtitle:
-          'Badilisha sarafu kwa haraka kati ya crypto na fiat. Tumeweka sarafu maarufu kama BTC, ETH, USDT, SOL, XRP, ADA, DOGE na PI.',
+        subtitle: 'Badilisha sarafu kwa haraka kati ya crypto na fiat. Tumeweka sarafu maarufu kama BTC, ETH, USDT, SOL, XRP, ADA, DOGE na PI.',
         backMarketplace: 'Rudi Marketplace',
         openWallet: 'Fungua Wallet',
         converterTitle: 'Converter ya Sarafu',
@@ -42,8 +61,7 @@ export default function ExchangePage() {
     : {
         badge: 'Exchange Hub',
         title: 'Exchange & Converter',
-        subtitle:
-          'Convert quickly between crypto and fiat. We included popular assets like BTC, ETH, USDT, SOL, XRP, ADA, DOGE, and PI.',
+        subtitle: 'Convert quickly between crypto and fiat. We included popular assets like BTC, ETH, USDT, SOL, XRP, ADA, DOGE, and PI.',
         backMarketplace: 'Back to Marketplace',
         openWallet: 'Open Wallet',
         converterTitle: 'Currency Converter',
@@ -86,44 +104,25 @@ export default function ExchangePage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#0f172a] to-[#1f1147] pb-20 text-white">
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes exchange-aurora {
-              0% { box-shadow: 0 0 0 rgba(168,85,247,0.0), 0 18px 40px rgba(76,29,149,0.22); }
-              50% { box-shadow: 0 0 28px rgba(34,211,238,0.16), 0 20px 44px rgba(76,29,149,0.28); }
-              100% { box-shadow: 0 0 0 rgba(168,85,247,0.0), 0 18px 40px rgba(76,29,149,0.22); }
-            }
-
-            @keyframes exchange-shimmer {
-              0% { background-position: 0% 50%; }
-              50% { background-position: 100% 50%; }
-              100% { background-position: 0% 50%; }
-            }
-
-            .exchange-lux-panel {
-              animation: exchange-aurora 7s ease-in-out infinite;
-            }
-
-            .exchange-lux-card {
-              background-size: 200% 200%;
-              animation: exchange-shimmer 9s ease-in-out infinite;
-              transition: transform 180ms ease, border-color 180ms ease;
-            }
-
-            .exchange-lux-card:hover {
-              transform: translateY(-2px);
-            }
-
-            @media (prefers-reduced-motion: reduce) {
-              .exchange-lux-panel,
-              .exchange-lux-card {
-                animation: none !important;
-              }
-            }
-          `,
-        }}
-      />
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes exchange-aurora {
+          0% { box-shadow: 0 0 0 rgba(168,85,247,0.0), 0 18px 40px rgba(76,29,149,0.22); }
+          50% { box-shadow: 0 0 28px rgba(34,211,238,0.16), 0 20px 44px rgba(76,29,149,0.28); }
+          100% { box-shadow: 0 0 0 rgba(168,85,247,0.0), 0 18px 40px rgba(76,29,149,0.22); }
+        }
+        @keyframes exchange-shimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .exchange-lux-panel { animation: exchange-aurora 7s ease-in-out infinite; }
+        .exchange-lux-card {
+          background-size: 200% 200%;
+          animation: exchange-shimmer 9s ease-in-out infinite;
+          transition: transform 180ms ease, border-color 180ms ease;
+        }
+        .exchange-lux-card:hover { transform: translateY(-2px); }
+      `}} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.3),transparent_32%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_28%),radial-gradient(circle_at_bottom_center,rgba(251,191,36,0.1),transparent_26%)]" />
 
       <section className="relative mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -138,20 +137,23 @@ export default function ExchangePage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link
-              href="/marketplace"
-              className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-violet-50 hover:bg-white/20"
-            >
-              {copy.backMarketplace}
-            </Link>
-            <Link
-              href="/wallet"
-              className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900"
-            >
-              {copy.openWallet}
-            </Link>
+            <Link href="/marketplace" className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-violet-50 hover:bg-white/20">{copy.backMarketplace}</Link>
+            <Link href="/wallet" className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900">{copy.openWallet}</Link>
           </div>
         </div>
+
+        {/* 4. SEHEMU YA KUONYESHA SALIO LA MWENYE AKAUNTI PAPO HAPO (FIRESTORE) */}
+        {profile && (
+          <div className="mb-6 rounded-2xl border border-violet-400/20 bg-slate-950/60 p-4 backdrop-blur-md shadow-lg animate-pulse">
+            <p className="text-xs uppercase tracking-widest text-violet-400 font-bold mb-2">Salio Lako la Sasa la Wallet</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-xs font-semibold text-white">
+              <div className="rounded-lg bg-slate-900/60 p-3 border border-white/5"><p className="text-gray-400">USD</p><p className="text-sm font-bold text-amber-300">${profile.balances?.usd || 0}</p></div>
+              <div className="rounded-lg bg-slate-900/60 p-3 border border-white/5"><p className="text-gray-400">TZS</p><p className="text-sm font-bold text-amber-300">{profile.balances?.tzs || 0} TZS</p></div>
+              <div className="rounded-lg bg-slate-900/60 p-3 border border-white/5"><p className="text-gray-400">nTZS</p><p className="text-sm font-bold text-amber-300">{profile.balances?.ntzs || 0} nTZS</p></div>
+              <div className="rounded-lg bg-slate-900/60 p-3 border border-white/5"><p className="text-gray-400">Pi</p><p className="text-sm font-bold text-amber-300">{profile.balances?.pi || 0} PI</p></div>
+            </div>
+          </div>
+        )}
 
         <div className="exchange-lux-panel rounded-2xl border border-violet-200/25 bg-gradient-to-br from-slate-900/70 via-[#1b1337]/70 to-[#102437]/70 p-5 sm:p-6 shadow-[0_20px_50px_rgba(76,29,149,0.25)] global-glass">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1 text-xs font-bold text-amber-100">
