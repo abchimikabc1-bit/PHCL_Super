@@ -1,118 +1,96 @@
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from './user-profile';
 import { getPolicyVersions } from '@/lib/policy-compliance';
 
-export type CustomerConsent = {
-  agreedToTerms: boolean;
-  agreedToPrivacy: boolean;
-  marketingOptIn: boolean;
-  agreedAt: string;
-  termsVersion: string;
-  privacyVersion: string;
-};
+export interface RegistrationResult {
+  ok: boolean;
+  message: string;
+  uid?: string;
+}
 
-export type CustomerRegistration = {
-  id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  country: string;
-  passwordHint: string;
-  createdAt: string;
-  consent: CustomerConsent;
-};
-
-const REGISTRY_KEY = 'phcl_customer_registrations_v1';
-
-const safeParse = <T>(value: string, fallback: T): T => {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-};
-
-export const getRegistrations = (): CustomerRegistration[] => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(REGISTRY_KEY);
-  if (!raw) {
-    return [];
-  }
-
-  return safeParse<CustomerRegistration[]>(raw, []);
-};
-
-const persistRegistrations = (entries: CustomerRegistration[]) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(entries));
-};
-
-const normalizeEmail = (value: string) => value.trim().toLowerCase();
-
-export const registerCustomer = (input: {
+export const registerCustomer = async (input: {
   fullName: string;
   email: string;
   phone: string;
   country: string;
   password: string;
+  tier: 'regular' | 'small_business' | 'corporate';
+  idType?: string;
+  idNumber?: string;
+  companyName?: string;
+  companyRegNo?: string;
+  mfaEnabled?: boolean;
+  livenessVerified?: boolean;
+  recaptchaToken?: string; // Bot challenge token
   agreedToTerms: boolean;
   agreedToPrivacy: boolean;
-  marketingOptIn: boolean;
-}): { ok: boolean; message: string; entry?: CustomerRegistration } => {
+}): Promise<RegistrationResult> => {
   const fullName = input.fullName.trim();
-  const email = normalizeEmail(input.email);
+  const email = input.email.trim().toLowerCase();
   const phone = input.phone.trim();
   const country = input.country.trim();
-  const password = input.password;
 
-  if (fullName.length < 3) {
-    return { ok: false, message: 'Full name must be at least 3 characters.' };
+  // 1. Uhakiki wa Kienyeji na Usalama (Validations)
+  if (fullName.split(/\s+/).length < 3) {
+    return { ok: false, message: 'Tafadhali ingiza majina yako matatu kamili!' };
   }
-  if (!email.includes('@') || email.length < 6) {
-    return { ok: false, message: 'Enter a valid email address.' };
-  }
-  if (phone.length < 7) {
-    return { ok: false, message: 'Enter a valid phone number.' };
-  }
-  if (country.length < 2) {
-    return { ok: false, message: 'Enter your country.' };
-  }
-  if (password.length < 8) {
-    return { ok: false, message: 'Password must be at least 8 characters.' };
+  if (input.password.length < 8 || input.password.length > 12) {
+    return { ok: false, message: 'Nenosiri lazima liwe na urefu wa herufi 8 hadi 12!' };
   }
   if (!input.agreedToTerms || !input.agreedToPrivacy) {
-    return { ok: false, message: 'You must agree to Terms and Privacy Policy before registration.' };
+    return { ok: false, message: 'Ni lazima ukubali Sera na Vigezo vya Huduma!' };
   }
 
-  const existing = getRegistrations();
-  if (existing.some((entry) => normalizeEmail(entry.email) === email)) {
-    return { ok: false, message: 'This email is already registered.' };
+  // Uhakiki wa Liveness (Kupepesa macho) kwa Tier 2 & 3
+  if (input.tier !== 'regular' && !input.livenessVerified) {
+    return { ok: false, message: 'Ni lazima ukamilishe uhakiki wa Liveness (Kupepesa Macho)!' };
   }
 
-  const now = new Date().toISOString();
-  const policyVersions = getPolicyVersions();
-  const entry: CustomerRegistration = {
-    id: `CUS-${Date.now()}`,
-    fullName,
-    email,
-    phone,
-    country,
-    passwordHint: `${password.slice(0, 2)}••••${password.slice(-1)}`,
-    createdAt: now,
-    consent: {
-      agreedToTerms: true,
-      agreedToPrivacy: true,
-      marketingOptIn: Boolean(input.marketingOptIn),
-      agreedAt: now,
-      termsVersion: policyVersions.termsVersion,
-      privacyVersion: policyVersions.privacyVersion,
-    },
-  };
+  // Uhakiki wa reCAPTCHA (Bot Protection)
+  if (input.tier !== 'regular' && !input.recaptchaToken) {
+    return { ok: false, message: 'Kosa la Roboti: Kamilisha reCAPTCHA challenge ya usalama!' };
+  }
 
-  persistRegistrations([entry, ...existing]);
-  return { ok: true, message: 'Registration completed successfully.', entry };
+  try {
+    // 2. Kusajili Mtumiaji Kwenye Firebase Authentication
+    const userCred = await createUserWithEmailAndPassword(auth, email, input.password);
+    const uid = userCred.user.uid;
+    const policyVersions = getPolicyVersions();
+
+    // 3. Kuokoa Profaili na Daraja la Mtumiaji Kwenye Firestore
+    await setDoc(doc(db, 'users', uid), {
+      uid,
+      email,
+      fullName,
+      phone,
+      country,
+      tier: input.tier,
+      role: 'user',
+      idType: input.tier !== 'regular' ? input.idType : null,
+      idNumber: input.tier !== 'regular' ? input.idNumber : null,
+      companyName: input.tier === 'corporate' ? input.companyName : null,
+      companyRegNo: input.tier === 'corporate' ? input.companyRegNo : null,
+      mfaEnabled: input.tier !== 'regular' ? Boolean(input.mfaEnabled) : false,
+      livenessVerified: input.tier !== 'regular' ? Boolean(input.livenessVerified) : false,
+      kycStatus: input.tier !== 'regular' ? 'PENDING_REVIEW' : 'APPROVED',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      balances: { usd: 0, tzs: 0, ntzs: 0, pi: 0 },
+      consent: {
+        agreedToTerms: true,
+        agreedToPrivacy: true,
+        termsVersion: policyVersions.termsVersion,
+        privacyVersion: policyVersions.privacyVersion,
+        agreedAt: new Date().toISOString()
+      }
+    });
+
+    return { ok: true, message: 'Usajili na uhakiki wa kwanza umekamilika kikamilifu!', uid };
+  } catch (error: any) {
+    if (error.code === 'auth/email-already-in-use') {
+      return { ok: false, message: 'Barua pepe hii tayari imeshasajiliwa kwenye mfumo!' };
+    }
+    return { ok: false, message: error.message || 'Kosa la usajili limejitokeza.' };
+  }
 };
