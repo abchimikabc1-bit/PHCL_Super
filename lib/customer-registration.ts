@@ -94,3 +94,5 @@ export const registerCustomer = async (input: {
     return { ok: false, message: error.message || 'Kosa la usajili limejitokeza.' };
   }
 };
+// Ongeza hii chini kabisa ya faili ili kulinda ukurasa wa Feedback usigome
+export const getRegistrations = () => [];
