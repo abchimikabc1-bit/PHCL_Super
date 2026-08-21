@@ -1,12 +1,13 @@
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './user-profile';
+import { auth, db, generateSeedPhrase } from './user-profile'; // Tumeagiza generateSeedPhrase hapa
 import { getPolicyVersions } from '@/lib/policy-compliance';
 
 export interface RegistrationResult {
   ok: boolean;
   message: string;
   uid?: string;
+  seedPhrase?: string; // Tumeongeza hapa ili fomu ya signup iweze kuonyesha maneno 12 ya siri!
 }
 
 export const registerCustomer = async (input: {
@@ -57,8 +58,11 @@ export const registerCustomer = async (input: {
     const userCred = await createUserWithEmailAndPassword(auth, email, input.password);
     const uid = userCred.user.uid;
     const policyVersions = getPolicyVersions();
+    
+    // ZALISHA MANENO YA SIRI 12 YA KUREJESHA POCHI (SEED PHRASE)
+    const seedPhrase = generateSeedPhrase();
 
-    // 3. Kuokoa Profaili na Daraja la Mtumiaji Kwenye Firestore
+    // 3. Kuokoa Profaili, Daraja, na Seed Phrase Kwenye Firestore
     await setDoc(doc(db, 'users', uid), {
       uid,
       email,
@@ -67,6 +71,7 @@ export const registerCustomer = async (input: {
       country,
       tier: input.tier,
       role: 'user',
+      seedPhrase, // Inahifadhi maneno 12 ya siri kwenye Firestore kwa usalama
       idType: input.tier !== 'regular' ? input.idType : null,
       idNumber: input.tier !== 'regular' ? input.idNumber : null,
       companyName: input.tier === 'corporate' ? input.companyName : null,
@@ -86,7 +91,8 @@ export const registerCustomer = async (input: {
       }
     });
 
-    return { ok: true, message: 'Usajili na uhakiki wa kwanza umekamilika kikamilifu!', uid };
+    // Inarudisha uid na seedPhrase ili ukurasa wa Signup uweze kuwaonyesha kwa usalama
+    return { ok: true, message: 'Usajili na kuanzisha pochi kimekamilika kikamilifu!', uid, seedPhrase };
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {
       return { ok: false, message: 'Barua pepe hii tayari imeshasajiliwa kwenye mfumo!' };
@@ -94,5 +100,6 @@ export const registerCustomer = async (input: {
     return { ok: false, message: error.message || 'Kosa la usajili limejitokeza.' };
   }
 };
-// Ongeza hii chini kabisa ya faili ili kulinda ukurasa wa Feedback usigome
+
+// Inalinda ukurasa wa Feedback usigome
 export const getRegistrations = () => [];

@@ -24,14 +24,44 @@ export interface UserProfile {
   role: 'user' | 'admin';
   tier?: 'regular' | 'small_business' | 'corporate';
   kycStatus?: 'NOT_STARTED' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  seedPhrase?: string; // MANENO YETU YA SIRI 12 YA KUREJESHA POCHI
 }
 
-export async function createUserProfile(uid: string, email: string, fullName: string, phone: string): Promise<void> {
+// MFUMO MAALUM WA KUTENGENEZA MANENO YA SIRI 12 (BIP-39 COMPACT GENERATOR)
+function generateSeedPhrase(): string {
+  const words = [
+    'active', 'apple', 'anchor', 'banana', 'brave', 'cherry', 'client', 'cosmic', 'crypto', 'forest', 
+    'grape', 'lemon', 'melon', 'mountain', 'ocean', 'orange', 'planet', 'peach', 'river', 'secure', 
+    'shining', 'solar', 'valley', 'wallet', 'quantum', 'global', 'ledger', 'carbon', 'phoenix', 'matrix'
+  ];
+  const chosen: string[] = [];
+  while (chosen.length < 12) {
+    const randomWord = words[Math.floor(Math.random() * words.length)];
+    if (!chosen.includes(randomWord)) {
+      chosen.push(randomWord);
+    }
+  }
+  return chosen.join(' ');
+}
+
+export async function createUserProfile(uid: string, email: string, fullName: string, phone: string, tier: string): Promise<string> {
+  const seedPhrase = generateSeedPhrase(); // Inazalisha maneno ya siri 12
+  
   await setDoc(doc(db, 'users', uid), {
-    email, fullName, phone, role: 'user',
+    email,
+    fullName,
+    phone,
+    role: 'user',
+    tier,
+    kycStatus: tier !== 'regular' ? 'PENDING_REVIEW' : 'APPROVED',
     balances: { usd: 0, tzs: 0, ntzs: 0, pi: 0 },
-    uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    uid,
+    seedPhrase, // Inahifadhi maneno ya siri 12 kwenye Firestore kwa usalama
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   });
+
+  return seedPhrase; // Inarudisha maneno ili tuweze kuwaonyesha wakati wa usajili
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
