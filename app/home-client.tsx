@@ -202,7 +202,7 @@ export default function HomeClient() {
         <h1 className="mt-6 max-w-4xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl bg-gradient-to-r from-amber-100 via-white to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_24px_rgba(251,191,36,0.14)]">{copy.title}</h1>
         <p className="mt-5 max-w-2xl text-base text-white/95 sm:text-lg ink-soft">{copy.subtitle}</p>
 
-        {/* ======================================================== */}
+                {/* ======================================================== */}
         {/* SECURE COMMAND CENTER GRID - NJIA ZA MKATO ZA HARAKA (SHORTCUTS) */}
         {/* ======================================================== */}
         <div className="mt-12 rounded-3xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur-xl shadow-2xl">
