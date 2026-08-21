@@ -28,7 +28,7 @@ export interface UserProfile {
 }
 
 // MFUMO MAALUM WA KUTENGENEZA MANENO YA SIRI 12 (BIP-39 COMPACT GENERATOR)
-function generateSeedPhrase(): string {
+export function generateSeedPhrase(): string {
   const words = [
     'active', 'apple', 'anchor', 'banana', 'brave', 'cherry', 'client', 'cosmic', 'crypto', 'forest', 
     'grape', 'lemon', 'melon', 'mountain', 'ocean', 'orange', 'planet', 'peach', 'river', 'secure', 
