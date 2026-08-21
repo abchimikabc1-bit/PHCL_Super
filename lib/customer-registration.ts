@@ -33,7 +33,7 @@ export const registerCustomer = async (input: {
 
   // 1. Uhakiki wa Namba ya Simu au Email Uwepo wa Lazima
   if (!input.email?.trim() && !phone) {
-    return { ok: false, message: 'Ni lazima uweke Namba ya Simu au Barua Pepe ili kujiunga!' };
+    return { ok: false, message: 'Ni lazima uweke Namba ya Simu au Barua Pepe kuendelea!' };
   }
 
   // 2. ZUIA MTUMIAJI KUANDIKA DOMAIN YA SIRI KWA MIKONO YAKE (ANTI-FRAUD)
@@ -71,20 +71,16 @@ export const registerCustomer = async (input: {
   }
 
   try {
-    // 2. Kusajili Mtumiaji Kwenye Firebase Auth
-    const userCred = await createUserWithEmailAndPassword(auth, email, input.password);
-    const uid = userCred.user.uid;
-    
-    // TUMA BARUA PEPE YA UTHIBITISHO KIOTOMATIKI (EMAIL VERIFICATION)
-    await sendEmailVerification(userCred.user); // <--- ONGEZA MSTARI HUU HAPA!
-    
-    const policyVersions = getPolicyVersions();
-    const seedPhrase = generateSeedPhrase();
-
     // 4. Kusajili Mtumiaji Kwenye Firebase Auth
     const userCred = await createUserWithEmailAndPassword(auth, email, input.password);
     const uid = userCred.user.uid;
+    
+    // TUMA BARUA PEPE YA UTHIBITISHO KIOTOMATIKI
+    await sendEmailVerification(userCred.user);
+    
     const policyVersions = getPolicyVersions();
+    
+    // ZALISHA MANENO YA SIRI 12 YA KUREJESHA POCHI
     const seedPhrase = generateSeedPhrase();
 
     // 5. Kuokoa Wasifu, Daraja, na Seed Phrase Kwenye Firestore
@@ -96,7 +92,7 @@ export const registerCustomer = async (input: {
       country,
       tier: input.tier,
       role: 'user',
-      seedPhrase,
+      seedPhrase, // Inahifadhi maneno 12 ya siri kwenye Firestore kwa usalama
       idType: input.tier !== 'regular' ? input.idType : null,
       idNumber: input.tier !== 'regular' ? input.idNumber : null,
       companyName: input.tier === 'corporate' ? input.companyName : null,
