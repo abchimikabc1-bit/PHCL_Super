@@ -1,5 +1,4 @@
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db, generateSeedPhrase } from './user-profile';
 import { getPolicyVersions } from '@/lib/policy-compliance';
