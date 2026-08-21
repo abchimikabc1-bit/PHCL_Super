@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/user-profile'; // Agiza auth kutoka kwenye lib yako thabiti
+import { auth } from '@/lib/user-profile'; // Tumia auth kutoka kwenye lib yako thabiti
 import { Copy, Check } from 'lucide-react';
 
 export default function DepositPage() {
@@ -43,13 +43,13 @@ export default function DepositPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <h1 className="text-3xl font-black mb-4 text-green-500">Ukurasa Umelindwa (Locked)</h1>
-        <p className="text-gray-400 mb-6 text-center max-w-md">
-          Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kupata anwani yako ya pochi na QR code.
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6 text-center">
+        <h1 className="text-3xl font-black mb-4 text-green-500">Ukurasa Umelindwa</h1>
+        <p className="text-gray-400 mb-6 max-w-md">
+          Tafadhali ingia kwanza ili kuweza kupata anwani yako ya pochi na QR code.
         </p>
         <Link href="/login" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
-          Ingia kwenye Akaunti
+          Kuingia (Login)
         </Link>
       </div>
     );
@@ -85,7 +85,7 @@ export default function DepositPage() {
             </select>
           </div>
 
-          <div className="p-4 bg-white rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-center w-64 h-64 border border-white/10">
+          <div className="p-4 bg-white rounded-2xl shadow-lg flex items-center justify-center w-64 h-64 border border-white/10">
             <img src={qrCodeUrl} alt="Wallet QR Code" className="w-full h-full object-contain" />
           </div>
 
@@ -93,7 +93,10 @@ export default function DepositPage() {
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Anwani yako ya Pochi (Wallet Address)</label>
             <div className="flex items-center gap-2 bg-white/5 p-3 rounded-xl border border-white/10 overflow-hidden w-full">
               <p className="text-xs text-gray-300 truncate flex-1 font-mono">{user.uid}</p>
-              <button onClick={handleCopyAddress} className="p-2 rounded-lg hover:bg-white/10 transition text-amber-300 hover:text-amber-200">
+              <button 
+                onClick={handleCopyAddress}
+                className="p-2 rounded-lg hover:bg-white/10 transition text-amber-300 hover:text-amber-200"
+              >
                 {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
               </button>
             </div>
@@ -101,7 +104,7 @@ export default function DepositPage() {
           </div>
 
           <div className="text-center text-xs text-gray-400">
-            <p>Onyesha au tuma QR Code hii au anwani ya pochi kwa mtumaji ili akutumie {currency.toUpperCase()} salama [1].</p>
+            <p>Onyesha au tuma QR Code hii kwa mtumaji ili akutumie {currency.toUpperCase()} salama [1].</p>
           </div>
         </div>
       </div>

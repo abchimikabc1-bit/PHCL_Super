@@ -1,18 +1,19 @@
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, generateSeedPhrase } from './user-profile'; // Tumeagiza generateSeedPhrase hapa
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, db, generateSeedPhrase } from './user-profile';
 import { getPolicyVersions } from '@/lib/policy-compliance';
 
 export interface RegistrationResult {
   ok: boolean;
   message: string;
   uid?: string;
-  seedPhrase?: string; // Tumeongeza hapa ili fomu ya signup iweze kuonyesha maneno 12 ya siri!
+  seedPhrase?: string;
 }
 
 export const registerCustomer = async (input: {
   fullName: string;
-  email: string;
+  email?: string;
   phone: string;
   country: string;
   password: string;
@@ -23,55 +24,80 @@ export const registerCustomer = async (input: {
   companyRegNo?: string;
   mfaEnabled?: boolean;
   livenessVerified?: boolean;
-  recaptchaToken?: string; // Bot challenge token
+  recaptchaToken?: string;
   agreedToTerms: boolean;
   agreedToPrivacy: boolean;
 }): Promise<RegistrationResult> => {
   const fullName = input.fullName.trim();
-  const email = input.email.trim().toLowerCase();
-  const phone = input.phone.trim();
+  const phone = input.phone.trim().replace(/\s+/g, ''); // Safisha nafasi kwenye namba
   const country = input.country.trim();
 
-  // 1. Uhakiki wa Kienyeji na Usalama (Validations)
+  // 1. Uhakiki wa Namba ya Simu au Email Uwepo wa Lazima
+  if (!input.email?.trim() && !phone) {
+    return { ok: false, message: 'Ni lazima uweke Namba ya Simu au Barua Pepe ili kujiunga!' };
+  }
+
+  // 2. ZUIA MTUMIAJI KUANDIKA DOMAIN YA SIRI KWA MIKONO YAKE (ANTI-FRAUD)
+  if (input.email && input.email.trim().toLowerCase().endsWith('@phclsuper.com')) {
+    return { ok: false, message: 'Huruhusiwi kutumia barua pepe ya @phclsuper.com kujisajili!' };
+  }
+
+  // 3. UHAKIKI WA NAMBA YA SIMU ISIJIRUDIE KWENYE DATABASE (Firestore Check)
+  if (phone && db) {
+    const q = query(collection(db, 'users'), where('phone', '==', input.phone.trim()));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return { ok: false, message: 'Namba hii ya simu tayari imesajiliwa kwenye mfumo wetu! Tumia barua pepe yako.' };
+    }
+  }
+
+  // BINASISHA VIRTUAL EMAIL KIOTOMATIKI IKIWA HAWANA EMAIL
+  const email = input.email?.trim()
+    ? input.email.trim().toLowerCase()
+    : `${phone}@phclsuper.com`;
+
   if (fullName.split(/\s+/).length < 3) {
     return { ok: false, message: 'Tafadhali ingiza majina yako matatu kamili!' };
   }
   if (input.password.length < 8 || input.password.length > 12) {
     return { ok: false, message: 'Nenosiri lazima liwe na urefu wa herufi 8 hadi 12!' };
   }
-  if (!input.agreedToTerms || !input.agreedToPrivacy) {
-    return { ok: false, message: 'Ni lazima ukubali Sera na Vigezo vya Huduma!' };
-  }
 
-  // Uhakiki wa Liveness (Kupepesa macho) kwa Tier 2 & 3
+  // Uhakiki wa Liveness kwa Tier 2 & 3
   if (input.tier !== 'regular' && !input.livenessVerified) {
     return { ok: false, message: 'Ni lazima ukamilishe uhakiki wa Liveness (Kupepesa Macho)!' };
   }
-
-  // Uhakiki wa reCAPTCHA (Bot Protection)
   if (input.tier !== 'regular' && !input.recaptchaToken) {
-    return { ok: false, message: 'Kosa la Roboti: Kamilisha reCAPTCHA challenge ya usalama!' };
+    return { ok: false, message: 'Kamilisha reCAPTCHA challenge ya usalama!' };
   }
 
   try {
-    // 2. Kusajili Mtumiaji Kwenye Firebase Authentication
+    // 2. Kusajili Mtumiaji Kwenye Firebase Auth
+    const userCred = await createUserWithEmailAndPassword(auth, email, input.password);
+    const uid = userCred.user.uid;
+    
+    // TUMA BARUA PEPE YA UTHIBITISHO KIOTOMATIKI (EMAIL VERIFICATION)
+    await sendEmailVerification(userCred.user); // <--- ONGEZA MSTARI HUU HAPA!
+    
+    const policyVersions = getPolicyVersions();
+    const seedPhrase = generateSeedPhrase();
+
+    // 4. Kusajili Mtumiaji Kwenye Firebase Auth
     const userCred = await createUserWithEmailAndPassword(auth, email, input.password);
     const uid = userCred.user.uid;
     const policyVersions = getPolicyVersions();
-    
-    // ZALISHA MANENO YA SIRI 12 YA KUREJESHA POCHI (SEED PHRASE)
     const seedPhrase = generateSeedPhrase();
 
-    // 3. Kuokoa Profaili, Daraja, na Seed Phrase Kwenye Firestore
+    // 5. Kuokoa Wasifu, Daraja, na Seed Phrase Kwenye Firestore
     await setDoc(doc(db, 'users', uid), {
       uid,
       email,
       fullName,
-      phone,
+      phone: input.phone.trim(),
       country,
       tier: input.tier,
       role: 'user',
-      seedPhrase, // Inahifadhi maneno 12 ya siri kwenye Firestore kwa usalama
+      seedPhrase,
       idType: input.tier !== 'regular' ? input.idType : null,
       idNumber: input.tier !== 'regular' ? input.idNumber : null,
       companyName: input.tier === 'corporate' ? input.companyName : null,
@@ -91,15 +117,13 @@ export const registerCustomer = async (input: {
       }
     });
 
-    // Inarudisha uid na seedPhrase ili ukurasa wa Signup uweze kuwaonyesha kwa usalama
-    return { ok: true, message: 'Usajili na kuanzisha pochi kimekamilika kikamilifu!', uid, seedPhrase };
+    return { ok: true, message: 'Usajili na uundaji wa pochi kimekamilika kikamilifu!', uid, seedPhrase };
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {
-      return { ok: false, message: 'Barua pepe hii tayari imeshasajiliwa kwenye mfumo!' };
+      return { ok: false, message: 'Namba ya Simu au Email hii tayari imesajiliwa kwenye mfumo!' };
     }
     return { ok: false, message: error.message || 'Kosa la usajili limejitokeza.' };
   }
 };
 
-// Inalinda ukurasa wa Feedback usigome
 export const getRegistrations = () => [];
