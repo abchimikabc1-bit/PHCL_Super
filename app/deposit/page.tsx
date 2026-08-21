@@ -2,25 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/lib/user-profile'; // Agiza auth kutoka kwenye lib yako thabiti
 import { Copy, Check } from 'lucide-react';
-
-// Usanidi thabiti wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
-const app = hasFirebaseConfig
-  ? getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-  : undefined as any;
-const auth = app ? getAuth(app) : null as any;
 
 export default function DepositPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -60,11 +44,11 @@ export default function DepositPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <h1 className="text-3xl font-black mb-4 text-green-500">Ukurasa Imelindwa (Locked)</h1>
+        <h1 className="text-3xl font-black mb-4 text-green-500">Ukurasa Umelindwa (Locked)</h1>
         <p className="text-gray-400 mb-6 text-center max-w-md">
           Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kupata anwani yako ya pochi na QR code.
         </p>
-        <Link href="/signup" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
+        <Link href="/login" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
           Ingia kwenye Akaunti
         </Link>
       </div>
@@ -101,23 +85,15 @@ export default function DepositPage() {
             </select>
           </div>
 
-          {/* QR Code ya Uthibitisho */}
           <div className="p-4 bg-white rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-center w-64 h-64 border border-white/10">
-            <img 
-              src={qrCodeUrl} 
-              alt="Wallet QR Code" 
-              className="w-full h-full object-contain"
-            />
+            <img src={qrCodeUrl} alt="Wallet QR Code" className="w-full h-full object-contain" />
           </div>
 
           <div className="w-full space-y-2">
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Anwani yako ya Pochi (Wallet Address)</label>
             <div className="flex items-center gap-2 bg-white/5 p-3 rounded-xl border border-white/10 overflow-hidden w-full">
               <p className="text-xs text-gray-300 truncate flex-1 font-mono">{user.uid}</p>
-              <button 
-                onClick={handleCopyAddress}
-                className="p-2 rounded-lg hover:bg-white/10 transition text-amber-300 hover:text-amber-200"
-              >
+              <button onClick={handleCopyAddress} className="p-2 rounded-lg hover:bg-white/10 transition text-amber-300 hover:text-amber-200">
                 {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
               </button>
             </div>

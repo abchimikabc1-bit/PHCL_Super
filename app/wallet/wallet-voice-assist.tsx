@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useLanguage } from '@/hooks/use-language'; // Tumeagiza useLanguage hapa
 
 type VoiceLanguage = 'sw' | 'en' | 'zh' | 'fr';
 
@@ -44,7 +45,6 @@ const INVALID_AMOUNT_BY_LANG: Record<VoiceLanguage, string> = {
   zh: '请输入有效的 PI 数量。', fr: 'Veuillez saisir un montant PI valide.',
 };
 
-// 1. UMBELE WA SAUTI NA MAANDISHI KWA LUGHA ZOTE 4 (NA NYONGEZA YA KUKAMILIKA KWA MFUMO)
 const MESSAGE_BY_LANG = (language: VoiceLanguage, balancePi: string, gcvUsd: string) => {
   if (language === 'en') {
     return `Wallet balance is ${balancePi} Pi. One Pi equals ${gcvUsd} US dollars at GCV. For now, our platform is almost complete; please wait a bit.`;
@@ -66,25 +66,26 @@ const ESTIMATE_MESSAGE_BY_LANG = (language: VoiceLanguage, amountPi: number, est
     return `${amountPi} Pi 的估算价值是 ${estimatedUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} 美元（按 GCV）。`;
   }
   if (language === 'fr') {
-    return `La valeur estimée de ${amountPi} Pi est de ${estimatedUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} dollars américains au taux GCV.`;
+    return `La valeur estimée de ${amountPi} Pi is de ${estimatedUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} dollars américains au taux GCV.`;
   }
   return `Makadirio ya thamani ya ${amountPi} Pi ni dola ${estimatedUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} kwa kiwango cha GCV.`;
 };
 
-const detectVoiceLanguage = (): VoiceLanguage => {
-  if (typeof window === 'undefined') return 'sw';
-  const raw = window.localStorage.getItem(VOICE_LANGUAGE_STORAGE_KEY) as VoiceLanguage | null;
-  if (raw === 'sw' || raw === 'en' || raw === 'zh' || raw === 'fr') return raw;
-  const appLang = window.localStorage.getItem('phcl-language');
-  return appLang === 'en' ? 'en' : 'sw';
-};
-
 export default function WalletVoiceAssist({ balancePi, gcvUsd }: { balancePi: string; gcvUsd: string }) {
+  const { language: appLanguage } = useLanguage(); // Sikiliza lugha kuu ya app
   const [lastRead, setLastRead] = useState('');
   const [typedPiAmount, setTypedPiAmount] = useState('');
   const [language, setLanguage] = useState<VoiceLanguage>('sw');
 
-  useEffect(() => { setLanguage(detectVoiceLanguage()); }, []);
+  // USAWASILISHAJI WA LUGHA KIOTOMATIKI (AUTO-SYNC)
+  useEffect(() => {
+    const raw = window.localStorage.getItem(VOICE_LANGUAGE_STORAGE_KEY) as VoiceLanguage | null;
+    if (raw) {
+      setLanguage(raw);
+    } else {
+      setLanguage(appLanguage === 'en' ? 'en' : 'sw');
+    }
+  }, [appLanguage]);
 
   const gcvNumeric = useMemo(() => Number(gcvUsd.replace(/,/g, '')) || 0, [gcvUsd]);
 
@@ -170,7 +171,7 @@ export default function WalletVoiceAssist({ balancePi, gcvUsd }: { balancePi: st
       <div className="mt-3 rounded-lg border border-amber-200/25 bg-slate-900/50 p-3">
         <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-100/90">{INPUT_TITLE_BY_LANG[language]}</p>
         <div className="flex flex-wrap items-center gap-2">
-          <input type="number" step="0.00000001" min="0" value={typedPiAmount} onChange={(e) => setTypedPiAmount(event.target.value)} placeholder={INPUT_PLACEHOLDER_BY_LANG[language]} className="w-40 rounded-lg border border-amber-200/35 bg-slate-950 px-3 py-2 text-sm text-amber-50 placeholder:text-amber-100/45 focus:border-amber-300/60 focus:outline-none" />
+          <input type="number" step="0.00000001" min="0" value={typedPiAmount} onChange={(e) => setTypedPiAmount(e.target.value)} placeholder={INPUT_PLACEHOLDER_BY_LANG[language]} className="w-40 rounded-lg border border-amber-200/35 bg-slate-950 px-3 py-2 text-sm text-amber-50 placeholder:text-amber-100/45 focus:border-amber-300/60 focus:outline-none" />
           <button type="button" onClick={speakEstimatedValue} className="rounded-lg border border-amber-300/50 bg-amber-400/20 px-3 py-2 text-xs font-bold text-amber-50 hover:bg-amber-400/30">
             {READ_ESTIMATE_BUTTON_BY_LANG[language]}
           </button>
