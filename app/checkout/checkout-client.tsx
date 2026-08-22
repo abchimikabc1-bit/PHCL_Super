@@ -1,5 +1,8 @@
 'use client';
 
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot, collection, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db, adjustUserBalance, UserProfile } from '@/lib/user-profile';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -17,6 +20,22 @@ import { getPolicyVersions } from '@/lib/policy-compliance';
 
 export default function CheckoutClient() {
   const [items, setItems] = useState<CartStorageItem[]>([]);
+   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (!auth || !db) return;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        const unsubSnap = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+          if (snap.exists()) setProfile({ uid: user.uid, ...snap.data() } as UserProfile);
+        });
+        return () => unsubSnap();
+      } else { setProfile(null); }
+    });
+    return () => unsubscribe();
+  }, []); 
   const { language } = useLanguage();
   const isSwahili = language === 'sw';
 
@@ -247,11 +266,12 @@ export default function CheckoutClient() {
 
   const policyConsentValid = checkoutConsent.agreedToTerms && checkoutConsent.agreedToPrivacy;
 
-  const completePurchase = (
+      // === BADILISHA KAZI YA COMPLETEPURCHASE NA TOLEO HILI SAFU KABISA ===
+  const completePurchase = async (
     paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi',
     mobileDetails?: { network: string | null; phone: string }
   ) => {
-    if (isSubmitting) {
+    if (isSubmitting || !currentUser || !db) {
       return false;
     }
 
@@ -332,6 +352,17 @@ export default function CheckoutClient() {
         return false;
       }
 
+      // B. UHAKIKI WA SALIO LA WALLET (FIRESTORE BALANCE CHECK)
+      const costInSelectedCurrency = convertAmount(estimatedGrandTotalUsd, 'usd', paymentMethod);
+      const userBalance = profile?.balances?.[paymentMethod] || 0;
+      if (userBalance < costInSelectedCurrency) {
+        toast.error(isSwahili 
+          ? `Salio lako halitoshi! Thamani ya oda ni ${formatCurrencyAmount(paymentMethod, costInSelectedCurrency)} lakini unamiliki tu ${formatCurrencyAmount(paymentMethod, userBalance)} kwenye Wallet.`
+          : `Insufficient balance! Order total is ${formatCurrencyAmount(paymentMethod, costInSelectedCurrency)} but you only have ${formatCurrencyAmount(paymentMethod, userBalance)} in your Wallet.`
+        );
+        return false;
+      }
+
       const reorderSourceOrderId =
         typeof window !== 'undefined'
           ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
@@ -390,6 +421,20 @@ export default function CheckoutClient() {
         return false;
       }
 
+      // C. KUKATA SALIO LA WALLET MOJA KWA MOJA NA KUREKODI KISEVER
+      await adjustUserBalance(currentUser.uid, paymentMethod, -costInSelectedCurrency);
+      
+      // Rekodi muamala kiserver
+      await addDoc(collection(db, 'transactions'), {
+        uid: currentUser.uid, type: 'debit', currency: paymentMethod, amount: costInSelectedCurrency,
+        description: `Malipo ya Oda ${order.id} kwenye Soko`, createdAt: serverTimestamp()
+      });
+
+      // Hifadhi oda kwenye database kiserver
+      await setDoc(doc(db, 'orders', order.id), {
+        ...order, uid: currentUser.uid, status: 'PENDING_DELIVERY', createdAt: serverTimestamp()
+      });
+
       saveOrder(order);
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
@@ -399,11 +444,14 @@ export default function CheckoutClient() {
       setItems([]);
       toast.success(copy.orderConfirmedToast(order.id));
       return true;
+    } catch {
+      toast.error(isSwahili ? 'Kosa la usajili wa oda kiserver limejitokeza.' : 'Error creating server order.');
+      return false;
     } finally {
       setIsSubmitting(false);
     }
   };
-
+    
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_26%),radial-gradient(circle_at_bottom_center,rgba(245,158,11,0.12),transparent_25%)]" />
