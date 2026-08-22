@@ -214,17 +214,17 @@ export default function WalletPage() {
               <button onClick={() => setShowActionModal('transfer')} className="rounded-xl border border-amber-400/40 bg-amber-400/20 px-4 py-3 text-center text-xs font-black text-amber-200 transition hover:bg-amber-400/30 hover:scale-105">⇄ {copy.transfer}</button>
             </div>
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-            <Link href="/checkout" className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-No response
-          // === ENDELEA NAKILI KUANZIA MSTARI ULIPOKATIKA HAPA ===
-            className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20"
-          >
-            🛒 {copy.goToCheckout}
-          </Link>
-          <Link href="/marketplace" className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20">🏬 {copy.openMarketplace}</Link>
-          <Link href="/exchange" className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-300 hover:bg-violet-500/20">💱 {copy.openExchange}</Link>
-        </div>
+ 
+         <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+            <Link 
+              href="/checkout" 
+              className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20"
+            >
+              🛒 {copy.goToCheckout}
+            </Link>
+            <Link href="/marketplace" className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20">🏬 {copy.openMarketplace}</Link>
+            <Link href="/exchange" className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-300 hover:bg-violet-500/20">💱 {copy.openExchange}</Link>
+          </div>
 
         {/* Sauti ya AI Assistant */}
         <div className="mt-5">
@@ -279,7 +279,7 @@ export default function WalletPage() {
             )}
           </div>
         </div>
-
+       </div>
       </section>
 
       {/* --- REGISTRATION / KYC MODAL (TIERS 1, 2, 3) --- */}
