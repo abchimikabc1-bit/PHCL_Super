@@ -58,22 +58,35 @@ export default function WalletPage() {
   const [actionAmount, setActionAmount] = useState('');
   const [actionCurrency, setActionCurrency] = useState<'usd' | 'tzs' | 'ntzs' | 'pi'>('tzs');
   const [actionRecipient, setActionRecipient] = useState('');
+  const [isSubmittingReg, setIsSubmittingReg] = useState(false);
 
-  // 1. FIRESTORE REAL-TIME BALANCES & TRANSACTIONS
+  // 1. FIRESTORE REAL-TIME BALANCES & TRANSACTIONS (NA ERROR HANDLING)
   useEffect(() => {
+    const auth = getAuth();
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       if (user && db) {
-        const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-          if (snap.exists()) setProfile({ uid: user.uid, ...snap.data() } as UserProfile);
-        });
+        // A. Salio Real-time
+        const unsubProfile = onSnapshot(doc(db, 'users', user.uid), 
+          (snap) => {
+            if (snap.exists()) setProfile({ uid: user.uid, ...snap.data() } as UserProfile);
+          },
+          (err) => { console.error("Profile Error:", err); setLoading(false); }
+        );
+        // B. Ledger Real-time
         const q = query(collection(db, 'transactions'), where('uid', '==', user.uid), orderBy('createdAt', 'desc'));
-        const unsubLedger = onSnapshot(q, (snap) => {
-          setLedger(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setLoading(false);
-        });
+        const unsubLedger = onSnapshot(q, 
+          (snap) => {
+            setLedger(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setLoading(false);
+          },
+          (err) => { console.error("Ledger Error (Index needed?):", err); setLoading(false); } // HII INAZUIA KUKWAMA!
+        );
         return () => { unsubProfile(); unsubLedger(); };
-      } else { setProfile(null); setLoading(false); }
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
     });
     return () => unsubscribeAuth();
   }, [currentUser]);
@@ -83,12 +96,13 @@ export default function WalletPage() {
     return (profile.balances.usd || 0) + convertAmount(profile.balances.tzs || 0, 'tzs', 'usd') + convertAmount(profile.balances.ntzs || 0, 'ntzs', 'usd') + convertAmount(profile.balances.pi || 0, 'pi', 'usd');
   }, [profile]);
 
-  // 2. KUSALIMISHA KYC KISERVER
+  // 2. KUSALIMISHA KYC KISERVER KWENYE FIRESTORE
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !db) return;
 
     try {
+      setIsSubmittingReg(true);
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
         fullName: regForm.fullName,
@@ -104,62 +118,56 @@ export default function WalletPage() {
         kycStatus: regForm.tier !== 'regular' ? 'PENDING_REVIEW' : 'APPROVED',
         updatedAt: serverTimestamp(),
       });
-      toast.success('Uhakiki wa kitambulisho umehifadhiwa kikamilifu!');
+      toast.success('Taarifa za usajili na uhakiki zimehifadhiwa kikamilifu!');
       setShowRegisterModal(false);
     } catch {
       toast.error('Kosa limetokea wakati wa kuhifadhi KYC.');
+    } finally {
+      setIsSubmittingReg(false);
     }
   };
 
- // 2. KUKATA SALIO NA KUREJESHA RISITI MAALUM YA MUAMALA (DETAILED RECEIPT)
-const handleActionExecute = async (e: React.FormEvent) => {
-  e.preventDefault();
-  const num = parseFloat(actionAmount);
-  if (isNaN(num) || num <= 0 || !currentUser || !db) return;
+  // 3. KUTEKELEZA MIAMALA YA FIRESTORE NA KUKATA SALIO MOJA KWA MOJA
+  const handleActionExecute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseFloat(actionAmount);
+    if (isNaN(num) || num <= 0 || !currentUser || !db) return;
 
-  try {
-    const txRef = collection(db, 'transactions');
-    let successMessage = '';
+    try {
+      const txRef = collection(db, 'transactions');
+      let successMessage = '';
 
-    if (showActionModal === 'deposit') {
-      await adjustUserBalance(currentUser.uid, actionCurrency, num);
-      await addDoc(txRef, { uid: currentUser.uid, type: 'credit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
-      
-      successMessage = isSw 
-        ? `Muamala Umefanikiwa! Umeweka ${formatCurrencyAmount(actionCurrency, num)} kwenye wallet yako.`
-        : `Success! Deposited ${formatCurrencyAmount(actionCurrency, num)} into your wallet.`;
-        
-    } else if (showActionModal === 'withdraw') {
-      await adjustUserBalance(currentUser.uid, actionCurrency, -num);
-      await addDoc(txRef, { uid: currentUser.uid, type: 'debit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
-      
-      successMessage = isSw 
-        ? `Muamala Umefanikiwa! Umetoa ${formatCurrencyAmount(actionCurrency, num)} kwenda Benki/M-Pesa.`
-        : `Success! Withdrew ${formatCurrencyAmount(actionCurrency, num)} to your bank/mobile wallet.`;
-        
-    } else if (showActionModal === 'transfer') {
-      await adjustUserBalance(currentUser.uid, actionCurrency, -num);
-      await addDoc(txRef, { uid: currentUser.uid, type: 'debit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
-      
-      if (actionRecipient.trim()) {
-        await adjustUserBalance(actionRecipient.trim(), actionCurrency, num);
-        await addDoc(txRef, { uid: actionRecipient.trim(), type: 'credit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
+      if (showActionModal === 'deposit') {
+        await adjustUserBalance(currentUser.uid, actionCurrency, num);
+        await addDoc(txRef, { uid: currentUser.uid, type: 'credit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
+        successMessage = isSw 
+          ? `Muamala Umefanikiwa! Umeweka ${formatCurrencyAmount(actionCurrency, num)} kwenye wallet yako.`
+          : `Success! Deposited ${formatCurrencyAmount(actionCurrency, num)} into your wallet.`;
+      } else if (showActionModal === 'withdraw') {
+        await adjustUserBalance(currentUser.uid, actionCurrency, -num);
+        await addDoc(txRef, { uid: currentUser.uid, type: 'debit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
+        successMessage = isSw 
+          ? `Muamala Umefanikiwa! Umetoa ${formatCurrencyAmount(actionCurrency, num)} kwenda Benki/M-Pesa.`
+          : `Success! Withdrew ${formatCurrencyAmount(actionCurrency, num)} to your bank/mobile wallet.`;
+      } else if (showActionModal === 'transfer') {
+        // Lipa au tuma fedha kibenki (Salio linakatwa moja kwa moja kwenye wallet)
+        await adjustUserBalance(currentUser.uid, actionCurrency, -num);
+        await addDoc(txRef, { uid: currentUser.uid, type: 'debit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
+        if (actionRecipient.trim()) {
+          await adjustUserBalance(actionRecipient.trim(), actionCurrency, num);
+          await addDoc(txRef, { uid: actionRecipient.trim(), type: 'credit', currency: actionCurrency, amount: num, createdAt: serverTimestamp() });
+        }
+        successMessage = isSw 
+          ? `Muamala Umefanikiwa! Umetuma ${formatCurrencyAmount(actionCurrency, num)} kwenda kwa Mpokeaji (UID: ${actionRecipient}).`
+          : `Success! Transferred ${formatCurrencyAmount(actionCurrency, num)} to recipient (UID: ${actionRecipient}).`;
       }
-      
-      successMessage = isSw 
-        ? `Muamala Umefanikiwa! Umetuma ${formatCurrencyAmount(actionCurrency, num)} kwenda kwa Mpokeaji (UID: ${actionRecipient}).`
-        : `Success! Transferred ${formatCurrencyAmount(actionCurrency, num)} to recipient (UID: ${actionRecipient}).`;
+      toast.success(successMessage, { duration: 5000 });
+    } catch {
+      toast.error(isSw ? 'Kosa la muamala limetokea. Salio halijaguswa!' : 'Transaction failed. No changes were made.');
+    } finally {
+      setShowActionModal(null); setActionAmount(''); setActionRecipient('');
     }
-
-    // Risiti inakaa sekunde 5 (duration: 5000) ili mtumiaji asome taarifa zote kwa utulivu
-    toast.success(successMessage, { duration: 5000 });
-  } catch (error) {
-    toast.error(isSw ? 'Kosa la muamala limetokea. Salio halijaguswa!' : 'Transaction failed. No changes were made.');
-  } finally {
-    setShowActionModal(null); setActionAmount(''); setActionRecipient('');
-  }
-};
-
+  };
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Inapakia...</div>;
 
@@ -208,50 +216,73 @@ const handleActionExecute = async (e: React.FormEvent) => {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-            <Link href="/checkout" className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300">🛒 {copy.goToCheckout}</Link>
-            <Link href="/marketplace" className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300">🏬 {copy.openMarketplace}</Link>
-            <Link href="/exchange" className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-300">💱 {copy.openExchange}</Link>
-          </div>
-
-          <div className="mt-5">
-            <WalletVoiceAssist balancePi={profile?.balances?.pi ? profile.balances.pi.toFixed(8) : "0.00"} gcvUsd={PI_GCV_USD.toLocaleString('en-US')} />
-          </div>
-
-          <div className="mt-8">
-            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4">{copy.walletsTitle}</p>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 p-5"><div className="flex items-center justify-between"><span className="text-3xl">🥧</span><span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 border border-amber-400/40 rounded-full px-2 py-0.5">Pi Network</span></div><p className="mt-4 text-xs text-slate-400 font-semibold">Pi Crypto Asset</p><p className="text-xl font-black text-amber-200">{formatCurrencyAmount('pi', profile?.balances?.pi || 0)}</p></div>
-              <div className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950 p-5"><div className="flex items-center justify-between"><span className="text-3xl">🇹🇿</span><span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 border border-emerald-400/30 rounded-full px-2 py-0.5">TZS Cash</span></div><p className="mt-4 text-xs text-slate-400 font-semibold">Tanzanian Shilling</p><p className="text-xl font-black text-emerald-200">{formatCurrencyAmount('tzs', profile?.balances?.tzs || 0)}</p></div>
-              <div className="rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-cyan-950/30 via-slate-900 to-slate-950 p-5"><div className="flex items-center justify-between"><span className="text-3xl">🇹🇿⚡</span><span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-400/30 rounded-full px-2 py-0.5">nTZS Stable</span></div><p className="mt-4 text-xs text-slate-400 font-semibold">Digital Shilling</p><p className="text-xl font-black text-cyan-200">{formatCurrencyAmount('ntzs', profile?.balances?.ntzs || 0)}</p></div>
-              <div className="rounded-2xl border border-blue-400/30 bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-950 p-5"><div className="flex items-center justify-between"><span className="text-3xl">🇺🇸</span><span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 border border-blue-400/30 rounded-full px-2 py-0.5">USD Global</span></div><p className="mt-4 text-xs text-slate-400 font-semibold">US Dollar</p><p className="text-xl font-black text-blue-200">{formatCurrencyAmount('usd', profile?.balances?.usd || 0)}</p></div>
-            </div>
-          </div>
-
-          <div className="mt-8 rounded-2xl border border-white/10 bg-slate-950/70 p-5">
-            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4">{copy.recentActivity}</p>
-            <div className="space-y-3">
-              {ledger.length === 0 ? (
-                <p className="text-sm text-slate-500 py-3 text-center">{copy.noRecentActivity}</p>
-              ) : (
-                ledger.map((entry) => (
-                  <div key={entry.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-xs hover:bg-white/10">
-                    <div>
-                      <p className="font-bold text-white text-sm">{entry.type === 'debit' ? copy.debitLabel : copy.creditLabel} ({entry.currency.toUpperCase()})</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{entry.createdAt ? new Date(entry.createdAt.seconds * 1000).toLocaleString('en-US') : ''}</p>
-                    </div>
-                    <p className={entry.type === 'debit' ? 'font-black text-rose-400 text-sm sm:text-base' : 'font-black text-emerald-400 text-sm sm:text-base'}>
-                      {entry.type === 'debit' ? '-' : '+'}{formatCurrencyAmount(entry.currency, entry.amount)}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
+            <Link href="/checkout" className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-No response
+          // === ENDELEA NAKILI KUANZIA MSTARI ULIPOKATIKA HAPA ===
+            className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20"
+          >
+            🛒 {copy.goToCheckout}
+          </Link>
+          <Link href="/marketplace" className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20">🏬 {copy.openMarketplace}</Link>
+          <Link href="/exchange" className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-300 hover:bg-violet-500/20">💱 {copy.openExchange}</Link>
         </div>
+
+        {/* Sauti ya AI Assistant */}
+        <div className="mt-5">
+          <WalletVoiceAssist balancePi={profile?.balances?.pi ? profile.balances.pi.toFixed(8) : "0.00"} gcvUsd={PI_GCV_USD.toLocaleString('en-US')} />
+        </div>
+
+        {/* Wallets & Live Balances */}
+        <div className="mt-8">
+          <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4">{copy.walletsTitle}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 p-5 shadow-lg">
+              <div className="flex items-center justify-between"><span className="text-3xl">🥧</span><span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 border border-amber-400/40 rounded-full px-2 py-0.5">Pi Network</span></div>
+              <p className="mt-4 text-xs text-slate-400 font-semibold">Pi Crypto Asset</p>
+              <p className="text-xl font-black text-amber-200">{formatCurrencyAmount('pi', profile?.balances?.pi || 0)}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950 p-5 shadow-lg">
+              <div className="flex items-center justify-between"><span className="text-3xl">🇹🇿</span><span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 border border-emerald-400/30 rounded-full px-2 py-0.5">TZS Cash</span></div>
+              <p className="mt-4 text-xs text-slate-400 font-semibold">Tanzanian Shilling</p>
+              <p className="text-xl font-black text-emerald-200">{formatCurrencyAmount('tzs', profile?.balances?.tzs || 0)}</p>
+            </div>
+            <div className="rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-cyan-950/30 via-slate-900 to-slate-950 p-5 shadow-lg">
+              <div className="flex items-center justify-between"><span className="text-3xl">🇹🇿⚡</span><span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-400/30 rounded-full px-2 py-0.5">nTZS Stable</span></div>
+              <p className="mt-4 text-xs text-slate-400 font-semibold">Digital Shilling</p>
+              <p className="text-xl font-black text-cyan-200">{formatCurrencyAmount('ntzs', profile?.balances?.ntzs || 0)}</p>
+            </div>
+            <div className="rounded-2xl border border-blue-400/30 bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-950 p-5 shadow-lg">
+              <div className="flex items-center justify-between"><span className="text-3xl">🇺🇸</span><span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 border border-blue-400/30 rounded-full px-2 py-0.5">USD Global</span></div>
+              <p className="mt-4 text-xs text-slate-400 font-semibold">US Dollar</p>
+              <p className="text-xl font-black text-blue-200">{formatCurrencyAmount('usd', profile?.balances?.usd || 0)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Ledger - Recent Activity */}
+        <div className="mt-8 rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-inner">
+          <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4">{copy.recentActivity}</p>
+          <div className="space-y-3">
+            {ledger.length === 0 ? (
+              <p className="text-sm text-slate-500 py-3 text-center">{copy.noRecentActivity}</p>
+            ) : (
+              ledger.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-xs hover:bg-white/10 transition">
+                  <div>
+                    <p className="font-bold text-white text-sm">{entry.type === 'debit' ? copy.debitLabel : copy.creditLabel} ({entry.currency.toUpperCase()})</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{entry.createdAt ? new Date(entry.createdAt.seconds * 1000).toLocaleString('en-US') : ''}</p>
+                  </div>
+                  <p className={entry.type === 'debit' ? 'font-black text-rose-400 text-sm sm:text-base' : 'font-black text-emerald-400 text-sm sm:text-base'}>
+                    {entry.type === 'debit' ? '-' : '+'}{formatCurrencyAmount(entry.currency, entry.amount)}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
       </section>
 
-      {/* --- REGISTRATION / KYC MODAL --- */}
+      {/* --- REGISTRATION / KYC MODAL (TIERS 1, 2, 3) --- */}
       {showRegisterModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
           <div className="w-full max-w-md rounded-3xl border border-amber-400/40 bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
