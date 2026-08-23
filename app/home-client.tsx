@@ -466,6 +466,8 @@ export default function HomeClient() {
                 <Mail className="text-amber-300" size={20} />
                 <div>
                   <p className="text-xs text-gray-500">Email Support</p>
+                  <p className="text-sm font-semibold text-white">support@phclsuper.com</p>
+                  <p className="text-sm font-semibold text-white">info@phclsuper.com</p>
                   <p className="text-sm font-semibold text-white">admin@phclsuper.com</p>
                 </div>
               </div>
