@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",
-    "main": "next.config.js",
+  "main": "next.config.js",
   "scripts": {
     "clean": "npx rimraf .next",
     "prebuild": "npm run clean",
@@ -61,6 +61,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
+    "ethers": "^6.17.0",
     "firebase": "^12.15.0",
     "firebase-admin": "^14.1.0",
     "framer-motion": "^12.42.2",
