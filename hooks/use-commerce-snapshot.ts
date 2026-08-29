@@ -29,11 +29,8 @@ const buildLocalFallback = (): CommerceStatePayload => ({
   orderStatusAudit: getOrderStatusAudit(),
   customerOverrideMap: getCustomerOverrideMap(),
   deliveredAtMap: getDeliveredAtMap(),
-  
-  // Hizi ndizo zilizokuwa zinakosekana
-  revision: 0,
-  updatedAt: new Date().toISOString(),
 });
+
 export function useCommerceSnapshot() {
   const [snapshot, setSnapshot] = useState<CommerceStatePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);

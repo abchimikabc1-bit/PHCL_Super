@@ -112,7 +112,13 @@ export default function LoginPage() {
         const user = await registerWithEmail(email.trim(), password);
         
         // Tunatengeneza profile ya mtumiaji kiotomatiki kwenye Firestore
-        await createUserProfile(user.uid, email.trim(), fullName.trim(), phone.trim());
+       await createUserProfile(
+  user.uid,
+  email.trim(),
+  fullName.trim(),
+  phone.trim(),
+  'regular'
+);
         
         toast.success(copy.regSuccess);
         router.push('/admin/dashboard');

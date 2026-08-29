@@ -18,7 +18,13 @@ interface CheckoutProps {
   currency?: string;
   language?: 'sw' | 'en';
   onMobilePaymentDetailsChange?: (details: { network: string | null; phone: string }) => void;
-  onCompletePurchase?: (paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi', mobileDetails?: { network: string | null; phone: string }) => boolean | void;
+  onCompletePurchase?: (
+  paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi',
+  mobileDetails?: {
+    network: string | null;
+    phone: string;
+  },
+) => boolean | void | Promise<boolean | void>;
   canCompletePurchase?: boolean;
   isSubmitting?: boolean;
   allowPiPayments?: boolean;
@@ -115,45 +121,67 @@ export default function Checkout({
     onMobilePaymentDetailsChange?.(nextDetails);
   };
 
-  const handleCheckoutSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    const handleCheckoutSubmit = async (
+  e: React.FormEvent<HTMLFormElement>,
+) => {
+  e.preventDefault();
 
-    const requiresMobileMoney = selectedMethod === 'tzs' || selectedMethod === 'ntzs';
-    const normalizedPhone = mobileDetails.phone.trim().replace(/[\s()-]/g, '');
-    if (requiresMobileMoney && (!mobileDetails.network || !/^\+?[0-9]{10,15}$/.test(normalizedPhone))) {
-      onBlockedPurchase?.('mobile_details');
-      return;
-    }
+  const requiresMobileMoney =
+    selectedMethod === 'tzs' ||
+    selectedMethod === 'ntzs';
 
-    if (!canCompletePurchase) {
-      if (onBlockedPurchase) {
-        onBlockedPurchase(requiresMobileMoney ? 'mobile_details' : 'blocked');
-      }
-      return;
-    }
+  const normalizedPhone = mobileDetails.phone
+    .trim()
+    .replace(/[\s()-]/g, '');
 
-    const purchaseResult = onCompletePurchase
-      ? onCompletePurchase(
-        selectedMethod as 'usd' | 'tzs' | 'ntzs' | 'pi',
+  if (
+    requiresMobileMoney &&
+    (
+      !mobileDetails.network ||
+      !/^\+?[0-9]{10,15}$/.test(normalizedPhone)
+    )
+  ) {
+    onBlockedPurchase?.('mobile_details');
+    return;
+  }
+
+  if (!canCompletePurchase) {
+    onBlockedPurchase?.(
+      requiresMobileMoney
+        ? 'mobile_details'
+        : 'blocked',
+    );
+
+    return;
+  }
+
+  const purchaseResult = onCompletePurchase
+    ? await onCompletePurchase(
+        selectedMethod as
+          | 'usd'
+          | 'tzs'
+          | 'ntzs'
+          | 'pi',
         requiresMobileMoney
           ? {
               network: mobileDetails.network,
               phone: normalizedPhone,
             }
-          : undefined
+          : undefined,
       )
-      : true;
+    : true;
 
-    if (purchaseResult === false) {
-      return;
-    }
+  if (purchaseResult === false) {
+    return;
+  }
 
-    setSuccess(true);
-    if (onSuccess) {
-      setTimeout(onSuccess, 2000);
-    }
-  };
+  setSuccess(true);
 
+  if (onSuccess) {
+    window.setTimeout(onSuccess, 2000);
+  }
+};
+   
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 py-6 px-4 sm:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -366,12 +394,13 @@ export default function Checkout({
                     {formatMoney(displayTotal, currency)}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+               <div className="flex justify-between text-slate-400">
                   <span>{language === 'sw' ? 'Usafirishaji' : 'Delivery'}</span>
-                  <span className="text-emerald-400 font-bold">
-                    {language === 'sw' ? 'Bure' : 'Free'}
-                  </span>
-                </div>
+                  
+                   <span className="text-emerald-400 font-bold">
+                 {language === 'sw' ? 'Bure' : 'Free'}
+                </span>
+              </div>
                 <div className="border-t border-slate-800 pt-2 flex justify-between text-base font-extrabold text-white">
                   <span>{language === 'sw' ? 'Jumla Kuu' : 'Total'}</span>
                   <span className="text-amber-400">

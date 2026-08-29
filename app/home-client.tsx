@@ -12,9 +12,9 @@ import {
   Mail,
   Phone,
   Star,
-  User,       
-  Settings,   
-  RefreshCw,  
+  User,
+  Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
@@ -28,6 +28,21 @@ export default function HomeClient() {
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
 
   const copy = {
+    nextStep: isSw
+      ? 'Hatua Inayofuata'
+      : 'Next Step',
+
+    nextStepText: isSw
+      ? 'Sanidi pochi yako au badilisha mipangilio ya akaunti yako ili kuendelea.'
+      : 'Configure your wallet or update your settings to continue.',
+
+    goWallet: isSw
+      ? 'Fungua Pochi'
+      : 'Open Wallet',
+
+    openSettings: isSw
+      ? 'Mipangilio'
+      : 'Settings',
     badge: isSw ? 'Jukwaa la PHCL Super' : 'PHCL Super Platform',
     title: isSw ? 'Karibu PHCL Super' : 'Welcome to PHCL Super',
     subtitle: isSw
@@ -135,7 +150,7 @@ export default function HomeClient() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] text-white">
       {/* Msimbo wa CSS kwa ajili ya kuifanya bendera ipepee kama upepo halisi (Waving Flag) */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes cloth-sway {
           0% { transform: perspective(980px) rotateY(0deg) rotateZ(0deg) translateY(0px); }
           25% { transform: perspective(980px) rotateY(-7deg) rotateZ(-0.7deg) translateY(-1px); }
@@ -148,7 +163,7 @@ export default function HomeClient() {
           transform-origin: left center;
           will-change: transform;
         }
-      `}} />
+      ` }} />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_26%),radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_22%),radial-gradient(circle_at_bottom_center,rgba(245,158,11,0.12),transparent_25%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-300/10 to-transparent" />
@@ -356,7 +371,7 @@ export default function HomeClient() {
           <h2 className="text-2xl font-black tracking-tight sm:text-3xl bg-gradient-to-r from-white to-amber-200 bg-clip-text text-transparent">{copy.metricsTitle}</h2>
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {metrics.map((metric, idx) => (
-              <div key={idx} className="rounded-2xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
+              <div key={`${metric.label}-${idx}`} className="rounded-2xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
                 <p className="text-3xl font-black text-amber-300 sm:text-4xl">{metric.value}</p>
                 <p className="mt-2 text-xs font-medium text-gray-400 uppercase tracking-wider">{metric.label}</p>
               </div>
@@ -404,7 +419,7 @@ export default function HomeClient() {
                       {t.rating.toFixed(1)}
                     </div>
                   </div>
-                  <p className="text-sm italic text-gray-300">"{t.quote}"</p>
+                  <p className="text-sm italic text-gray-300">&ldquo;{t.quote}&rdquo;</p>
                   <div className="mt-4">
                     <p className="text-sm font-bold text-amber-300">{t.name}</p>
                     <p className="text-xs text-gray-500">{t.role}</p>
@@ -445,7 +460,7 @@ export default function HomeClient() {
             <p className="mt-2 text-sm text-gray-400">{copy.readinessText}</p>
             <ul className="mt-4 space-y-2 text-xs text-gray-300">
               {copy.readinessItems.map((item, index) => (
-                <li key={index} className="flex items-center gap-2">
+                <li key={`${item}-${index}`} className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   {item}
                 </li>

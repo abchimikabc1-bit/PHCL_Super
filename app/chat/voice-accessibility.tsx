@@ -237,7 +237,6 @@ export default function VoiceAccessibility({ autoStartVoice = false }: VoiceAcce
     if (!autoStartVoice || !supported || !voiceLanguageReady || autoIntroDone) return;
     speakText(INTRO_BY_LANG[voiceLanguage], voiceLanguage);
     setAutoIntroDone(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStartVoice, supported, voiceLanguageReady, autoIntroDone, voiceLanguage]);
 
   const speakText = (text: string, languageOverride?: VoiceLanguage) => {
