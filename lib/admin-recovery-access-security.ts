@@ -33,6 +33,9 @@ const MAX_ATTEMPTS = 5;
 const RECOVERY_ACCESS_TTL_MS =
   10 * 60 * 1000;
 
+const RECOVERY_OPERATION_LEASE_MS =
+  2 * 60 * 1000;
+
 type RecoveryRateLimitDocument = {
   attempts: number;
   windowStartedAtMs: number;
@@ -47,6 +50,9 @@ type RecoveryAccessDocument = {
   expiresAtMs: number;
   usedAtMs: number | null;
   revokedAtMs: number | null;
+  processingOperationDigest?: string | null;
+  processingStartedAtMs?: number | null;
+  processingExpiresAtMs?: number | null;
 };
 
 export type RecoveryRateLimitResult = {
@@ -58,6 +64,13 @@ export type RecoveryAccessSession = {
   email: string;
   sessionId: string;
   expiresAtMs: number;
+};
+
+export type RecoveryAccessOperation = {
+  email: string;
+  operationId: string;
+  sessionExpiresAtMs: number;
+  operationExpiresAtMs: number;
 };
 
 function normalizeEmail(
@@ -163,6 +176,55 @@ function createRecoveryTokenDigest(
 ): string {
   return hmac(
     `phcl-admin-recovery-session-token:${rawToken}`
+  );
+}
+
+function createRecoveryOperationDigest(
+  rawOperationId: string
+): string {
+  return hmac(
+    `phcl-admin-recovery-operation:${rawOperationId}`
+  );
+}
+
+function isRecoveryAccessDocumentValid(
+  data: RecoveryAccessDocument,
+  rawToken: string,
+  now: number
+): boolean {
+  if (
+    typeof data.adminEmail !==
+      'string' ||
+    typeof data.tokenDigest !==
+      'string' ||
+    typeof data.expiresAtMs !==
+      'number' ||
+    data.expiresAtMs <= now ||
+    data.usedAtMs !== null ||
+    data.revokedAtMs !== null
+  ) {
+    return false;
+  }
+
+  const suppliedDigest =
+    createRecoveryTokenDigest(
+      rawToken
+    );
+
+  if (
+    !safeEqual(
+      suppliedDigest,
+      data.tokenDigest
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    data.adminPrincipalId ===
+    createAdminPrincipalId(
+      data.adminEmail
+    )
   );
 }
 
@@ -491,6 +553,15 @@ export async function createAdminRecoveryAccessSession(
       revokedAtMs:
         null,
 
+      processingOperationDigest:
+        null,
+
+      processingStartedAtMs:
+        null,
+
+      processingExpiresAtMs:
+        null,
+
       createdAt:
         FieldValue.serverTimestamp(),
 
@@ -556,38 +627,19 @@ export async function verifyAdminRecoveryAccessSession(
   const now = Date.now();
 
   if (
-    typeof data.adminEmail !==
-      'string' ||
-    typeof data.tokenDigest !==
-      'string' ||
-    typeof data.expiresAtMs !==
-      'number' ||
-    data.expiresAtMs <= now ||
-    data.usedAtMs !== null ||
-    data.revokedAtMs !== null
-  ) {
-    return null;
-  }
-
-  const suppliedDigest =
-    createRecoveryTokenDigest(
-      rawToken
-    );
-
-  if (
-    !safeEqual(
-      suppliedDigest,
-      data.tokenDigest
+    !isRecoveryAccessDocumentValid(
+      data,
+      rawToken,
+      now
     )
   ) {
     return null;
   }
 
   if (
-    data.adminPrincipalId !==
-    createAdminPrincipalId(
-      data.adminEmail
-    )
+    typeof data.processingExpiresAtMs ===
+      'number' &&
+    data.processingExpiresAtMs > now
   ) {
     return null;
   }
@@ -603,6 +655,320 @@ export async function verifyAdminRecoveryAccessSession(
   };
 }
 
+export async function beginAdminRecoveryAccessOperation(
+  rawToken: string
+): Promise<RecoveryAccessOperation | null> {
+  if (!rawToken) {
+    return null;
+  }
+
+  const sessionId =
+    createRecoverySessionDocumentId(
+      rawToken
+    );
+
+  const documentRef = adminDb
+    .collection(
+      RECOVERY_ACCESS_COLLECTION
+    )
+    .doc(sessionId);
+
+  const operationId =
+    randomBytes(32).toString(
+      'base64url'
+    );
+
+  const operationDigest =
+    createRecoveryOperationDigest(
+      operationId
+    );
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          documentRef
+        );
+
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      const data =
+        snapshot.data() as
+          | RecoveryAccessDocument
+          | undefined;
+
+      const now =
+        Date.now();
+
+      if (
+        !data ||
+        !isRecoveryAccessDocumentValid(
+          data,
+          rawToken,
+          now
+        )
+      ) {
+        return null;
+      }
+
+      if (
+        typeof data.processingExpiresAtMs ===
+          'number' &&
+        data.processingExpiresAtMs > now
+      ) {
+        return null;
+      }
+
+      const operationExpiresAtMs =
+        Math.min(
+          data.expiresAtMs,
+          now +
+            RECOVERY_OPERATION_LEASE_MS
+        );
+
+      transaction.update(
+        documentRef,
+        {
+          processingOperationDigest:
+            operationDigest,
+
+          processingStartedAtMs:
+            now,
+
+          processingExpiresAtMs:
+            operationExpiresAtMs,
+
+          processingStartedAt:
+            FieldValue.serverTimestamp(),
+
+          processingExpiresAt:
+            Timestamp.fromMillis(
+              operationExpiresAtMs
+            ),
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        }
+      );
+
+      return {
+        email:
+          normalizeEmail(
+            data.adminEmail
+          ),
+
+        operationId,
+
+        sessionExpiresAtMs:
+          data.expiresAtMs,
+
+        operationExpiresAtMs,
+      };
+    }
+  );
+}
+
+export async function completeAdminRecoveryAccessOperation(
+  rawToken: string,
+  operationId: string
+): Promise<{
+  email: string;
+} | null> {
+  if (
+    !rawToken ||
+    !operationId
+  ) {
+    return null;
+  }
+
+  const sessionId =
+    createRecoverySessionDocumentId(
+      rawToken
+    );
+
+  const operationDigest =
+    createRecoveryOperationDigest(
+      operationId
+    );
+
+  const documentRef = adminDb
+    .collection(
+      RECOVERY_ACCESS_COLLECTION
+    )
+    .doc(sessionId);
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          documentRef
+        );
+
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      const data =
+        snapshot.data() as
+          | RecoveryAccessDocument
+          | undefined;
+
+      const now =
+        Date.now();
+
+      if (
+        !data ||
+        !isRecoveryAccessDocumentValid(
+          data,
+          rawToken,
+          now
+        ) ||
+        typeof data.processingOperationDigest !==
+          'string' ||
+        typeof data.processingExpiresAtMs !==
+          'number' ||
+        data.processingExpiresAtMs <= now ||
+        !safeEqual(
+          operationDigest,
+          data.processingOperationDigest
+        )
+      ) {
+        return null;
+      }
+
+      transaction.update(
+        documentRef,
+        {
+          usedAtMs:
+            now,
+
+          usedAt:
+            FieldValue.serverTimestamp(),
+
+          processingOperationDigest:
+            null,
+
+          processingStartedAtMs:
+            null,
+
+          processingExpiresAtMs:
+            null,
+
+          processingStartedAt:
+            FieldValue.delete(),
+
+          processingExpiresAt:
+            FieldValue.delete(),
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        }
+      );
+
+      return {
+        email:
+          normalizeEmail(
+            data.adminEmail
+          ),
+      };
+    }
+  );
+}
+
+export async function releaseAdminRecoveryAccessOperation(
+  rawToken: string,
+  operationId: string
+): Promise<boolean> {
+  if (
+    !rawToken ||
+    !operationId
+  ) {
+    return false;
+  }
+
+  const sessionId =
+    createRecoverySessionDocumentId(
+      rawToken
+    );
+
+  const operationDigest =
+    createRecoveryOperationDigest(
+      operationId
+    );
+
+  const documentRef = adminDb
+    .collection(
+      RECOVERY_ACCESS_COLLECTION
+    )
+    .doc(sessionId);
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          documentRef
+        );
+
+      if (!snapshot.exists) {
+        return false;
+      }
+
+      const data =
+        snapshot.data() as
+          | RecoveryAccessDocument
+          | undefined;
+
+      if (
+        !data ||
+        data.usedAtMs !== null ||
+        data.revokedAtMs !== null ||
+        typeof data.processingOperationDigest !==
+          'string' ||
+        !safeEqual(
+          operationDigest,
+          data.processingOperationDigest
+        )
+      ) {
+        return false;
+      }
+
+      transaction.update(
+        documentRef,
+        {
+          processingOperationDigest:
+            null,
+
+          processingStartedAtMs:
+            null,
+
+          processingExpiresAtMs:
+            null,
+
+          processingStartedAt:
+            FieldValue.delete(),
+
+          processingExpiresAt:
+            FieldValue.delete(),
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        }
+      );
+
+      return true;
+    }
+  );
+}
+
+/**
+ * Legacy direct-consumption function.
+ *
+ * New recovery-device verification must use
+ * beginAdminRecoveryAccessOperation() followed by
+ * completeAdminRecoveryAccessOperation().
+ */
 export async function consumeAdminRecoveryAccessSession(
   rawToken: string
 ): Promise<{

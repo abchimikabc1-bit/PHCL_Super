@@ -14,11 +14,13 @@ import {
 import {
   createTrustedDeviceSessionForDevice,
   finalizeRecoveryDeviceReplacement,
+  revokeTrustedDeviceSession,
 } from '@/lib/admin-device-auth-security';
 
 import {
-  consumeAdminRecoveryAccessSession,
-  verifyAdminRecoveryAccessSession,
+  beginAdminRecoveryAccessOperation,
+  completeAdminRecoveryAccessOperation,
+  releaseAdminRecoveryAccessOperation,
   writeAdminRecoveryAudit,
 } from '@/lib/admin-recovery-access-security';
 
@@ -93,8 +95,20 @@ function clearTrustedDeviceCookie(
 
 function setTrustedDeviceCookie(
   response: NextResponse,
-  trustedSessionId: string
+  trustedSessionId: string,
+  expiresAtMs: number
 ): void {
+  const remainingSeconds =
+    Math.max(
+      1,
+      Math.ceil(
+        (
+          expiresAtMs -
+          Date.now()
+        ) / 1000
+      )
+    );
+
   response.cookies.set(
     TRUSTED_DEVICE_COOKIE,
     trustedSessionId,
@@ -106,7 +120,10 @@ function setTrustedDeviceCookie(
       sameSite: 'strict',
       path: '/',
       maxAge:
-        TRUSTED_DEVICE_MAX_AGE_SECONDS,
+        Math.min(
+          TRUSTED_DEVICE_MAX_AGE_SECONDS,
+          remainingSeconds
+        ),
     }
   );
 }
@@ -123,16 +140,44 @@ function getClientIp(
     return (
       forwardedFor
         .split(',')[0]
-        ?.trim() || 'unknown'
+        ?.trim()
+        .slice(0, 100) ||
+      'unknown'
     );
   }
 
   return (
     request.headers
       .get('x-real-ip')
-      ?.trim() ||
+      ?.trim()
+      .slice(0, 100) ||
     'unknown'
   );
+}
+
+async function safeWriteRecoveryAudit(
+  event:
+    | 'recovery_failed'
+    | 'recovery_device_registered'
+    | 'recovery_session_used',
+  details: {
+    email?: string;
+    ipAddress: string;
+    success: boolean;
+    reason: string;
+  }
+): Promise<void> {
+  try {
+    await writeAdminRecoveryAudit(
+      event,
+      details
+    );
+  } catch (error) {
+    console.error(
+      'Unable to persist Admin recovery audit event:',
+      error
+    );
+  }
 }
 
 export async function POST(
@@ -159,31 +204,22 @@ export async function POST(
     );
   }
 
+  let operation:
+    | Awaited<
+        ReturnType<
+          typeof beginAdminRecoveryAccessOperation
+        >
+      >
+    | null = null;
+
+  let securityStateMutated =
+    false;
+
+  let createdTrustedSessionId:
+    | string
+    | null = null;
+
   try {
-    const recoverySession =
-      await verifyAdminRecoveryAccessSession(
-        recoveryToken
-      );
-
-    if (!recoverySession) {
-      const response = json(
-        {
-          ok: false,
-          code:
-            'RECOVERY_AUTHORIZATION_INVALID',
-          message:
-            'Recovery authorization is invalid or expired.',
-        },
-        401
-      );
-
-      clearRecoveryCookie(
-        response
-      );
-
-      return response;
-    }
-
     let body: RequestBody;
 
     try {
@@ -219,105 +255,84 @@ export async function POST(
       );
     }
 
+    operation =
+      await beginAdminRecoveryAccessOperation(
+        recoveryToken
+      );
+
+    if (!operation) {
+      return json(
+        {
+          ok: false,
+          code:
+            'RECOVERY_AUTHORIZATION_UNAVAILABLE',
+          message:
+            'Recovery authorization is invalid, expired, or already in use.',
+        },
+        409
+      );
+    }
+
     const label =
-      typeof body.label === 'string'
+      typeof body.label ===
+        'string'
         ? body.label
             .trim()
             .slice(0, 80)
         : 'Recovered Admin Device';
 
-    /*
-     * STEP 1:
-     * Verify WebAuthn and register the
-     * recovered device.
-     */
     const registration =
       await verifyRecoveryDeviceRegistration(
-        recoverySession.email,
+        operation.email,
         body.response,
         label ||
           'Recovered Admin Device'
       );
 
-    /*
-     * STEP 2:
-     * Convert registration into a true
-     * replacement:
-     *
-     * - keep the recovered device
-     * - revoke older trusted devices
-     * - revoke all previously issued trusted
-     *   device sessions
-     */
+    securityStateMutated =
+      true;
+
     const replacement =
       await finalizeRecoveryDeviceReplacement(
-        recoverySession.email,
+        operation.email,
         registration.deviceId
       );
 
-    /*
-     * STEP 3:
-     * Create a fresh trusted-device session
-     * bound specifically to the recovered
-     * device.
-     *
-     * This occurs only after old trusted
-     * sessions have been revoked.
-     */
     const trustedSession =
       await createTrustedDeviceSessionForDevice(
-        recoverySession.email,
+        operation.email,
         registration.deviceId
       );
 
-    /*
-     * STEP 4:
-     * Consume the short-lived recovery
-     * authorization only after replacement
-     * and new trusted-session creation both
-     * succeed.
-     */
-    const consumed =
-      await consumeAdminRecoveryAccessSession(
-        recoveryToken
+    createdTrustedSessionId =
+      trustedSession.trustedSessionId;
+
+    const completed =
+      await completeAdminRecoveryAccessOperation(
+        recoveryToken,
+        operation.operationId
       );
 
-    if (!consumed) {
-      await writeAdminRecoveryAudit(
-        'recovery_failed',
-        {
-          email:
-            recoverySession.email,
-          ipAddress,
-          success: false,
-          reason:
-            'recovery_session_consume_failed_after_trusted_session_creation',
-        }
+    if (!completed) {
+      await revokeTrustedDeviceSession(
+        operation.email,
+        trustedSession.trustedSessionId
       ).catch(() => {
-        // Do not replace the primary result.
+        // The trusted-session identifier is never
+        // disclosed when completion fails.
       });
 
       const response = json(
         {
           ok: false,
           code:
-            'RECOVERY_SESSION_CONSUME_FAILED',
+            'RECOVERY_OPERATION_COMPLETION_FAILED',
           message:
-            'Device replacement succeeded, but recovery authorization could not be finalized.',
+            'Device replacement completed, but recovery authorization could not be finalized.',
         },
         409
       );
 
-      /*
-       * Never issue the new trusted-session
-       * cookie when recovery authorization
-       * could not be consumed.
-       *
-       * The server-side session will exist
-       * until its short TTL expires, but its
-       * identifier is not disclosed to the
-       * client.
-       */
       clearRecoveryCookie(
         response
       );
@@ -329,11 +344,11 @@ export async function POST(
       return response;
     }
 
-    await writeAdminRecoveryAudit(
+    await safeWriteRecoveryAudit(
       'recovery_device_registered',
       {
         email:
-          consumed.email,
+          completed.email,
         ipAddress,
         success: true,
         reason:
@@ -341,11 +356,11 @@ export async function POST(
       }
     );
 
-    await writeAdminRecoveryAudit(
+    await safeWriteRecoveryAudit(
       'recovery_session_used',
       {
         email:
-          consumed.email,
+          completed.email,
         ipAddress,
         success: true,
         reason:
@@ -372,18 +387,14 @@ export async function POST(
           trustedSession.expiresAtMs,
       });
 
-    /*
-     * Recovery authorization is one-time.
-     * Replace any stale trusted-device cookie
-     * with the new recovered-device session.
-     */
     clearRecoveryCookie(
       response
     );
 
     setTrustedDeviceCookie(
       response,
-      trustedSession.trustedSessionId
+      trustedSession.trustedSessionId,
+      trustedSession.expiresAtMs
     );
 
     return response;
@@ -393,27 +404,71 @@ export async function POST(
       error
     );
 
-    await writeAdminRecoveryAudit(
+    if (
+      operation &&
+      !securityStateMutated
+    ) {
+      await releaseAdminRecoveryAccessOperation(
+        recoveryToken,
+        operation.operationId
+      ).catch(() => {
+        // The short lease expires automatically.
+      });
+    }
+
+    if (
+      operation &&
+      createdTrustedSessionId
+    ) {
+      await revokeTrustedDeviceSession(
+        operation.email,
+        createdTrustedSessionId
+      ).catch(() => {
+        // Never expose an unfinalized session ID.
+      });
+    }
+
+    await safeWriteRecoveryAudit(
       'recovery_failed',
       {
+        email:
+          operation?.email,
         ipAddress,
         success: false,
         reason:
-          'device_replacement_verification_failed',
+          securityStateMutated
+            ? 'device_replacement_partially_completed'
+            : 'device_replacement_verification_failed',
       }
-    ).catch(() => {
-      // Do not replace the primary error.
-    });
+    );
 
-    return json(
+    const response = json(
       {
         ok: false,
         code:
-          'RECOVERY_DEVICE_VERIFICATION_FAILED',
+          securityStateMutated
+            ? 'RECOVERY_REQUIRES_RECONCILIATION'
+            : 'RECOVERY_DEVICE_VERIFICATION_FAILED',
         message:
-          'Recovery device verification failed.',
+          securityStateMutated
+            ? 'Recovery changed the device state but could not finish. Sign in again with the replacement device or contact support.'
+            : 'Recovery device verification failed.',
       },
-      400
+      securityStateMutated
+        ? 500
+        : 400
     );
+
+    if (securityStateMutated) {
+      clearRecoveryCookie(
+        response
+      );
+
+      clearTrustedDeviceCookie(
+        response
+      );
+    }
+
+    return response;
   }
 }
