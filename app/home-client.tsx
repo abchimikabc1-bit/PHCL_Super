@@ -20,6 +20,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useDisplayCurrency } from '@/hooks/use-display-currency';
 import { getMarketplaceProductImage, MARKETPLACE_PRODUCTS } from '@/lib/marketplace-products';
 import { PI_GCV_USD, convertAmount, formatCurrencyAmount } from '@/components/currency';
+import GoogleMapButton from '@/components/GoogleMapButton';
 
 export default function HomeClient() {
   const { language, switchLanguage, mounted } = useLanguage();
@@ -470,33 +471,79 @@ export default function HomeClient() {
         </section>
 
         {/* CONTACT SECTION */}
-        <section className="mt-16 rounded-2xl border border-white/5 bg-white/5 p-6 sm:p-8">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="md:col-span-1">
-              <h2 className="text-2xl font-black text-white">{copy.contactTitle}</h2>
-              <p className="mt-2 text-sm text-gray-400">{copy.contactText}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2">
-              <div className="flex items-center gap-3 rounded-xl bg-slate-950 p-4">
-                <Mail className="text-amber-300" size={20} />
-                <div>
-                  <p className="text-xs text-gray-500">Email Support</p>
-                  <p className="text-sm font-semibold text-white">support@phclsuper.com</p>
-                  <p className="text-sm font-semibold text-white">info@phclsuper.com</p>
-                  <p className="text-sm font-semibold text-white">admin@phclsuper.com</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 rounded-xl bg-slate-950 p-4">
-                <Phone className="text-amber-300" size={20} />
-                <div>
-                  <p className="text-xs text-gray-500">Hotline</p>
-                  <p className="text-sm font-semibold text-white">+255 693 863 356</p>
-                  <p className="text-sm font-semibold text-white">+255 655 599 555</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+<section className="mt-16 rounded-2xl border border-white/5 bg-white/5 p-6 sm:p-8">
+  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <div className="md:col-span-1">
+      <h2 className="text-2xl font-black text-white">
+        {copy.contactTitle}
+      </h2>
+
+      <p className="mt-2 text-sm text-gray-400">
+        {copy.contactText}
+      </p>
+    </div>
+
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2">
+
+      {/* EMAIL */}
+      <div className="flex items-center gap-3 rounded-xl bg-slate-950 p-4">
+        <Mail className="text-amber-300" size={20} />
+
+        <div>
+          <p className="text-xs text-gray-500">Email Support</p>
+
+          <p className="text-sm font-semibold text-white">
+            support@phclsuper.com
+          </p>
+
+          <p className="text-sm font-semibold text-white">
+            info@phclsuper.com
+          </p>
+
+          <p className="text-sm font-semibold text-white">
+            admin@phclsuper.com
+          </p>
+        </div>
+      </div>
+
+      {/* HOTLINE */}
+      <div className="flex items-start gap-3 rounded-xl bg-slate-950 p-4">
+        <Phone className="text-amber-300" size={20} />
+
+        <div>
+          <p className="text-xs text-gray-500">Hotline</p>
+
+          <p className="text-sm font-semibold text-white">
+            +255 693 863 356
+          </p>
+
+          <p className="text-sm font-semibold text-white">
+            +255 655 599 555
+          </p>
+        </div>
+      </div>
+
+   {/* PHCL SUPER H/Q - GOOGLE MAPS */}
+<div className="sm:col-span-2 flex flex-col gap-3 rounded-xl border border-amber-300/20 bg-slate-950 p-4 sm:flex-row sm:items-center sm:justify-between">
+  <div>
+    <p className="text-xs font-bold uppercase tracking-wider text-amber-300">
+      PHCL Super H/Q
+    </p>
+
+    <p className="mt-1 text-sm font-semibold text-white">
+      {isSw
+        ? 'Pata eneo na maelekezo ya kufika Makao Makuu ya PHCL Super kupitia Google Maps.'
+        : 'Locate and get directions to PHCL Super Headquarters using Google Maps.'}
+    </p>
+  </div>
+
+  <GoogleMapButton
+    label={isSw ? 'Fungua PHCL Super H/Q' : 'Open PHCL Super H/Q'}
+  />
+</div>
+      </div>
+  </div>
+</section>
 
       </section>
     </main>

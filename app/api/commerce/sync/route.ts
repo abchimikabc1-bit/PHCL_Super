@@ -1,46 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server';
-import type { CommerceSyncPayload } from '@/lib/commerce-sync';
-import { getServerCommerceSnapshot, saveServerCommerceSnapshot } from '@/lib/server-commerce-store';
+import 'server-only';
 
-export async function GET() {
-  try {
-    const snapshot = getServerCommerceSnapshot();
-    return NextResponse.json({ success: true, snapshot });
-  } catch (error) {
-    console.error('Failed to load commerce snapshot:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to load commerce snapshot' },
-      { status: 500 }
-    );
-  }
+import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * ============================================================
+ * PHCL SUPER — RETIRED LEGACY COMMERCE SYNC ENDPOINT
+ * ============================================================
+ *
+ * SECURITY:
+ *
+ * The legacy /api/commerce/sync endpoint previously exposed a
+ * shared commerce snapshot and accepted browser-controlled state.
+ *
+ * That architecture is no longer permitted for PHCL authoritative
+ * commerce or financial data.
+ *
+ * Authoritative domains must use dedicated authenticated APIs for:
+ *
+ * - customer identity
+ * - orders
+ * - financial ledger
+ * - wallet state
+ * - stock
+ * - admin configuration
+ * - currency configuration
+ * - language configuration
+ * - workflow state
+ * - audit records
+ *
+ * This endpoint is intentionally retired.
+ *
+ * Do not restore shared snapshot GET/POST behavior here.
+ */
+
+const retiredResponse = (): NextResponse =>
+  NextResponse.json(
+    {
+      success: false,
+      error: 'This endpoint is no longer available.',
+    },
+    {
+      status: 410,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    },
+  );
+
+export async function GET(): Promise<NextResponse> {
+  return retiredResponse();
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as CommerceSyncPayload;
-    const current = getServerCommerceSnapshot();
+export async function POST(): Promise<NextResponse> {
+  return retiredResponse();
+}
 
-    if (
-      typeof body.expectedRevision === 'number' &&
-      body.expectedRevision !== current.revision
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Commerce snapshot revision conflict',
-          snapshot: current,
-        },
-        { status: 409 }
-      );
-    }
+export async function PUT(): Promise<NextResponse> {
+  return retiredResponse();
+}
 
-    const snapshot = saveServerCommerceSnapshot(body);
-    return NextResponse.json({ success: true, snapshot });
-  } catch (error) {
-    console.error('Failed to save commerce snapshot:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to save commerce snapshot' },
-      { status: 400 }
-    );
-  }
+export async function PATCH(): Promise<NextResponse> {
+  return retiredResponse();
+}
+
+export async function DELETE(): Promise<NextResponse> {
+  return retiredResponse();
 }

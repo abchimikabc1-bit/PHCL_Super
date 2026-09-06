@@ -1,130 +1,243 @@
-import crypto from 'node:crypto';
-import { NextRequest, NextResponse } from 'next/server';
 import {
-  getAdminAuthAuditLogPath,
-  getAdminAuthRateLimitPath,
+  NextRequest,
+  NextResponse,
+} from 'next/server';
+
+import {
+  ADMIN_SESSION_COOKIE,
+  verifyAdminSessionToken,
+} from '@/lib/admin-session-security';
+
+import {
+  verifyTrustedDeviceSession,
+} from '@/lib/admin-device-auth-security';
+
+import {
   readAuthAuditEvents,
   readRateLimitEntries,
 } from '@/lib/admin-auth-security';
 
-type SessionPayload = {
-  sid: string;
-  email: string;
-  role: 'super_admin' | 'admin' | 'editor';
-  name: string;
-  iat: number;
-  exp: number;
-};
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-const COOKIE_NAME = 'admin_session';
-const DEV_SESSION_SECRET = 'phcl_admin_session_secret_dev_only_change_for_production';
+const TRUSTED_DEVICE_COOKIE =
+  'phcl_admin_trusted_device';
+
 const RATE_LIMIT_POLICY = {
   windowMs: 10 * 60 * 1000,
   maxAttempts: 8,
   blockMs: 15 * 60 * 1000,
 };
 
-const toBase64Url = (value: Buffer | string) =>
-  Buffer.from(value)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-
-const fromBase64Url = (value: string) => {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padLength = (4 - (padded.length % 4)) % 4;
-  return Buffer.from(`${padded}${'='.repeat(padLength)}`, 'base64');
-};
-
-const sign = (value: string, sessionSecret: string) =>
-  toBase64Url(crypto.createHmac('sha256', sessionSecret).update(value).digest());
-
-const verifyToken = (token: string, sessionSecret: string): SessionPayload | null => {
-  const [encodedPayload, signature] = token.split('.');
-  if (!encodedPayload || !signature) return null;
-
-  const expected = sign(encodedPayload, sessionSecret);
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-
-  if (actualBuffer.length !== expectedBuffer.length) return null;
-  if (!crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
-
-  try {
-    const payload = JSON.parse(fromBase64Url(encodedPayload).toString('utf8')) as SessionPayload;
-    if (!payload || typeof payload !== 'object') return null;
-    if (typeof payload.exp !== 'number' || Date.now() >= payload.exp) return null;
-    return payload;
-  } catch {
-    return null;
-  }
-};
-
-const requireAdminSession = (request: NextRequest): SessionPayload | null => {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-
-  const sessionSecret = process.env.ADMIN_SESSION_SECRET || DEV_SESSION_SECRET;
-  return verifyToken(token, sessionSecret);
-};
-
-export async function GET(request: NextRequest) {
-  const session = requireAdminSession(request);
-
-  if (!session) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
-  const [auditEvents, rateLimitEntries] = await Promise.all([
-    readAuthAuditEvents(80),
-    readRateLimitEntries(RATE_LIMIT_POLICY),
-  ]);
-
-  const lockouts = rateLimitEntries
-    .map((entry) => {
-      const key = typeof entry.key === 'string' ? entry.key : '';
-      const attempts =
-        typeof entry.attempts === 'number' ? entry.attempts : Number(entry.attempts ?? 0);
-      const windowStart =
-        typeof entry.windowStart === 'number'
-          ? entry.windowStart
-          : Number(entry.windowStart ?? 0);
-      const blockedUntil =
-        typeof entry.blockedUntil === 'number'
-          ? entry.blockedUntil
-          : Number(entry.blockedUntil ?? 0);
-
-      return {
-        key,
-        attempts,
-        windowStart,
-        blockedUntil,
-        blocked: blockedUntil > Date.now(),
-        retryAfterSeconds:
-          blockedUntil > Date.now() ? Math.ceil((blockedUntil - Date.now()) / 1000) : 0,
-      };
-    })
-    .sort((a, b) => b.blockedUntil - a.blockedUntil);
-
+function noStoreJson(
+  body: Record<string, unknown>,
+  status = 200
+) {
   return NextResponse.json(
+    body,
     {
-      generatedAt: new Date().toISOString(),
+      status,
+      headers: {
+        'Cache-Control':
+          'no-store, no-cache, must-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    }
+  );
+}
+
+export async function GET(
+  request: NextRequest
+) {
+  try {
+    const sessionToken =
+      request.cookies.get(
+        ADMIN_SESSION_COOKIE
+      )?.value;
+
+    const session =
+      verifyAdminSessionToken(
+        sessionToken
+      );
+
+    if (!session) {
+      return noStoreJson(
+        {
+          ok: false,
+          code: 'UNAUTHENTICATED',
+          message:
+            'Admin authentication is required.',
+        },
+        401
+      );
+    }
+
+    const trustedSessionId =
+      request.cookies.get(
+        TRUSTED_DEVICE_COOKIE
+      )?.value;
+
+    if (!trustedSessionId) {
+      return noStoreJson(
+        {
+          ok: false,
+          code:
+            'TRUSTED_DEVICE_REQUIRED',
+          message:
+            'Trusted Admin device verification is required.',
+        },
+        403
+      );
+    }
+
+    const trustedDevice =
+      await verifyTrustedDeviceSession(
+        session.email,
+        trustedSessionId
+      );
+
+    if (!trustedDevice) {
+      return noStoreJson(
+        {
+          ok: false,
+          code:
+            'TRUSTED_DEVICE_REQUIRED',
+          message:
+            'Trusted Admin device verification is required.',
+        },
+        403
+      );
+    }
+
+    const [
+      auditEvents,
+      rateLimitEntries,
+    ] = await Promise.all([
+      readAuthAuditEvents(80),
+      readRateLimitEntries(
+        RATE_LIMIT_POLICY
+      ),
+    ]);
+
+    const now = Date.now();
+
+    const lockouts =
+      rateLimitEntries
+        .map((entry) => {
+          const attempts =
+            typeof entry.attempts ===
+            'number'
+              ? entry.attempts
+              : Number(
+                  entry.attempts ?? 0
+                );
+
+          const windowStart =
+            typeof entry.windowStart ===
+            'number'
+              ? entry.windowStart
+              : Number(
+                  entry.windowStart ?? 0
+                );
+
+          const blockedUntil =
+            typeof entry.blockedUntil ===
+            'number'
+              ? entry.blockedUntil
+              : Number(
+                  entry.blockedUntil ?? 0
+                );
+
+          const blocked =
+            blockedUntil > now;
+
+          return {
+            attempts:
+              Number.isFinite(attempts)
+                ? attempts
+                : 0,
+
+            windowStart:
+              Number.isFinite(
+                windowStart
+              )
+                ? windowStart
+                : 0,
+
+            blockedUntil:
+              Number.isFinite(
+                blockedUntil
+              )
+                ? blockedUntil
+                : 0,
+
+            blocked,
+
+            retryAfterSeconds:
+              blocked
+                ? Math.max(
+                    0,
+                    Math.ceil(
+                      (
+                        blockedUntil -
+                        now
+                      ) / 1000
+                    )
+                  )
+                : 0,
+          };
+        })
+        .sort(
+          (a, b) =>
+            b.blockedUntil -
+            a.blockedUntil
+        );
+
+    return noStoreJson({
+      ok: true,
+
+      generatedAt:
+        new Date().toISOString(),
+
       actor: {
-        email: session.email,
         role: session.role,
       },
+
+      trustedDevice: {
+        verified: true,
+      },
+
       summary: {
-        auditEventCount: auditEvents.length,
-        activeLockouts: lockouts.filter((entry) => entry.blocked).length,
+        auditEventCount:
+          auditEvents.length,
+
+        activeLockouts:
+          lockouts.filter(
+            (entry) =>
+              entry.blocked
+          ).length,
       },
-      storage: {
-        auditLogPath: getAdminAuthAuditLogPath(),
-        rateLimitPath: getAdminAuthRateLimitPath(),
-      },
+
       lockouts,
+
       auditEvents,
-    },
-    { status: 200 }
-  );
+    });
+  } catch (error) {
+    console.error(
+      'Unable to load Admin security overview:',
+      error
+    );
+
+    return noStoreJson(
+      {
+        ok: false,
+        code:
+          'SECURITY_OVERVIEW_UNAVAILABLE',
+        message:
+          'Unable to load Admin security overview.',
+      },
+      500
+    );
+  }
 }

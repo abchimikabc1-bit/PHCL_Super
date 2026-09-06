@@ -4,17 +4,20 @@ import {
 } from 'firebase/auth';
 
 import {
-  collection,
   doc,
-  getDocs,
-  query,
+  getDoc,
   serverTimestamp,
   setDoc,
-  where,
 } from 'firebase/firestore';
 
-import { getPolicyVersions } from '@/lib/policy-compliance';
-import { auth, db } from './user-profile';
+import {
+  firebaseAuth,
+  firebaseDb,
+} from '@/lib/firebase-client';
+
+import {
+  getPolicyVersions,
+} from '@/lib/policy-compliance';
 
 export interface CustomerRegistration {
   fullName: string;
@@ -28,13 +31,27 @@ export interface RegistrationResult {
   uid?: string;
 }
 
+type CustomerTier =
+  | 'regular'
+  | 'small_business'
+  | 'corporate';
+
 type CustomerRegistrationInput = {
   fullName: string;
   email?: string;
   phone: string;
   country: string;
   password: string;
-  tier: 'regular' | 'small_business' | 'corporate';
+  tier: CustomerTier;
+
+  /**
+   * These fields are kept temporarily
+   * for API compatibility with the
+   * existing registration UI.
+   *
+   * They MUST NOT create verified
+   * KYC/KYS/KYB authority.
+   */
   idType?: string;
   idNumber?: string;
   companyName?: string;
@@ -42,6 +59,7 @@ type CustomerRegistrationInput = {
   mfaEnabled?: boolean;
   livenessVerified?: boolean;
   recaptchaToken?: string;
+
   agreedToTerms: boolean;
   agreedToPrivacy: boolean;
 };
@@ -51,189 +69,538 @@ type FirebaseAuthError = {
   message?: string;
 };
 
-export const registerCustomer = async (
-  input: CustomerRegistrationInput,
-): Promise<RegistrationResult> => {
-  const fullName = input.fullName.trim();
-  const phone = input.phone.trim().replace(/\s+/g, '');
-  const country = input.country.trim();
-
-  // Lazima kuwe na namba ya simu au barua pepe
-  if (!input.email?.trim() && !phone) {
-    return {
-      ok: false,
-      message:
-        'Ni lazima uweke Namba ya Simu au Barua Pepe kuendelea!',
-    };
+function requireFirebaseServices() {
+  if (
+    !firebaseAuth ||
+    !firebaseDb
+  ) {
+    throw new Error(
+      'Firebase client services are not configured.',
+    );
   }
 
-  // Zuia matumizi ya domain ya ndani ya PHCL
+  return {
+    auth: firebaseAuth,
+    db: firebaseDb,
+  };
+}
+
+function cleanText(
+  value: string,
+  maxLength: number,
+): string {
+  return value
+    .trim()
+    .slice(
+      0,
+      maxLength,
+    );
+}
+
+function normalizeEmail(
+  value: string,
+): string {
+  return value
+    .trim()
+    .toLowerCase();
+}
+
+function normalizePhone(
+  value: string,
+): string {
+  return value
+    .trim()
+    .replace(/\s+/g, '');
+}
+
+function isValidTier(
+  value: string,
+): value is CustomerTier {
+  return (
+    value === 'regular' ||
+    value === 'small_business' ||
+    value === 'corporate'
+  );
+}
+
+/**
+ * Client-side customer registration.
+ *
+ * SECURITY MODEL:
+ *
+ * This function may create:
+ * - Firebase customer identity
+ * - basic customer profile
+ * - unverified account/application data
+ *
+ * It MUST NOT:
+ * - approve KYC
+ * - approve KYS
+ * - approve KYB
+ * - create Admin authority
+ * - create financial balances
+ * - verify biometric/liveness claims
+ * - verify business documents
+ * - grant payout/payment privileges
+ */
+export async function registerCustomer(
+  input: CustomerRegistrationInput,
+): Promise<RegistrationResult> {
+  const fullName =
+    cleanText(
+      input.fullName,
+      120,
+    );
+
+  const email =
+    input.email
+      ? normalizeEmail(
+          input.email,
+        )
+      : '';
+
+  const phone =
+    normalizePhone(
+      input.phone,
+    );
+
+  const country =
+    cleanText(
+      input.country,
+      80,
+    );
+
   if (
-    input.email &&
-    input.email.trim().toLowerCase().endsWith('@phclsuper.com')
+    !fullName ||
+    !country
   ) {
     return {
       ok: false,
       message:
-        'Huruhusiwi kutumia barua pepe ya @phclsuper.com kujisajili!',
+        'Tafadhali jaza taarifa zote muhimu za usajili.',
     };
   }
 
-  // Hakikisha namba ya simu haijatumika tayari
-  if (phone) {
-    const phoneQuery = query(
-      collection(db, 'users'),
-      where('phone', '==', input.phone.trim()),
-    );
-
-    const querySnapshot = await getDocs(phoneQuery);
-
-    if (!querySnapshot.empty) {
-      return {
-        ok: false,
-        message:
-          'Namba hii ya simu tayari imesajiliwa kwenye mfumo wetu! Tumia barua pepe yako.',
-      };
-    }
-  }
-
-  // Tengeneza virtual email kama mtumiaji hana email
-  const email = input.email?.trim()
-    ? input.email.trim().toLowerCase()
-    : `${phone}@phclsuper.com`;
-
-  if (fullName.split(/\s+/).length < 3) {
-    return {
-      ok: false,
-      message: 'Tafadhali ingiza majina yako matatu kamili!',
-    };
-  }
-
-  if (input.password.length < 8 || input.password.length > 12) {
+  /**
+   * This Email/Password registration flow
+   * requires a real email address.
+   *
+   * Phone-only registration must later use
+   * Firebase Phone Auth or another dedicated
+   * verified phone-authentication flow.
+   *
+   * We intentionally do NOT manufacture
+   * fake @phclsuper.com email addresses.
+   */
+  if (!email) {
     return {
       ok: false,
       message:
-        'Nenosiri lazima liwe na urefu wa herufi 8 hadi 12!',
+        'Kwa usajili huu, barua pepe halali inahitajika. Usajili wa kutumia simu pekee utaendeshwa kupitia mfumo maalum wa Phone Authentication.',
     };
   }
 
-  if (input.tier !== 'regular' && !input.livenessVerified) {
+  /**
+   * Internal PHCL email addresses must never
+   * be self-registered through the public
+   * customer registration flow.
+   */
+  if (
+    email.endsWith(
+      '@phclsuper.com',
+    )
+  ) {
     return {
       ok: false,
       message:
-        'Ni lazima ukamilishe uhakiki wa Liveness (Kupepesa Macho)!',
+        'Barua pepe za ndani za @phclsuper.com haziwezi kusajiliwa kupitia mfumo wa kawaida wa wateja.',
     };
   }
 
-  if (input.tier !== 'regular' && !input.recaptchaToken) {
+  if (
+    fullName
+      .split(/\s+/)
+      .filter(Boolean)
+      .length < 2
+  ) {
     return {
       ok: false,
-      message: 'Kamilisha reCAPTCHA challenge ya usalama!',
+      message:
+        'Tafadhali ingiza jina lako kamili.',
     };
   }
+
+  /**
+   * Firebase itself also enforces its
+   * password policy where configured.
+   *
+   * Do not impose a weak maximum such as
+   * 12 characters.
+   */
+  if (
+    input.password.length < 8
+  ) {
+    return {
+      ok: false,
+      message:
+        'Nenosiri lazima liwe na angalau herufi 8.',
+    };
+  }
+
+  if (
+    input.password.length > 128
+  ) {
+    return {
+      ok: false,
+      message:
+        'Nenosiri ni refu kupita kiwango kinachoruhusiwa.',
+    };
+  }
+
+  if (
+    !isValidTier(
+      input.tier,
+    )
+  ) {
+    return {
+      ok: false,
+      message:
+        'Aina ya akaunti si sahihi.',
+    };
+  }
+
+  if (
+    !input.agreedToTerms ||
+    !input.agreedToPrivacy
+  ) {
+    return {
+      ok: false,
+      message:
+        'Ni lazima ukubali Masharti ya Matumizi na Sera ya Faragha.',
+    };
+  }
+
+  /**
+   * IMPORTANT:
+   *
+   * We deliberately DO NOT trust:
+   *
+   * input.livenessVerified
+   * input.recaptchaToken
+   * input.mfaEnabled
+   *
+   * as security authority.
+   *
+   * Those must later be verified by
+   * server-side services.
+   */
+  void input.livenessVerified;
+  void input.recaptchaToken;
+  void input.mfaEnabled;
+  void input.idNumber;
 
   try {
-    // Sajili mtumiaji kwenye Firebase Authentication
-    const userCred = await createUserWithEmailAndPassword(
+    const {
       auth,
-      email,
-      input.password,
+      db,
+    } =
+      requireFirebaseServices();
+
+    /**
+     * Create Firebase CUSTOMER identity.
+     */
+    const userCredential =
+      await createUserWithEmailAndPassword(
+        auth,
+        email,
+        input.password,
+      );
+
+    const user =
+      userCredential.user;
+
+    const uid =
+      user.uid;
+
+    /**
+     * Send verification email.
+     *
+     * Email verification does NOT equal
+     * KYC/KYS/KYB approval.
+     */
+    await sendEmailVerification(
+      user,
     );
 
-    const uid = userCred.user.uid;
+    const profileRef =
+      doc(
+        db,
+        'users',
+        uid,
+      );
 
-    await sendEmailVerification(userCred.user);
+    /**
+     * Fail closed if a profile somehow
+     * already exists for this UID.
+     */
+    const existingProfile =
+      await getDoc(
+        profileRef,
+      );
 
-    const policyVersions = getPolicyVersions();
+    if (
+      existingProfile.exists()
+    ) {
+      throw new Error(
+        'Customer profile already exists.',
+      );
+    }
 
-    // Hifadhi profile pekee.
-    // Hakuna seed phrase/private key inayohifadhiwa Firestore.
-    await setDoc(doc(db, 'users', uid), {
-      uid,
-      email,
-      fullName,
-      phone: input.phone.trim(),
-      country,
-      tier: input.tier,
-      role: 'user',
+    const policyVersions =
+      getPolicyVersions();
 
-      idType:
-        input.tier !== 'regular'
-          ? input.idType ?? null
-          : null,
+    const companyName =
+      input.tier === 'corporate' &&
+      input.companyName
+        ? cleanText(
+            input.companyName,
+            160,
+          )
+        : null;
 
-      idNumber:
-        input.tier !== 'regular'
-          ? input.idNumber ?? null
-          : null,
+    const companyRegNo =
+      input.tier === 'corporate' &&
+      input.companyRegNo
+        ? cleanText(
+            input.companyRegNo,
+            100,
+          )
+        : null;
 
-      companyName:
-        input.tier === 'corporate'
-          ? input.companyName ?? null
-          : null,
+    const idType =
+      input.tier !== 'regular' &&
+      input.idType
+        ? cleanText(
+            input.idType,
+            60,
+          )
+        : null;
 
-      companyRegNo:
-        input.tier === 'corporate'
-          ? input.companyRegNo ?? null
-          : null,
+    /**
+     * Store a CUSTOMER profile only.
+     *
+     * All privileged states start
+     * unverified / zero / disabled.
+     */
+    await setDoc(
+      profileRef,
+      {
+        uid,
 
-      mfaEnabled:
-        input.tier !== 'regular'
-          ? Boolean(input.mfaEnabled)
-          : false,
+        email,
 
-      livenessVerified:
-        input.tier !== 'regular'
-          ? Boolean(input.livenessVerified)
-          : false,
+        fullName,
 
-      kycStatus:
-        input.tier !== 'regular'
-          ? 'PENDING_REVIEW'
-          : 'APPROVED',
+        phone:
+          cleanText(
+            phone,
+            40,
+          ),
 
-      balances: {
-        usd: 0,
-        tzs: 0,
-        ntzs: 0,
-        pi: 0,
+        country,
+
+        /**
+         * Public registration can NEVER
+         * create Admin authority.
+         */
+        role:
+          'user',
+
+        tier:
+          input.tier,
+
+        /**
+         * Identity verification always
+         * starts unverified.
+         */
+        kycStatus:
+          'NOT_STARTED',
+
+        kysStatus:
+          input.tier ===
+            'small_business'
+            ? 'NOT_STARTED'
+            : null,
+
+        kybStatus:
+          input.tier ===
+            'corporate'
+            ? 'NOT_STARTED'
+            : null,
+
+        /**
+         * These are claims supplied by
+         * the applicant, NOT verified facts.
+         */
+        application: {
+          idType,
+
+          companyName,
+
+          companyRegNo,
+        },
+
+        /**
+         * Raw ID numbers are intentionally
+         * NOT stored here from browser input.
+         *
+         * Sensitive identity documents will
+         * belong to the later protected
+         * verification workflow.
+         */
+
+        emailVerified:
+          false,
+
+        phoneVerified:
+          false,
+
+        biometricVerification: {
+          status:
+            'NOT_STARTED',
+
+          /**
+           * Raw fingerprint / face templates
+           * must never be placed in this
+           * ordinary customer document.
+           */
+          rawBiometricStored:
+            false,
+        },
+
+        mfa: {
+          enabled:
+            false,
+
+          verified:
+            false,
+        },
+
+        /**
+         * Registration cannot mint,
+         * deposit, credit or assign funds.
+         */
+        balances: {
+          usd: 0,
+          tzs: 0,
+          ntzs: 0,
+          pi: 0,
+        },
+
+        accountStatus:
+          'ACTIVE',
+
+        verificationStatus:
+          'UNVERIFIED',
+
+        consent: {
+          agreedToTerms:
+            true,
+
+          agreedToPrivacy:
+            true,
+
+          termsVersion:
+            policyVersions
+              .termsVersion,
+
+          privacyVersion:
+            policyVersions
+              .privacyVersion,
+
+          agreedAt:
+            new Date()
+              .toISOString(),
+        },
+
+        createdAt:
+          serverTimestamp(),
+
+        updatedAt:
+          serverTimestamp(),
       },
-
-      consent: {
-        agreedToTerms: input.agreedToTerms,
-        agreedToPrivacy: input.agreedToPrivacy,
-        termsVersion: policyVersions.termsVersion,
-        privacyVersion: policyVersions.privacyVersion,
-        agreedAt: new Date().toISOString(),
-      },
-
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    );
 
     return {
       ok: true,
-      message: 'Usajili umekamilika kikamilifu!',
+
+      message:
+        'Akaunti imeundwa. Tafadhali thibitisha barua pepe yako na ukamilishe hatua zinazohitajika za uthibitishaji wa akaunti.',
+
       uid,
     };
-  } catch (error: unknown) {
-    const firebaseError = error as FirebaseAuthError;
+  } catch (
+    error: unknown
+  ) {
+    const firebaseError =
+      error as FirebaseAuthError;
 
-    if (firebaseError.code === 'auth/email-already-in-use') {
+    if (
+      firebaseError.code ===
+        'auth/email-already-in-use'
+    ) {
       return {
         ok: false,
+
         message:
-          'Namba ya Simu au Email hii tayari imesajiliwa kwenye mfumo!',
+          'Barua pepe hii tayari imesajiliwa.',
       };
     }
 
+    if (
+      firebaseError.code ===
+        'auth/invalid-email'
+    ) {
+      return {
+        ok: false,
+
+        message:
+          'Barua pepe uliyoingiza si sahihi.',
+      };
+    }
+
+    if (
+      firebaseError.code ===
+        'auth/weak-password'
+    ) {
+      return {
+        ok: false,
+
+        message:
+          'Nenosiri halijafikia kiwango cha usalama kinachohitajika.',
+      };
+    }
+
+    /**
+     * Do not expose raw Firebase/internal
+     * infrastructure error details to users.
+     */
     return {
       ok: false,
+
       message:
-        firebaseError.message ||
-        'Kosa la usajili limejitokeza.',
+        'Usajili haukukamilika. Tafadhali jaribu tena.',
     };
   }
-};
+}
 
-export const getRegistrations = (): CustomerRegistration[] => [];
+/**
+ * Legacy compatibility function.
+ *
+ * Registration enumeration must never
+ * expose customer records from the browser.
+ */
+export function getRegistrations():
+  CustomerRegistration[] {
+  return [];
+}

@@ -9,11 +9,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
-
-// Tunaagiza 'auth' na kazi za Firebase Client SDK tulizozisakinisha
-import { auth } from '@/lib/auth';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 type LoginResult = {
   success: boolean;
@@ -46,128 +41,193 @@ interface AdminContextType {
   refreshSession: () => void;
   sessionDebug: SessionDebug;
   adminUser: AdminUserLike;
-  login: (email: string, password: string) => Promise<LoginResult>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<LoginResult>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
 }
 
-const AdminContext = createContext<AdminContextType | undefined>(undefined);
+const AdminContext =
+  createContext<AdminContextType | undefined>(
+    undefined
+  );
 
-export function AdminProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
+export function AdminProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [isAuthenticated, setIsAuthenticated] =
+    useState(false);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [sessionInfo, setSessionInfo] =
+    useState<SessionInfo | null>(null);
 
   const checkAuth = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/auth', {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store',
-      });
+      const response = await fetch(
+        '/api/admin/auth',
+        {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        }
+      );
 
-      const ok = response.ok;
-      const data = await response.json().catch(() => null);
-      setIsAuthenticated(ok);
-      setSessionInfo(ok ? (data?.session as SessionInfo) ?? null : null);
+      const data = await response
+        .json()
+        .catch(() => null);
 
-      if (!ok) {
-        setError(null);
+      if (!response.ok) {
+        setIsAuthenticated(false);
+        setSessionInfo(null);
+        return false;
       }
 
-      return ok;
-    } catch {
+      setIsAuthenticated(true);
+      setSessionInfo(
+        (data?.session as SessionInfo) ?? null
+      );
+
+      return true;
+    } catch (error) {
+      console.error(
+        'Admin session verification failed:',
+        error
+      );
+
       setIsAuthenticated(false);
-      setError('Failed to verify session.');
+      setSessionInfo(null);
+
       return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
-    setError(null);
+  const login = useCallback(
+    async (
+      email: string,
+      password: string
+    ): Promise<LoginResult> => {
+      try {
+        const response = await fetch(
+          '/api/admin/auth',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            cache: 'no-store',
+            body: JSON.stringify({
+              email: email.trim(),
+              password,
+            }),
+          }
+        );
 
-    try {
-      // 1. USALAMA MKUBWA: Kuhakiki barua pepe na neno la siri kupitia Firebase Client SDK kwanza upande wa Client
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // 2. Kuchukua Firebase ID Token (JWT Token iliyosainiwa ki-cryptographic na Google)
-      const idToken = await userCredential.user.getIdToken();
+        const data = await response
+          .json()
+          .catch(() => null);
 
-      // 3. Kutuma ID Token kwenda kwenye seva badala ya neno la siri (No raw passwords sent!)
-      const response = await fetch('/api/admin/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ idToken, email: email.trim() }),
-      });
+        if (!response.ok) {
+          setIsAuthenticated(false);
+          setSessionInfo(null);
 
-      const data = await response.json().catch(() => null);
+          return {
+            success: false,
+            message:
+              data?.message ||
+              'Login failed. Please try again.',
+          };
+        }
 
-      if (!response.ok) {
-        const message = data?.message || 'Login failed. Please try again.';
-        // Kama seva imekataa kuweka session, tunamtoa mtumiaji upande wa client pia
-        await signOut(auth);
+        setIsAuthenticated(true);
+
+        setSessionInfo(
+          (data?.session as SessionInfo) ?? null
+        );
+
+        return {
+          success: true,
+          message:
+            data?.message ||
+            'Login successful.',
+        };
+      } catch (error) {
+        console.error(
+          'Admin login failed:',
+          error
+        );
+
         setIsAuthenticated(false);
         setSessionInfo(null);
-        setError(message);
-        return { success: false, message };
-      }
 
-      setIsAuthenticated(true);
-      setSessionInfo((data?.session as SessionInfo) ?? null);
-      setError(null);
-      return { success: true, message: data?.message || 'Login successful.' };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Network error. Please try again.';
-      setIsAuthenticated(false);
-      setSessionInfo(null);
-      setError(message);
-      return { success: false, message };
-    }
-  }, []);
+        return {
+          success: false,
+          message:
+            'Network error. Please try again.',
+        };
+      }
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     try {
-      // 1. Kutoka kwenye Firebase Client SDK
-      await signOut(auth);
-
-      // 2. Kufuta secure httpOnly session cookie kule kwenye seva
       await fetch('/api/admin/auth', {
         method: 'DELETE',
         credentials: 'include',
+        cache: 'no-store',
       });
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error(
+        'Admin logout failed:',
+        error
+      );
     } finally {
       setIsAuthenticated(false);
       setSessionInfo(null);
-      setError(null);
     }
   }, []);
 
-  const refreshSession = () => {
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  };
-
-  const sessionDebug: SessionDebug = {
-    hasSession: isAuthenticated,
-    sessionAgeMs: sessionInfo?.issuedAt ? Date.now() - Date.parse(sessionInfo.issuedAt) : null,
-    expiresInMs: sessionInfo?.idleExpiresAt ? Date.parse(sessionInfo.idleExpiresAt) - Date.now() : null,
-  };
-
-  const adminUser: AdminUserLike = sessionInfo ? { email: sessionInfo.email, name: 'Administrator' } : null;
+  const refreshSession = useCallback(() => {
+    void checkAuth();
+  }, [checkAuth]);
 
   useEffect(() => {
     void checkAuth();
   }, [checkAuth]);
+
+  const sessionDebug: SessionDebug = {
+    hasSession: isAuthenticated,
+
+    sessionAgeMs: sessionInfo?.issuedAt
+      ? Date.now() -
+        Date.parse(sessionInfo.issuedAt)
+      : null,
+
+    expiresInMs:
+      sessionInfo?.idleExpiresAt
+        ? Date.parse(
+            sessionInfo.idleExpiresAt
+          ) - Date.now()
+        : null,
+  };
+
+  const adminUser: AdminUserLike =
+    sessionInfo
+      ? {
+          email: sessionInfo.email,
+          name: 'Administrator',
+        }
+      : null;
 
   const value: AdminContextType = {
     isAuthenticated,
@@ -180,14 +240,20 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     checkAuth,
   };
 
-  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
+  return (
+    <AdminContext.Provider value={value}>
+      {children}
+    </AdminContext.Provider>
+  );
 }
 
 export function useAdmin() {
   const context = useContext(AdminContext);
 
   if (!context) {
-    throw new Error('useAdmin must be used within AdminProvider');
+    throw new Error(
+      'useAdmin must be used within AdminProvider'
+    );
   }
 
   return context;

@@ -1,32 +1,238 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Kazi ya kuhakiki kama mtumiaji amejisajili (Auth check)
+
+    /*
+     * ============================================================
+     * PHCL SUPER — FIRESTORE SECURITY RULES
+     * Web2 + Web3 / Global Security Baseline
+     * ============================================================
+     */
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    // Kazi ya kuhakiki umiliki wa akaunti (Ownership check)
+
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isSignedIn()
+        && request.auth.uid == userId;
     }
 
-    // Kulinda taarifa za watumiaji na balansi za siri za pochi
+    /*
+     * Customer account tiers that may exist
+     * in the public customer profile.
+     *
+     * Tier selection does NOT mean
+     * KYC/KYS/KYB approval.
+     */
+    function isValidCustomerTier(tier) {
+      return tier == 'regular'
+        || tier == 'small_business'
+        || tier == 'corporate';
+    }
+
+    /*
+     * Validate zero-value initial wallet.
+     *
+     * Public registration must never
+     * mint, credit or assign funds.
+     */
+    function hasZeroInitialBalances(data) {
+      return data.balances is map
+        && data.balances.keys().hasOnly([
+          'usd',
+          'tzs',
+          'ntzs',
+          'pi'
+        ])
+        && data.balances.usd == 0
+        && data.balances.tzs == 0
+        && data.balances.ntzs == 0
+        && data.balances.pi == 0;
+    }
+
+    /*
+     * Validate the initial customer profile.
+     *
+     * Client may CREATE its own profile,
+     * but privileged state must begin
+     * in a safe state.
+     */
+    function isSafeCustomerCreate(userId) {
+      return isOwner(userId)
+
+        && request.resource.data.uid == userId
+
+        && request.resource.data.role == 'user'
+
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 0
+        && request.resource.data.fullName.size() <= 120
+
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0
+        && request.resource.data.email.size() <= 320
+
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() <= 40
+
+        && isValidCustomerTier(
+          request.resource.data.tier
+        )
+
+        /*
+         * Public/browser registration
+         * can NEVER approve KYC.
+         */
+        && request.resource.data.kycStatus
+          == 'NOT_STARTED'
+
+        /*
+         * Public registration begins with
+         * an empty wallet.
+         */
+        && hasZeroInitialBalances(
+          request.resource.data
+        )
+
+        /*
+         * serverTimestamp() resolves to
+         * request.time during rule evaluation.
+         */
+        && request.resource.data.createdAt
+          == request.time
+
+        && request.resource.data.updatedAt
+          == request.time;
+    }
+
+    /*
+     * Customer may only modify basic
+     * non-privileged profile information.
+     *
+     * IMPORTANT:
+     *
+     * Client cannot modify:
+     * - uid
+     * - email
+     * - role
+     * - tier
+     * - balances
+     * - KYC
+     * - KYS
+     * - KYB
+     * - accountStatus
+     * - verificationStatus
+     * - MFA authority
+     * - biometric authority
+     * - consent authority
+     * - createdAt
+     */
+    function isSafeCustomerUpdate() {
+      return request.resource.data
+        .diff(resource.data)
+        .affectedKeys()
+        .hasOnly([
+          'fullName',
+          'phone',
+          'updatedAt'
+        ])
+
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 0
+        && request.resource.data.fullName.size() <= 120
+
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() <= 40
+
+        && request.resource.data.updatedAt
+          == request.time;
+    }
+
+    /*
+     * ============================================================
+     * CUSTOMER PROFILES
+     * ============================================================
+     */
+
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+
+      /*
+       * Customer may read only their own
+       * customer document.
+       */
+      allow read:
+        if isOwner(userId);
+
+      /*
+       * Public account creation is allowed
+       * only with safe initial values.
+       */
+      allow create:
+        if isSafeCustomerCreate(userId);
+
+      /*
+       * Customer may update only basic
+       * profile fields.
+       */
+      allow update:
+        if isOwner(userId)
+        && isSafeCustomerUpdate();
+
+      /*
+       * Account deletion must go through
+       * controlled server-side workflow.
+       */
+      allow delete:
+        if false;
     }
 
-    // Kulinda daftari la miamala (transactions ledger) dhidi ya ufutaji
+    /*
+     * ============================================================
+     * FINANCIAL TRANSACTION LEDGER
+     * ============================================================
+     *
+     * Financial records are SERVER AUTHORITY.
+     *
+     * Firebase Admin SDK bypasses Firestore
+     * Security Rules and will later create
+     * these records through the PHCL secure
+     * ledger service.
+     */
+
     match /transactions/{transactionId} {
-      // Mtumiaji anaweza kusoma tu miamala yake binafsi ya nyuma
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      
-      // Mtumiaji anaweza kuunda (create) muamala mpya kama yeye ndiye aliyeuanzisha
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
-      // HAKUNA ruhusa ya kubadilisha (update) au kufuta (delete) miamala iliyokamilika!
-      allow update, delete: if false;
+
+      /*
+       * Customer may read only their own
+       * existing financial history.
+       */
+      allow read:
+        if isSignedIn()
+        && resource.data.userId
+          == request.auth.uid;
+
+      /*
+       * Browser/client must NEVER create,
+       * modify or delete ledger entries.
+       */
+      allow create, update, delete:
+        if false;
+    }
+
+    /*
+     * ============================================================
+     * DEFAULT DENY
+     * ============================================================
+     *
+     * Any Firestore collection that is not
+     * explicitly authorized above remains
+     * inaccessible to normal client SDKs.
+     */
+
+    match /{document=**} {
+      allow read, write:
+        if false;
     }
   }
 }

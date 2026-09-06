@@ -1,122 +1,73 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { NextRequest, NextResponse } from 'next/server';
+import { compare } from 'bcryptjs';
+import {
+  NextRequest,
+  NextResponse,
+} from 'next/server';
+
+import {
+  writeAdminAuthAudit,
+} from '@/lib/admin-auth-audit';
+
+import {
+  revokeTrustedDeviceSession,
+} from '@/lib/admin-device-auth-security';
+
+import {
+  checkAdminLoginLimit,
+  clearAdminLoginFailures,
+  createLoginFingerprint,
+  recordFailedAdminLogin,
+} from '@/lib/admin-login-security';
+
+import {
+  ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_IDLE_TIMEOUT_SECONDS,
+  ADMIN_SESSION_MAX_AGE_SECONDS,
+  decodeAdminSessionToken,
+  encodeAdminSessionToken,
+  isAdminSessionActive,
+  type AdminSessionPayload,
+} from '@/lib/admin-session-security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const COOKIE_NAME = 'phcl_admin_session';
+const COOKIE_NAME =
+  ADMIN_SESSION_COOKIE;
 
-function getPositiveNumberEnv(name: string, fallback: number) {
-  const raw = process.env[name];
-  const value = Number(raw);
+const TRUSTED_DEVICE_COOKIE =
+  'phcl_admin_trusted_device';
 
-  if (!raw || !Number.isFinite(value) || value <= 0) {
-    return fallback;
-  }
+const MAX_AGE_SECONDS =
+  ADMIN_SESSION_MAX_AGE_SECONDS;
 
-  return value;
-}
+const IDLE_TIMEOUT_SECONDS =
+  ADMIN_SESSION_IDLE_TIMEOUT_SECONDS;
 
-const MAX_AGE_SECONDS = getPositiveNumberEnv(
-  'ADMIN_SESSION_MAX_AGE_SECONDS',
-  60 * 60 * 8
-);
-
-const IDLE_TIMEOUT_SECONDS = getPositiveNumberEnv(
-  'ADMIN_SESSION_IDLE_TIMEOUT_SECONDS',
-  60 * 30
-);
-
-type SessionPayload = {
-  email: string;
-  role: 'admin';
-  iat: string;
-  exp: string;
-  idleExp: string;
-};
-
-function getSessionSecret() {
-  const secret = process.env.ADMIN_SESSION_SECRET?.trim();
-
-  if (!secret) {
-    throw new Error('ADMIN_SESSION_SECRET is not configured.');
-  }
-
-  return secret;
-}
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store',
+} as const;
 
 function getAdminCredentials() {
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD;
+  const email =
+    process.env.ADMIN_EMAIL
+      ?.trim()
+      .toLowerCase();
 
-  if (!email || !password) {
+  const passwordHash =
+    process.env.ADMIN_PASSWORD_HASH
+      ?.trim();
+
+  if (!email || !passwordHash) {
     throw new Error(
-      'ADMIN_EMAIL and/or ADMIN_PASSWORD are not configured.'
+      'ADMIN_EMAIL and/or ADMIN_PASSWORD_HASH are not configured.'
     );
   }
 
-  return { email, password };
-}
-
-function sign(value: string) {
-  return createHmac('sha256', getSessionSecret())
-    .update(value)
-    .digest('base64url');
-}
-
-function encodeToken(payload: SessionPayload) {
-  const body = Buffer.from(
-    JSON.stringify(payload),
-    'utf8'
-  ).toString('base64url');
-
-  const signature = sign(body);
-
-  return `${body}.${signature}`;
-}
-
-function decodeToken(token: string): SessionPayload | null {
-  try {
-    const [body, signature] = token.split('.');
-
-    if (!body || !signature) {
-      return null;
-    }
-
-    const expectedSignature = sign(body);
-
-    const providedBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-
-    if (providedBuffer.length !== expectedBuffer.length) {
-      return null;
-    }
-
-    if (!timingSafeEqual(providedBuffer, expectedBuffer)) {
-      return null;
-    }
-
-    const decoded = Buffer.from(
-      body,
-      'base64url'
-    ).toString('utf8');
-
-    const payload = JSON.parse(decoded) as SessionPayload;
-
-    if (
-      !payload.email ||
-      payload.role !== 'admin' ||
-      !payload.iat ||
-      !payload.exp ||
-      !payload.idleExp
-    ) {
-      return null;
-    }
-
-    return payload;
-  } catch {
-    return null;
-  }
+  return {
+    email,
+    passwordHash,
+  };
 }
 
 function setSessionCookie(
@@ -124,23 +75,55 @@ function setSessionCookie(
   token: string,
   maxAge = MAX_AGE_SECONDS
 ) {
-  response.cookies.set(COOKIE_NAME, token, {
-    path: '/',
-    maxAge,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  });
+  response.cookies.set(
+    COOKIE_NAME,
+    token,
+    {
+      path: '/',
+      maxAge,
+      httpOnly: true,
+      sameSite: 'strict',
+      secure:
+        process.env.NODE_ENV ===
+        'production',
+    }
+  );
 }
 
-function clearSessionCookie(response: NextResponse) {
-  response.cookies.set(COOKIE_NAME, '', {
-    path: '/',
-    maxAge: 0,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  });
+function clearSessionCookie(
+  response: NextResponse
+) {
+  response.cookies.set(
+    COOKIE_NAME,
+    '',
+    {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'strict',
+      secure:
+        process.env.NODE_ENV ===
+        'production',
+    }
+  );
+}
+
+function clearTrustedDeviceCookie(
+  response: NextResponse
+) {
+  response.cookies.set(
+    TRUSTED_DEVICE_COOKIE,
+    '',
+    {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'strict',
+      secure:
+        process.env.NODE_ENV ===
+        'production',
+    }
+  );
 }
 
 function unauthorizedResponse(
@@ -154,13 +137,99 @@ function unauthorizedResponse(
       code,
       message,
     },
-    { status: 401 }
+    {
+      status: 401,
+      headers:
+        NO_STORE_HEADERS,
+    }
   );
 }
 
-export async function GET(request: NextRequest) {
+function getClientIp(
+  request: NextRequest
+): string {
+  const forwardedFor =
+    request.headers.get(
+      'x-forwarded-for'
+    );
+
+  if (forwardedFor) {
+    const firstIp =
+      forwardedFor
+        .split(',')[0]
+        ?.trim()
+        .slice(0, 100);
+
+    if (firstIp) {
+      return firstIp;
+    }
+  }
+
+  const realIp =
+    request.headers
+      .get('x-real-ip')
+      ?.trim()
+      .slice(0, 100);
+
+  return realIp || 'unknown';
+}
+
+async function safeWriteAudit(
+  event:
+    | 'LOGIN_SUCCESS'
+    | 'LOGIN_FAILED'
+    | 'LOGIN_RATE_LIMITED'
+    | 'LOGOUT',
+  email: string,
+  ipAddress: string
+): Promise<void> {
   try {
-    const token = request.cookies.get(COOKIE_NAME)?.value;
+    await writeAdminAuthAudit({
+      event,
+      email,
+      ipAddress,
+    });
+  } catch (error) {
+    /*
+     * Authentication must not fail merely because
+     * audit persistence is temporarily unavailable.
+     */
+    console.error(
+      'Unable to persist Admin authentication audit event:',
+      error
+    );
+  }
+}
+
+async function safeRevokeTrustedDeviceSession(
+  email: string,
+  trustedSessionId: string
+): Promise<void> {
+  try {
+    await revokeTrustedDeviceSession(
+      email,
+      trustedSessionId
+    );
+  } catch (error) {
+    /*
+     * Browser cookies must still be cleared even if
+     * Firestore is temporarily unavailable.
+     */
+    console.error(
+      'Unable to revoke Admin trusted-device session:',
+      error
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest
+) {
+  try {
+    const token =
+      request.cookies.get(
+        COOKIE_NAME
+      )?.value;
 
     if (!token) {
       return unauthorizedResponse(
@@ -169,74 +238,125 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const session = decodeToken(token);
-
-    if (!session) {
-      const response = unauthorizedResponse(
-        'INVALID_SESSION',
-        'Invalid admin session.'
+    const session =
+      decodeAdminSessionToken(
+        token
       );
-
-      clearSessionCookie(response);
-
-      return response;
-    }
-
-    const now = Date.now();
-
-    const hardExpiry = Date.parse(session.exp);
-    const idleExpiry = Date.parse(session.idleExp);
 
     if (
-      Number.isNaN(hardExpiry) ||
-      Number.isNaN(idleExpiry)
+      !session ||
+      !isAdminSessionActive(
+        session
+      )
     ) {
-      const response = unauthorizedResponse(
-        'INVALID_SESSION',
-        'Invalid session expiry data.'
-      );
+      const response =
+        unauthorizedResponse(
+          'INVALID_OR_EXPIRED_SESSION',
+          'Invalid or expired admin session.'
+        );
 
-      clearSessionCookie(response);
+      clearSessionCookie(
+        response
+      );
 
       return response;
     }
+
+    const now =
+      Date.now();
+
+    const hardExpiryMs =
+      Date.parse(
+        session.exp
+      );
 
     if (
-      hardExpiry <= now ||
-      idleExpiry <= now
+      !Number.isFinite(
+        hardExpiryMs
+      )
     ) {
-      const response = unauthorizedResponse(
-        'SESSION_EXPIRED',
-        'Admin session has expired.'
-      );
+      const response =
+        unauthorizedResponse(
+          'INVALID_SESSION',
+          'Invalid admin session.'
+        );
 
-      clearSessionCookie(response);
+      clearSessionCookie(
+        response
+      );
 
       return response;
     }
 
-    const refreshedPayload: SessionPayload = {
-      ...session,
-      idleExp: new Date(
-        now + IDLE_TIMEOUT_SECONDS * 1000
-      ).toISOString(),
-    };
+    const refreshedIdleExpiryMs =
+      Math.min(
+        hardExpiryMs,
+        now +
+          IDLE_TIMEOUT_SECONDS *
+            1000
+      );
 
-    const response = NextResponse.json({
-      ok: true,
-      authenticated: true,
-      session: {
-        email: refreshedPayload.email,
-        role: refreshedPayload.role,
-        issuedAt: refreshedPayload.iat,
-        expiresAt: refreshedPayload.exp,
-        idleExpiresAt: refreshedPayload.idleExp,
-      },
-    });
+    const refreshedPayload:
+      AdminSessionPayload = {
+        ...session,
+
+        idleExp:
+          new Date(
+            refreshedIdleExpiryMs
+          ).toISOString(),
+      };
+
+    const response =
+      NextResponse.json(
+        {
+          ok: true,
+          authenticated: true,
+
+          session: {
+            email:
+              refreshedPayload.email,
+
+            role:
+              refreshedPayload.role,
+
+            issuedAt:
+              refreshedPayload.iat,
+
+            expiresAt:
+              refreshedPayload.exp,
+
+            idleExpiresAt:
+              refreshedPayload.idleExp,
+          },
+        },
+        {
+          headers:
+            NO_STORE_HEADERS,
+        }
+      );
+
+    const remainingHardLifetimeSeconds =
+      Math.max(
+        1,
+        Math.ceil(
+          (
+            hardExpiryMs -
+            now
+          ) / 1000
+        )
+      );
 
     setSessionCookie(
       response,
-      encodeToken(refreshedPayload)
+
+      encodeAdminSessionToken(
+        refreshedPayload
+      ),
+
+      Math.min(
+        MAX_AGE_SECONDS,
+        remainingHardLifetimeSeconds
+      )
     );
 
     return response;
@@ -251,15 +371,23 @@ export async function GET(request: NextRequest) {
         ok: false,
         authenticated: false,
         code: 'SERVER_ERROR',
+
         message:
           'Unable to validate admin session.',
       },
-      { status: 500 }
+      {
+        status: 500,
+
+        headers:
+          NO_STORE_HEADERS,
+      }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+) {
   try {
     let body: {
       email?: string;
@@ -267,99 +395,382 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      body = (await request.json()) as {
-        email?: string;
-        password?: string;
-      };
+      body =
+        (await request.json()) as {
+          email?: string;
+          password?: string;
+        };
     } catch {
       return NextResponse.json(
         {
           ok: false,
-          code: 'INVALID_REQUEST',
-          message: 'Invalid request body.',
+
+          code:
+            'INVALID_REQUEST',
+
+          message:
+            'Invalid request body.',
         },
-        { status: 400 }
+        {
+          status: 400,
+
+          headers:
+            NO_STORE_HEADERS,
+        }
       );
     }
 
-    const email = String(
-      body.email || ''
-    )
-      .trim()
-      .toLowerCase();
+    const email =
+      String(
+        body.email || ''
+      )
+        .trim()
+        .toLowerCase();
 
-    const password = String(
-      body.password || ''
-    );
+    const password =
+      String(
+        body.password || ''
+      );
 
-    if (!email || !password) {
+    if (
+      !email ||
+      !password
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          code: 'MISSING_CREDENTIALS',
+
+          code:
+            'MISSING_CREDENTIALS',
+
           message:
             'Email and password are required.',
         },
-        { status: 400 }
+        {
+          status: 400,
+
+          headers:
+            NO_STORE_HEADERS,
+        }
       );
     }
 
-    const credentials = getAdminCredentials();
+    const clientIp =
+      getClientIp(
+        request
+      );
 
-    if (
-      email !== credentials.email ||
-      password !== credentials.password
-    ) {
-      console.warn(
-        `Failed admin login attempt for: ${email}`
+    const loginFingerprint =
+      createLoginFingerprint(
+        email,
+        clientIp
+      );
+
+    const ipFingerprint =
+      createLoginFingerprint(
+        '__ip_rate_limit__',
+        clientIp
+      );
+
+    const emailFingerprint =
+      createLoginFingerprint(
+        email,
+        '__email_rate_limit__'
+      );
+
+    const [
+      loginLimit,
+      ipLimit,
+      emailLimit,
+    ] =
+      await Promise.all([
+        checkAdminLoginLimit(
+          loginFingerprint
+        ),
+
+        checkAdminLoginLimit(
+          ipFingerprint
+        ),
+
+        checkAdminLoginLimit(
+          emailFingerprint
+        ),
+      ]);
+
+    const activeLimit =
+      [
+        loginLimit,
+        ipLimit,
+        emailLimit,
+      ].find(
+        (limit) =>
+          !limit.allowed
+      );
+
+    if (activeLimit) {
+      const retryAfter =
+        Math.max(
+          1,
+
+          activeLimit
+            .retryAfterSeconds
+        );
+
+      await safeWriteAudit(
+        'LOGIN_RATE_LIMITED',
+        email,
+        clientIp
       );
 
       return NextResponse.json(
         {
           ok: false,
-          code: 'INVALID_CREDENTIALS',
+
+          code:
+            'TOO_MANY_ATTEMPTS',
+
           message:
-            'Invalid email or password.',
+            'Too many login attempts. Please try again later.',
+
+          retryAfterSeconds:
+            retryAfter,
         },
-        { status: 401 }
+        {
+          status: 429,
+
+          headers: {
+            ...NO_STORE_HEADERS,
+
+            'Retry-After':
+              String(
+                retryAfter
+              ),
+          },
+        }
       );
     }
 
-    const now = Date.now();
+    const credentials =
+      getAdminCredentials();
 
-    const payload: SessionPayload = {
-      email,
-      role: 'admin',
-      iat: new Date(now).toISOString(),
-      exp: new Date(
-        now + MAX_AGE_SECONDS * 1000
-      ).toISOString(),
-      idleExp: new Date(
-        now + IDLE_TIMEOUT_SECONDS * 1000
-      ).toISOString(),
-    };
+    const emailMatches =
+      email ===
+      credentials.email;
 
-    const response = NextResponse.json({
-      ok: true,
-      authenticated: true,
-      message: 'Login successful.',
-      adminSetupComplete: true,
-      session: {
-        email: payload.email,
-        role: payload.role,
-        issuedAt: payload.iat,
-        expiresAt: payload.exp,
-        idleExpiresAt: payload.idleExp,
-      },
-    });
+    /*
+     * Always execute bcrypt comparison after the
+     * rate-limit checks so the credential path
+     * remains uniform.
+     */
+    const passwordMatches =
+      await compare(
+        password,
+        credentials.passwordHash
+      );
+
+    if (
+      !emailMatches ||
+      !passwordMatches
+    ) {
+      const [
+        loginFailure,
+        ipFailure,
+        emailFailure,
+      ] =
+        await Promise.all([
+          recordFailedAdminLogin(
+            loginFingerprint
+          ),
+
+          recordFailedAdminLogin(
+            ipFingerprint
+          ),
+
+          recordFailedAdminLogin(
+            emailFingerprint
+          ),
+        ]);
+
+      await safeWriteAudit(
+        'LOGIN_FAILED',
+        email,
+        clientIp
+      );
+
+      console.warn(
+        'Failed admin login attempt.'
+      );
+
+      const blockedFailure =
+        [
+          loginFailure,
+          ipFailure,
+          emailFailure,
+        ].find(
+          (result) =>
+            !result.allowed
+        );
+
+      if (blockedFailure) {
+        const retryAfter =
+          Math.max(
+            1,
+
+            blockedFailure
+              .retryAfterSeconds
+          );
+
+        return NextResponse.json(
+          {
+            ok: false,
+
+            code:
+              'TOO_MANY_ATTEMPTS',
+
+            message:
+              'Too many login attempts. Please try again later.',
+
+            retryAfterSeconds:
+              retryAfter,
+          },
+          {
+            status: 429,
+
+            headers: {
+              ...NO_STORE_HEADERS,
+
+              'Retry-After':
+                String(
+                  retryAfter
+                ),
+            },
+          }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          code:
+            'INVALID_CREDENTIALS',
+
+          message:
+            'Invalid email or password.',
+        },
+        {
+          status: 401,
+
+          headers:
+            NO_STORE_HEADERS,
+        }
+      );
+    }
+
+    await Promise.all([
+      clearAdminLoginFailures(
+        loginFingerprint
+      ),
+
+      clearAdminLoginFailures(
+        ipFingerprint
+      ),
+
+      clearAdminLoginFailures(
+        emailFingerprint
+      ),
+    ]);
+
+    const now =
+      Date.now();
+
+    const payload:
+      AdminSessionPayload = {
+        email:
+          credentials.email,
+
+        role:
+          'admin',
+
+        iat:
+          new Date(
+            now
+          ).toISOString(),
+
+        exp:
+          new Date(
+            now +
+              MAX_AGE_SECONDS *
+                1000
+          ).toISOString(),
+
+        idleExp:
+          new Date(
+            Math.min(
+              now +
+                MAX_AGE_SECONDS *
+                  1000,
+
+              now +
+                IDLE_TIMEOUT_SECONDS *
+                  1000
+            )
+          ).toISOString(),
+      };
+
+    const response =
+      NextResponse.json(
+        {
+          ok: true,
+
+          authenticated:
+            true,
+
+          message:
+            'Login successful.',
+
+          adminSetupComplete:
+            true,
+
+          session: {
+            email:
+              payload.email,
+
+            role:
+              payload.role,
+
+            issuedAt:
+              payload.iat,
+
+            expiresAt:
+              payload.exp,
+
+            idleExpiresAt:
+              payload.idleExp,
+          },
+        },
+        {
+          headers:
+            NO_STORE_HEADERS,
+        }
+      );
 
     setSessionCookie(
       response,
-      encodeToken(payload)
+
+      encodeAdminSessionToken(
+        payload
+      )
+    );
+
+    await safeWriteAudit(
+      'LOGIN_SUCCESS',
+      credentials.email,
+      clientIp
     );
 
     console.info(
-      `Admin login successful for: ${email}`
+      'Admin login successful.'
     );
 
     return response;
@@ -372,22 +783,91 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        code: 'SERVER_ERROR',
+
+        code:
+          'SERVER_ERROR',
+
         message:
           'Admin authentication is currently unavailable.',
       },
-      { status: 500 }
+      {
+        status: 500,
+
+        headers:
+          NO_STORE_HEADERS,
+      }
     );
   }
 }
 
-export async function DELETE() {
-  const response = NextResponse.json({
-    ok: true,
-    message: 'Logged out successfully.',
-  });
+export async function DELETE(
+  request: NextRequest
+) {
+  const token =
+    request.cookies.get(
+      COOKIE_NAME
+    )?.value;
 
-  clearSessionCookie(response);
+  const trustedSessionId =
+    request.cookies.get(
+      TRUSTED_DEVICE_COOKIE
+    )?.value;
+
+  const session =
+    token
+      ? decodeAdminSessionToken(
+          token
+        )
+      : null;
+
+  if (
+    session &&
+    isAdminSessionActive(
+      session
+    )
+  ) {
+    if (
+      trustedSessionId
+    ) {
+      await safeRevokeTrustedDeviceSession(
+        session.email,
+        trustedSessionId
+      );
+    }
+
+    await safeWriteAudit(
+      'LOGOUT',
+      session.email,
+      getClientIp(
+        request
+      )
+    );
+  }
+
+  const response =
+    NextResponse.json(
+      {
+        ok: true,
+
+        authenticated:
+          false,
+
+        message:
+          'Logged out successfully.',
+      },
+      {
+        headers:
+          NO_STORE_HEADERS,
+      }
+    );
+
+  clearSessionCookie(
+    response
+  );
+
+  clearTrustedDeviceCookie(
+    response
+  );
 
   return response;
 }

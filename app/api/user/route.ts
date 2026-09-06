@@ -1,51 +1,253 @@
-import { NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/user-profile';
+import 'server-only';
 
-// 1. GET REQUEST: Inaruhusu PHCL_App kusoma wasifu na salio la mtumiaji kwa kutumia UID
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const uid = searchParams.get('uid');
+import {
+  NextResponse,
+} from 'next/server';
 
-  if (!uid || !db) {
-    return NextResponse.json({ error: 'UID ya mtumiaji inahitajika!' }, { status: 400 });
+import {
+  adminAuth,
+  adminDb,
+} from '@/lib/firebase-admin';
+
+export const runtime =
+  'nodejs';
+
+export const dynamic =
+  'force-dynamic';
+
+function jsonResponse(
+  body: unknown,
+  status = 200,
+) {
+  return NextResponse.json(
+    body,
+    {
+      status,
+
+      headers: {
+        'Cache-Control':
+          'no-store, max-age=0',
+
+        Pragma:
+          'no-cache',
+      },
+    },
+  );
+}
+
+function getBearerToken(
+  request: Request,
+): string | null {
+  const authorization =
+    request.headers.get(
+      'authorization',
+    );
+
+  if (!authorization) {
+    return null;
+  }
+
+  const match =
+    authorization.match(
+      /^Bearer\s+(.+)$/i,
+    );
+
+  const token =
+    match?.[1]?.trim();
+
+  return token || null;
+}
+
+async function getAuthenticatedUid(
+  request: Request,
+): Promise<string | null> {
+  const token =
+    getBearerToken(
+      request,
+    );
+
+  if (!token) {
+    return null;
   }
 
   try {
-    const userRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userRef);
+    /**
+     * SECURITY:
+     *
+     * The UID comes from the verified
+     * Firebase ID token.
+     *
+     * Never trust a UID supplied by
+     * query string or request body.
+     */
+    const decodedToken =
+      await adminAuth.verifyIdToken(
+        token,
+        true,
+      );
 
-    if (!userDoc.exists()) {
-      return NextResponse.json({ error: 'Mtumiaji hajapatikana!' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, profile: userDoc.data() });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return (
+      decodedToken.uid ||
+      null
+    );
+  } catch {
+    return null;
   }
 }
 
-// 2. POST REQUEST: Inaruhusu PHCL_App kukata au kuongeza salio la mteja salama kiserver (kama akilipia huduma)
-export async function POST(request: Request) {
-  try {
-    const { uid, currency, amount, type } = await request.json();
+/**
+ * GET /api/user
+ *
+ * Returns the authenticated user's
+ * own profile.
+ *
+ * Required header:
+ *
+ * Authorization:
+ * Bearer <Firebase ID token>
+ *
+ * IMPORTANT:
+ *
+ * There is intentionally no ?uid=
+ * parameter. Identity is derived
+ * exclusively from the verified
+ * Firebase ID token.
+ */
+export async function GET(
+  request: Request,
+) {
+  const uid =
+    await getAuthenticatedUid(
+      request,
+    );
 
-    if (!uid || !currency || !amount || !db) {
-      return NextResponse.json({ error: 'Vigezo vyote vinahitajika!' }, { status: 400 });
+  if (!uid) {
+    return jsonResponse(
+      {
+        error:
+          'Authentication required.',
+      },
+      401,
+    );
+  }
+
+  try {
+    const snapshot =
+      await adminDb
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    if (!snapshot.exists) {
+      return jsonResponse(
+        {
+          error:
+            'User profile not found.',
+        },
+        404,
+      );
     }
 
-    // Amua ikiwa ni kuongeza salio (credit) au kukata salio (debit/payment)
-    const change = type === 'credit' ? amount : -amount;
-    const userRef = doc(db, 'users', uid);
+    const data =
+      snapshot.data();
 
-    // Tekeleza mabadiliko ya salio kiserver kwa kutumia increment
-    await updateDoc(userRef, {
-      [`balances.${currency}`]: increment(change),
-      updatedAt: serverTimestamp()
+    if (!data) {
+      return jsonResponse(
+        {
+          error:
+            'User profile not found.',
+        },
+        404,
+      );
+    }
+
+    /**
+     * SECURITY:
+     *
+     * Return only explicitly approved
+     * self-profile fields.
+     *
+     * Do not return the entire
+     * Firestore document because it
+     * may later contain internal risk,
+     * KYC/KYS/KYB, fraud, compliance,
+     * admin or security metadata.
+     */
+    const profile = {
+      uid,
+
+      displayName:
+        typeof data.displayName ===
+        'string'
+          ? data.displayName
+          : null,
+
+      email:
+        typeof data.email ===
+        'string'
+          ? data.email
+          : null,
+
+      photoURL:
+        typeof data.photoURL ===
+        'string'
+          ? data.photoURL
+          : null,
+
+      phoneNumber:
+        typeof data.phoneNumber ===
+        'string'
+          ? data.phoneNumber
+          : null,
+
+      balances:
+        typeof data.balances ===
+          'object' &&
+        data.balances !== null &&
+        !Array.isArray(
+          data.balances,
+        )
+          ? data.balances
+          : {},
+    };
+
+    return jsonResponse({
+      success: true,
+
+      profile,
     });
-
-    return NextResponse.json({ success: true, message: 'Salio la mteja limesasishwa kikamilifu kwenye Firestore!' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    /**
+     * Do not leak Firestore/Admin SDK
+     * internal error messages to the
+     * browser.
+     */
+    return jsonResponse(
+      {
+        error:
+          'Unable to load user profile.',
+      },
+      500,
+    );
   }
+}
+
+/**
+ * Financial balance mutation through
+ * this legacy route is intentionally
+ * disabled.
+ *
+ * Credits/debits must later pass
+ * through the authoritative financial
+ * ledger + idempotent checkout/refund/
+ * transfer settlement layer.
+ */
+export async function POST() {
+  return jsonResponse(
+    {
+      error:
+        'Direct balance mutation is not allowed.',
+    },
+    405,
+  );
 }

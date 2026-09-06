@@ -1,59 +1,98 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const ADMIN_PROTECTED_PATHS = [
-  '/admin/dashboard',
-  '/admin/products',
-  '/admin/currencies',
-  '/admin/languages',
-  '/admin/analytics',
-  '/admin/users',
-  '/admin/settings',
-];
+const CANONICAL_HOSTNAME =
+  'www.phclsuper.com';
 
-export function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+const APEX_HOSTNAME =
+  'phclsuper.com';
+
+function getRequestHostname(
+  request: NextRequest
+): string {
   const forwardedHost =
-    request.headers.get('x-forwarded-host') ||
-    request.headers.get('host') ||
-    request.nextUrl.host;
-  const normalizedHostname = forwardedHost.toLowerCase().split(':')[0];
-  const isAppHostingDefaultDomain = normalizedHostname.endsWith('.hosted.app');
+    request.headers
+      .get('x-forwarded-host')
+      ?.split(',')[0]
+      ?.trim();
 
-  if (
-    normalizedHostname &&
-    !normalizedHostname.startsWith('localhost') &&
-    !normalizedHostname.startsWith('127.0.0.1') &&
-    !normalizedHostname.startsWith('[::1]') &&
-    !normalizedHostname.startsWith('www.') &&
-    !isAppHostingDefaultDomain
-  ) {
-    const targetLocation = pathname === '/'
-      ? `https://www.phclsuper.com${search}`
-      : `https://www.phclsuper.com${pathname}${search}`;
-    return new NextResponse(null, {
-      status: 308,
-      headers: {
-        Location: targetLocation,
-      },
-    });
+  const host =
+    forwardedHost ||
+    request.headers
+      .get('host')
+      ?.trim() ||
+    request.nextUrl.host;
+
+  if (!host) {
+    return '';
   }
 
-  if (ADMIN_PROTECTED_PATHS.some((route) => pathname.startsWith(route))) {
-    const adminSession = request.cookies.get('phcl_admin_session')?.value;
-    if (!adminSession) {
-      return new NextResponse(null, {
-        status: 307,
-        headers: {
-          Location: new URL('/admin/login', request.url).toString(),
-        },
-      });
+  /*
+   * Handle IPv6 hosts such as [::1]:3000
+   * without breaking on the embedded colons.
+   */
+  if (host.startsWith('[')) {
+    const closingBracket =
+      host.indexOf(']');
+
+    if (closingBracket !== -1) {
+      return host
+        .slice(
+          1,
+          closingBracket
+        )
+        .toLowerCase();
     }
+  }
+
+  return host
+    .split(':')[0]
+    .toLowerCase();
+}
+
+export function middleware(
+  request: NextRequest
+) {
+  const {
+    pathname,
+    search,
+  } = request.nextUrl;
+
+  const hostname =
+    getRequestHostname(
+      request
+    );
+
+  /*
+   * Canonical production-domain redirect only.
+   *
+   * Do not use middleware as the Admin security
+   * authority. Protected Admin routes are enforced
+   * by the server-side protected Admin layout, which
+   * validates both the signed Admin session and the
+   * trusted-device session against Firestore.
+   */
+  if (hostname === APEX_HOSTNAME) {
+    const targetLocation =
+      `https://${CANONICAL_HOSTNAME}${pathname}${search}`;
+
+    return new NextResponse(
+      null,
+      {
+        status: 308,
+        headers: {
+          Location:
+            targetLocation,
+        },
+      }
+    );
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!api|_next|.*\\..*).*)'],
+  matcher: [
+    '/((?!api|_next|.*\\..*).*)',
+  ],
 };

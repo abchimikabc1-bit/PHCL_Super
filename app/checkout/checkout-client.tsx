@@ -1,521 +1,1768 @@
 'use client';
 
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, collection, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, adjustUserBalance, UserProfile } from '@/lib/user-profile';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  onAuthStateChanged,
+  type User,
+} from 'firebase/auth';
+
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import Link from 'next/link';
 import { toast } from 'sonner';
+
 import Checkout from '@/components/marketplace/checkout';
-import { convertAmount } from '@/components/marketplace/currency-utils';
-import { formatCurrencyAmount } from '@/components/currency';
-import { useDisplayCurrency } from '@/hooks/use-display-currency';
-import { useLanguage } from '@/hooks/use-language';
-import { getAdminSettings } from '@/lib/admin-settings';
-import { applyProductStockPurchase, canAddToCart } from '@/lib/admin-product-stock';
-import { reconcileCartItemsWithStock } from '@/lib/cart-stock-reconcile';
-import { CART_UPDATED_EVENT, CartStorageItem, getCartItems, getCartTotal, setCartItems } from '@/lib/cart-storage';
-import { REORDER_SOURCE_KEY, StoredOrder, saveOrder } from '@/lib/order-storage';
-import { getPolicyVersions } from '@/lib/policy-compliance';
+import {
+  convertAmount,
+} from '@/components/marketplace/currency-utils';
+
+import {
+  formatCurrencyAmount,
+} from '@/components/currency';
+
+import {
+  useDisplayCurrency,
+} from '@/hooks/use-display-currency';
+
+import {
+  useLanguage,
+} from '@/hooks/use-language';
+
+import {
+  getAdminSettings,
+} from '@/lib/admin-settings';
+
+import {
+  reconcileCartItemsWithStock,
+} from '@/lib/cart-stock-reconcile';
+
+import {
+  CART_UPDATED_EVENT,
+  type CartStorageItem,
+  getCartItems,
+  getCartTotal,
+  setCartItems,
+} from '@/lib/cart-storage';
+
+import {
+  REORDER_SOURCE_KEY,
+  type StoredOrder,
+  saveOrder,
+} from '@/lib/order-storage';
+
+import {
+  getPolicyVersions,
+} from '@/lib/policy-compliance';
+
+import {
+  auth,
+} from '@/lib/user-profile';
+
+type PaymentMethod =
+  | 'usd'
+  | 'tzs'
+  | 'ntzs'
+  | 'pi';
+
+type PaymentAsset =
+  | 'USD'
+  | 'TZS'
+  | 'NTZS'
+  | 'PI';
+
+type QuoteApiResponse = {
+  success?: unknown;
+
+  quote?: {
+    quoteId?: unknown;
+    subtotalUsd?: unknown;
+    taxUsd?: unknown;
+    platformFeeUsd?: unknown;
+    fixedFeeUsd?: unknown;
+    otherFeesUsd?: unknown;
+    totalChargesUsd?: unknown;
+    grandTotalUsd?: unknown;
+    paymentAsset?: unknown;
+    paymentAmount?: unknown;
+    rateUsed?: unknown;
+    rateVersion?: unknown;
+    chargePolicyVersion?: unknown;
+  };
+
+  error?: unknown;
+};
+
+type CheckoutOrderResponse = {
+  orderId?: unknown;
+  createdAt?: unknown;
+  itemCount?: unknown;
+  subtotalUsd?: unknown;
+  grandTotalUsd?: unknown;
+};
+
+type CheckoutApiResponse = {
+  success?: unknown;
+  idempotent?: unknown;
+  operationId?: unknown;
+  orderId?: unknown;
+  quoteId?: unknown;
+  paymentAsset?: unknown;
+  paymentAmount?: unknown;
+  paymentAmountAtomic?: unknown;
+  ledgerEntryId?: unknown;
+  status?: unknown;
+  order?: CheckoutOrderResponse;
+  error?: unknown;
+};
+
+function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function getErrorMessage(
+  value: unknown,
+): string | null {
+  if (!isPlainObject(value)) {
+    return null;
+  }
+
+  return typeof value.error === 'string'
+    ? value.error
+    : null;
+}
+
+function toPaymentAsset(
+  paymentMethod: PaymentMethod,
+): PaymentAsset {
+  if (paymentMethod === 'usd') {
+    return 'USD';
+  }
+
+  if (paymentMethod === 'tzs') {
+    return 'TZS';
+  }
+
+  if (paymentMethod === 'ntzs') {
+    return 'NTZS';
+  }
+
+  return 'PI';
+}
+
+function createCheckoutOperationId():
+string {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID ===
+      'function'
+  ) {
+    return `checkout:${crypto.randomUUID()}`;
+  }
+
+  return [
+    'checkout',
+    Date.now().toString(36),
+    Math.random()
+      .toString(36)
+      .slice(2),
+  ].join(':');
+}
+
+async function readJsonResponse(
+  response: Response,
+): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return {
+      error:
+        'Server returned an invalid response.',
+    };
+  }
+}
 
 export default function CheckoutClient() {
-  const [items, setItems] = useState<CartStorageItem[]>([]);
-   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [
+    items,
+    setItems,
+  ] = useState<CartStorageItem[]>(
+    [],
+  );
 
-  useEffect(() => {
-    if (!auth || !db) return;
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (user) {
-        const unsubSnap = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-          if (snap.exists()) setProfile({ uid: user.uid, ...snap.data() } as UserProfile);
-        });
-        return () => unsubSnap();
-      } else { setProfile(null); }
-    });
-    return () => unsubscribe();
-  }, []); 
-  const { language } = useLanguage();
-  const isSwahili = language === 'sw';
+  const [
+    currentUser,
+    setCurrentUser,
+  ] = useState<User | null>(
+    null,
+  );
 
-  const copy = isSwahili
-    ? {
-        title: 'Malipo',
-        subtitle: 'Kamilisha ununuzi wako kwa kutumia USD, TZS, nTZS, au PI.',
-        backToCart: 'Rudi Cart',
-        continueShopping: 'Endelea Kununua',
-        orders: 'Oda',
-        displayCurrency: 'Sarafu ya kuonyesha:',
-        maintenance: 'Hali ya matengenezo imewashwa. Kukamilisha malipo kumesitishwa kwa sasa na sera ya administrator.',
-        orderConfirmed: 'Oda Imethibitishwa',
-        orderPlaced: 'Oda yako imewasilishwa kwa mafanikio.',
-        orderId: 'Namba ya Oda',
-        items: 'Bidhaa',
-        payment: 'Malipo',
-        viewCart: 'Tazama Cart',
-        readyForCheckout: (count: number) => `${count} bidhaa ziko tayari kwa malipo.`,
-        shippingDetails: 'Maelezo ya Usafirishaji',
-        shippingRequired: 'Sehemu zote zinahitajika kabla ya kukamilisha ununuzi.',
-        fullName: 'Jina kamili',
-        phone: 'Namba ya simu',
-        addressLine: 'Anwani',
-        city: 'Jiji',
-        country: 'Nchi',
-        shippingComplete: 'Taarifa za usafirishaji zimekamilika.',
-        shippingIncomplete: 'Tafadhali jaza sehemu zote za usafirishaji.',
-        legalConsent: 'Ridhaa ya Kisheria',
-        legalConsentNote: 'Ili kukamilisha malipo, mteja lazima akubali sera zote mbili kwa hiari.',
-        agreeTermsPrefix: 'Ninakubali',
-        terms: 'Masharti ya Huduma',
-        agreePrivacyPrefix: 'Ninakubali',
-        privacy: 'Sera ya Faragha',
-        policyConsentComplete: 'Ridhaa ya sera imekamilika.',
-        policyConsentIncomplete: 'Tafadhali kubali sera zote mbili ili kuendelea.',
-        emptyCartTitle: 'Cart yako ni tupu.',
-        emptyCartBody: 'Ongeza bidhaa kwanza, kisha urudi checkout.',
-        goToMarketplace: 'Nenda Marketplace',
-        removedBeforeCheckout: (count: number) => `${count} bidhaa zimeondolewa kabla ya checkout kutokana na mabadiliko ya stock`,
-        reducedBeforeCheckout: (count: number) => `${count} bidhaa zimepunguzwa idadi hadi stock iliyopo kabla ya checkout`,
-        checkoutDisabledMaintenance: 'Checkout imezimwa kwa muda wakati wa matengenezo',
-        piDisabledByAdmin: 'Malipo ya PI yamezimwa kwa sasa na admin',
-        cartEmpty: 'Cart ni tupu. Ongeza bidhaa kabla ya checkout',
-        completeShippingFirst: 'Kamilisha kwanza taarifa za usafirishaji',
-        agreePoliciesFirst: 'Lazima ukubali Masharti ya Huduma na Sera ya Faragha kabla ya ununuzi',
-        productUnavailable: 'Bidhaa haipatikani',
-        unableUpdateStock: 'Imeshindikana kusasisha stock kwa oda hii',
-        orderConfirmedToast: (orderId: string) => `Oda ${orderId} imethibitishwa`,
-        pausedDuringMaintenance: 'Kukamilisha checkout kumesitishwa wakati wa matengenezo',
-        fillShippingBeforeComplete: 'Jaza taarifa za usafirishaji kabla ya kukamilisha ununuzi',
-        acceptPoliciesBeforeComplete: 'Kubali Masharti na Faragha kabla ya kukamilisha ununuzi',
-        mobileDetailsRequired: 'Kwa malipo ya TZS/nTZS, chagua mtandao wa simu na andika namba sahihi ya malipo.',
-        mobileNetworkLabel: 'Mtandao wa Simu',
-        paymentPhoneLabel: 'Namba ya Malipo',
-        notProvided: 'Haijawekwa',
-        orderReview: 'Mapitio ya Oda',
-        itemCountLabel: 'Idadi ya Vipande',
-        subtotalLabel: 'Jumla kabla ya kodi',
-        estimatedTaxLabel: 'Makadirio ya kodi (8%)',
-        estimatedTotalLabel: 'Makadirio ya jumla',
-        shippingStatusLabel: 'Hali ya usafirishaji',
-        policyStatusLabel: 'Hali ya ridhaa',
-        ready: 'Tayari',
-        pending: 'Inasubiri',
-      }
-    : {
-        title: 'Checkout',
-        subtitle: 'Complete your purchase using USD, TZS, nTZS, or PI.',
-        backToCart: 'Back to Cart',
-        continueShopping: 'Continue Shopping',
-        orders: 'Orders',
-        displayCurrency: 'Display currency:',
-        maintenance: 'Maintenance mode is active. Checkout completion is currently paused by administrator policy.',
-        orderConfirmed: 'Order Confirmed',
-        orderPlaced: 'Your order has been placed successfully.',
-        orderId: 'Order ID',
-        items: 'Items',
-        payment: 'Payment',
-        viewCart: 'View Cart',
-        readyForCheckout: (count: number) => `${count} item(s) ready for checkout.`,
-        shippingDetails: 'Shipping Details',
-        shippingRequired: 'All fields are required before purchase completion.',
-        fullName: 'Full name',
-        phone: 'Phone number',
-        addressLine: 'Address line',
-        city: 'City',
-        country: 'Country',
-        shippingComplete: 'Shipping profile complete.',
-        shippingIncomplete: 'Please complete all shipping fields.',
-        legalConsent: 'Legal Consent',
-        legalConsentNote: 'To complete checkout, customer must voluntarily accept both policies.',
-        agreeTermsPrefix: 'I agree to the',
-        terms: 'Terms of Service',
-        agreePrivacyPrefix: 'I agree to the',
-        privacy: 'Privacy Policy',
-        policyConsentComplete: 'Policy consent complete.',
-        policyConsentIncomplete: 'Please agree to both policies to continue.',
-        emptyCartTitle: 'Your cart is empty.',
-        emptyCartBody: 'Add products first, then return to checkout.',
-        goToMarketplace: 'Go to Marketplace',
-        removedBeforeCheckout: (count: number) => `${count} item(s) were removed before checkout due to stock changes`,
-        reducedBeforeCheckout: (count: number) => `${count} item(s) quantity was reduced to available stock before checkout`,
-        checkoutDisabledMaintenance: 'Checkout is temporarily disabled during maintenance mode',
-        piDisabledByAdmin: 'PI payments are currently disabled by admin',
-        cartEmpty: 'Cart is empty. Add items before checkout',
-        completeShippingFirst: 'Complete shipping details first',
-        agreePoliciesFirst: 'You must agree to Terms of Service and Privacy Policy before purchase',
-        productUnavailable: 'Product is unavailable',
-        unableUpdateStock: 'Unable to update stock for this order',
-        orderConfirmedToast: (orderId: string) => `Order ${orderId} confirmed`,
-        pausedDuringMaintenance: 'Checkout completion is paused during maintenance mode',
-        fillShippingBeforeComplete: 'Fill shipping details before completing purchase',
-        acceptPoliciesBeforeComplete: 'Accept Terms and Privacy Policy before completing purchase',
-        mobileDetailsRequired: 'For TZS/nTZS payments, select a mobile network and enter a valid payment phone number.',
-        mobileNetworkLabel: 'Mobile Network',
-        paymentPhoneLabel: 'Payment Phone',
-        notProvided: 'Not provided',
-        orderReview: 'Order Review',
-        itemCountLabel: 'Item Count',
-        subtotalLabel: 'Subtotal before tax',
-        estimatedTaxLabel: 'Estimated tax (8%)',
-        estimatedTotalLabel: 'Estimated total',
-        shippingStatusLabel: 'Shipping status',
-        policyStatusLabel: 'Consent status',
-        ready: 'Ready',
-        pending: 'Pending',
-      };
-  const { displayCurrency, setCurrency, enabledDisplayCurrencies } = useDisplayCurrency('usd');
-  const [recentOrder, setRecentOrder] = useState<StoredOrder | null>(null);
-  const [allowPiPayments, setAllowPiPayments] = useState(true);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // <-- Bandika mstari huu hapa!
-  const [isMobile, setIsMobile] = useState(false);
-  const [shipping, setShipping] = useState({
+  const {
+    language,
+  } = useLanguage();
+
+  const isSwahili =
+    language === 'sw';
+
+  const copy =
+    isSwahili
+      ? {
+          title:
+            'Malipo',
+
+          subtitle:
+            'Kamilisha ununuzi wako kwa kutumia USD, TZS, nTZS, au PI.',
+
+          backToCart:
+            'Rudi Cart',
+
+          continueShopping:
+            'Endelea Kununua',
+
+          orders:
+            'Oda',
+
+          displayCurrency:
+            'Sarafu ya kuonyesha:',
+
+          maintenance:
+            'Hali ya matengenezo imewashwa. Kukamilisha malipo kumesitishwa kwa sasa na sera ya administrator.',
+
+          orderConfirmed:
+            'Oda Imethibitishwa',
+
+          orderPlaced:
+            'Oda yako imekamilishwa kwa mafanikio na mfumo salama wa PHCL.',
+
+          orderId:
+            'Namba ya Oda',
+
+          items:
+            'Bidhaa',
+
+          payment:
+            'Malipo',
+
+          viewCart:
+            'Tazama Cart',
+
+          readyForCheckout:
+            (count: number) =>
+              `${count} bidhaa ziko tayari kwa malipo.`,
+
+          shippingDetails:
+            'Maelezo ya Usafirishaji',
+
+          shippingRequired:
+            'Sehemu zote zinahitajika kabla ya kukamilisha ununuzi.',
+
+          fullName:
+            'Jina kamili',
+
+          phone:
+            'Namba ya simu',
+
+          addressLine:
+            'Anwani',
+
+          city:
+            'Jiji',
+
+          country:
+            'Nchi',
+
+          shippingComplete:
+            'Taarifa za usafirishaji zimekamilika.',
+
+          shippingIncomplete:
+            'Tafadhali jaza sehemu zote za usafirishaji.',
+
+          legalConsent:
+            'Ridhaa ya Kisheria',
+
+          legalConsentNote:
+            'Ili kukamilisha malipo, mteja lazima akubali sera zote mbili kwa hiari.',
+
+          agreeTermsPrefix:
+            'Ninakubali',
+
+          terms:
+            'Masharti ya Huduma',
+
+          agreePrivacyPrefix:
+            'Ninakubali',
+
+          privacy:
+            'Sera ya Faragha',
+
+          policyConsentComplete:
+            'Ridhaa ya sera imekamilika.',
+
+          policyConsentIncomplete:
+            'Tafadhali kubali sera zote mbili ili kuendelea.',
+
+          emptyCartTitle:
+            'Cart yako ni tupu.',
+
+          emptyCartBody:
+            'Ongeza bidhaa kwanza, kisha urudi checkout.',
+
+          goToMarketplace:
+            'Nenda Marketplace',
+
+          removedBeforeCheckout:
+            (count: number) =>
+              `${count} bidhaa zimeondolewa kabla ya checkout kutokana na mabadiliko ya stock`,
+
+          reducedBeforeCheckout:
+            (count: number) =>
+              `${count} bidhaa zimepunguzwa idadi hadi stock iliyopo kabla ya checkout`,
+
+          checkoutDisabledMaintenance:
+            'Checkout imezimwa kwa muda wakati wa matengenezo',
+
+          piDisabledByAdmin:
+            'Malipo ya PI yamezimwa kwa sasa na admin',
+
+          cartEmpty:
+            'Cart ni tupu. Ongeza bidhaa kabla ya checkout',
+
+          completeShippingFirst:
+            'Kamilisha kwanza taarifa za usafirishaji',
+
+          agreePoliciesFirst:
+            'Lazima ukubali Masharti ya Huduma na Sera ya Faragha kabla ya ununuzi',
+
+          mobileDetailsRequired:
+            'Kwa malipo ya TZS/nTZS, chagua mtandao wa simu na andika namba sahihi ya malipo.',
+
+          authenticationRequired:
+            'Ingia kwenye akaunti yako kabla ya kukamilisha malipo.',
+
+          quoteFailed:
+            'Imeshindikana kupata bei rasmi ya checkout kutoka kwenye server.',
+
+          checkoutFailed:
+            'Imeshindikana kukamilisha checkout salama.',
+
+          orderConfirmedToast:
+            (orderId: string) =>
+              `Oda ${orderId} imethibitishwa`,
+
+          pausedDuringMaintenance:
+            'Kukamilisha checkout kumesitishwa wakati wa matengenezo',
+
+          fillShippingBeforeComplete:
+            'Jaza taarifa za usafirishaji kabla ya kukamilisha ununuzi',
+
+          acceptPoliciesBeforeComplete:
+            'Kubali Masharti na Faragha kabla ya kukamilisha ununuzi',
+
+          mobileNetworkLabel:
+            'Mtandao wa Simu',
+
+          paymentPhoneLabel:
+            'Namba ya Malipo',
+
+          notProvided:
+            'Haijawekwa',
+
+          orderReview:
+            'Mapitio ya Oda',
+
+          itemCountLabel:
+            'Idadi ya Vipande',
+
+          subtotalLabel:
+            'Jumla ya bidhaa',
+
+          serverChargesLabel:
+            'Kodi na ada',
+
+          estimatedTotalLabel:
+            'Jumla ya kuonyesha',
+
+          authoritativeNote:
+            'Bei ya mwisho, kodi, ada, exchange rate, stock na salio vinathibitishwa na server wakati wa checkout.',
+
+          shippingStatusLabel:
+            'Hali ya usafirishaji',
+
+          policyStatusLabel:
+            'Hali ya ridhaa',
+
+          ready:
+            'Tayari',
+
+          pending:
+            'Inasubiri',
+        }
+      : {
+          title:
+            'Checkout',
+
+          subtitle:
+            'Complete your purchase using USD, TZS, nTZS, or PI.',
+
+          backToCart:
+            'Back to Cart',
+
+          continueShopping:
+            'Continue Shopping',
+
+          orders:
+            'Orders',
+
+          displayCurrency:
+            'Display currency:',
+
+          maintenance:
+            'Maintenance mode is active. Checkout completion is currently paused by administrator policy.',
+
+          orderConfirmed:
+            'Order Confirmed',
+
+          orderPlaced:
+            'Your order was completed successfully by the secure PHCL checkout system.',
+
+          orderId:
+            'Order ID',
+
+          items:
+            'Items',
+
+          payment:
+            'Payment',
+
+          viewCart:
+            'View Cart',
+
+          readyForCheckout:
+            (count: number) =>
+              `${count} item(s) ready for checkout.`,
+
+          shippingDetails:
+            'Shipping Details',
+
+          shippingRequired:
+            'All fields are required before purchase completion.',
+
+          fullName:
+            'Full name',
+
+          phone:
+            'Phone number',
+
+          addressLine:
+            'Address line',
+
+          city:
+            'City',
+
+          country:
+            'Country',
+
+          shippingComplete:
+            'Shipping profile complete.',
+
+          shippingIncomplete:
+            'Please complete all shipping fields.',
+
+          legalConsent:
+            'Legal Consent',
+
+          legalConsentNote:
+            'To complete checkout, customer must voluntarily accept both policies.',
+
+          agreeTermsPrefix:
+            'I agree to the',
+
+          terms:
+            'Terms of Service',
+
+          agreePrivacyPrefix:
+            'I agree to the',
+
+          privacy:
+            'Privacy Policy',
+
+          policyConsentComplete:
+            'Policy consent complete.',
+
+          policyConsentIncomplete:
+            'Please agree to both policies to continue.',
+
+          emptyCartTitle:
+            'Your cart is empty.',
+
+          emptyCartBody:
+            'Add products first, then return to checkout.',
+
+          goToMarketplace:
+            'Go to Marketplace',
+
+          removedBeforeCheckout:
+            (count: number) =>
+              `${count} item(s) were removed before checkout due to stock changes`,
+
+          reducedBeforeCheckout:
+            (count: number) =>
+              `${count} item(s) quantity was reduced to available stock before checkout`,
+
+          checkoutDisabledMaintenance:
+            'Checkout is temporarily disabled during maintenance mode',
+
+          piDisabledByAdmin:
+            'PI payments are currently disabled by admin',
+
+          cartEmpty:
+            'Cart is empty. Add items before checkout',
+
+          completeShippingFirst:
+            'Complete shipping details first',
+
+          agreePoliciesFirst:
+            'You must agree to Terms of Service and Privacy Policy before purchase',
+
+          mobileDetailsRequired:
+            'For TZS/nTZS payments, select a mobile network and enter a valid payment phone number.',
+
+          authenticationRequired:
+            'Sign in to your account before completing checkout.',
+
+          quoteFailed:
+            'Unable to obtain the authoritative checkout quote from the server.',
+
+          checkoutFailed:
+            'Unable to complete secure checkout.',
+
+          orderConfirmedToast:
+            (orderId: string) =>
+              `Order ${orderId} confirmed`,
+
+          pausedDuringMaintenance:
+            'Checkout completion is paused during maintenance mode',
+
+          fillShippingBeforeComplete:
+            'Fill shipping details before completing purchase',
+
+          acceptPoliciesBeforeComplete:
+            'Accept Terms and Privacy Policy before completing purchase',
+
+          mobileNetworkLabel:
+            'Mobile Network',
+
+          paymentPhoneLabel:
+            'Payment Phone',
+
+          notProvided:
+            'Not provided',
+
+          orderReview:
+            'Order Review',
+
+          itemCountLabel:
+            'Item Count',
+
+          subtotalLabel:
+            'Product subtotal',
+
+          serverChargesLabel:
+            'Taxes and fees',
+
+          estimatedTotalLabel:
+            'Display total',
+
+          authoritativeNote:
+            'Final price, taxes, fees, exchange rate, stock and balance are verified by the server during checkout.',
+
+          shippingStatusLabel:
+            'Shipping status',
+
+          policyStatusLabel:
+            'Consent status',
+
+          ready:
+            'Ready',
+
+          pending:
+            'Pending',
+        };
+
+  const {
+    displayCurrency,
+    setCurrency,
+    enabledDisplayCurrencies,
+  } = useDisplayCurrency(
+    'usd',
+  );
+
+  const [
+    recentOrder,
+    setRecentOrder,
+  ] = useState<StoredOrder | null>(
+    null,
+  );
+
+  const [
+    allowPiPayments,
+    setAllowPiPayments,
+  ] = useState(
+    true,
+  );
+
+  const [
+    maintenanceMode,
+    setMaintenanceMode,
+  ] = useState(
+    false,
+  );
+
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(
+    false,
+  );
+
+  const [
+    isMobile,
+    setIsMobile,
+  ] = useState(
+    false,
+  );
+
+  const [
+    shipping,
+    setShipping,
+  ] = useState({
     fullName: '',
     phone: '',
     addressLine1: '',
     city: '',
     country: '',
   });
-  const [checkoutConsent, setCheckoutConsent] = useState({
+
+  const [
+    checkoutConsent,
+    setCheckoutConsent,
+  ] = useState({
     agreedToTerms: false,
     agreedToPrivacy: false,
   });
-  const [mobilePaymentDetails, setMobilePaymentDetails] = useState({
-    network: null as string | null,
+
+  const [
+    mobilePaymentDetails,
+    setMobilePaymentDetails,
+  ] = useState({
+    network:
+      null as string | null,
+
     phone: '',
   });
-  const resolveMobileNetworkLabel = (network: string) => {
-    if (network === 'mpesa') return 'M-Pesa';
-    if (network === 'tigopesa') return 'Tigo Pesa';
-    if (network === 'airtelmoney') return 'Airtel Money';
-    if (network === 'halopesa') return 'HaloPesa';
+
+  const resolveMobileNetworkLabel = (
+    network: string,
+  ) => {
+    if (network === 'mpesa') {
+      return 'M-Pesa';
+    }
+
+    if (network === 'tigopesa') {
+      return 'Tigo Pesa';
+    }
+
+    if (network === 'airtelmoney') {
+      return 'Airtel Money';
+    }
+
+    if (network === 'halopesa') {
+      return 'HaloPesa';
+    }
+
     return network;
   };
 
   useEffect(() => {
-    const sync = () => {
-      const current = getCartItems();
-      const reconciled = reconcileCartItemsWithStock(current);
+    if (!auth) {
+      return;
+    }
 
-      if (reconciled.changes.length > 0) {
-        setCartItems(reconciled.items);
-        const removedCount = reconciled.changes.filter((change) => change.type === 'removed_unavailable').length;
-        const reducedCount = reconciled.changes.filter((change) => change.type === 'reduced_quantity').length;
+    const unsubscribe =
+      onAuthStateChanged(
+        auth,
+        (user) => {
+          setCurrentUser(
+            user,
+          );
+        },
+      );
+
+    return () =>
+      unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const sync = () => {
+      const current =
+        getCartItems();
+
+      const reconciled =
+        reconcileCartItemsWithStock(
+          current,
+        );
+
+      if (
+        reconciled.changes.length >
+        0
+      ) {
+        setCartItems(
+          reconciled.items,
+        );
+
+        const removedCount =
+          reconciled.changes.filter(
+            (change) =>
+              change.type ===
+              'removed_unavailable',
+          ).length;
+
+        const reducedCount =
+          reconciled.changes.filter(
+            (change) =>
+              change.type ===
+              'reduced_quantity',
+          ).length;
 
         if (removedCount > 0) {
-          toast.warning(copy.removedBeforeCheckout(removedCount));
+          toast.warning(
+            copy.removedBeforeCheckout(
+              removedCount,
+            ),
+          );
         }
+
         if (reducedCount > 0) {
-          toast.warning(copy.reducedBeforeCheckout(reducedCount));
+          toast.warning(
+            copy.reducedBeforeCheckout(
+              reducedCount,
+            ),
+          );
         }
       }
 
-      setItems(reconciled.items);
+      setItems(
+        reconciled.items,
+      );
     };
 
     sync();
-    window.addEventListener(CART_UPDATED_EVENT, sync);
-    window.addEventListener('storage', sync);
+
+    window.addEventListener(
+      CART_UPDATED_EVENT,
+      sync,
+    );
+
+    window.addEventListener(
+      'storage',
+      sync,
+    );
+
     return () => {
-      window.removeEventListener(CART_UPDATED_EVENT, sync);
-      window.removeEventListener('storage', sync);
+      window.removeEventListener(
+        CART_UPDATED_EVENT,
+        sync,
+      );
+
+      window.removeEventListener(
+        'storage',
+        sync,
+      );
     };
   }, []);
 
   useEffect(() => {
     const syncSettings = () => {
-      const settings = getAdminSettings();
-      setAllowPiPayments(settings.allowPiPayments);
-      setMaintenanceMode(settings.maintenanceMode);
+      const settings =
+        getAdminSettings();
+
+      setAllowPiPayments(
+        settings.allowPiPayments,
+      );
+
+      setMaintenanceMode(
+        settings.maintenanceMode,
+      );
     };
 
     syncSettings();
-    window.addEventListener('storage', syncSettings);
-    return () => window.removeEventListener('storage', syncSettings);
+
+    window.addEventListener(
+      'storage',
+      syncSettings,
+    );
+
+    return () =>
+      window.removeEventListener(
+        'storage',
+        syncSettings,
+      );
   }, []);
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(
+        window.innerWidth < 768,
+      );
     };
+
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+
+    window.addEventListener(
+      'resize',
+      checkMobile,
+    );
+
+    return () =>
+      window.removeEventListener(
+        'resize',
+        checkMobile,
+      );
   }, []);
 
-  const total = useMemo(() => getCartTotal(items), [items]);
-  const policyVersions = useMemo(() => getPolicyVersions(), []);
-  const displayTotal = useMemo(
-    () => convertAmount(total, 'usd', displayCurrency),
-    [total, displayCurrency]
-  );
-  const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
-  const estimatedTaxUsd = useMemo(() => total * 0.08, [total]);
-  const estimatedGrandTotalUsd = useMemo(() => total + estimatedTaxUsd, [total, estimatedTaxUsd]);
-
-  const shippingValid = useMemo(() => {
-    return (
-      shipping.fullName.trim().length >= 3 &&
-      shipping.phone.trim().length >= 7 &&
-      shipping.addressLine1.trim().length >= 6 &&
-      shipping.city.trim().length >= 2 &&
-      shipping.country.trim().length >= 2
+  const total =
+    useMemo(
+      () =>
+        getCartTotal(
+          items,
+        ),
+      [items],
     );
-  }, [shipping]);
 
-  const policyConsentValid = checkoutConsent.agreedToTerms && checkoutConsent.agreedToPrivacy;
+  const policyVersions =
+    useMemo(
+      () =>
+        getPolicyVersions(),
+      [],
+    );
 
-      // === BADILISHA KAZI YA COMPLETEPURCHASE NA TOLEO HILI SAFU KABISA ===
-  const completePurchase = async (
-    paymentMethod: 'usd' | 'tzs' | 'ntzs' | 'pi',
-    mobileDetails?: { network: string | null; phone: string }
-  ) => {
-    if (isSubmitting || !currentUser || !db) {
-      return false;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (maintenanceMode) {
-        toast.error(copy.checkoutDisabledMaintenance);
-        return false;
-      }
-
-      if (paymentMethod === 'pi' && !allowPiPayments) {
-        toast.error(copy.piDisabledByAdmin);
-        return false;
-      }
-
-      if (items.length === 0 || total <= 0) {
-        toast.error(copy.cartEmpty);
-        return false;
-      }
-
-      if (!shippingValid) {
-        toast.error(copy.completeShippingFirst);
-        return false;
-      }
-
-      if (!policyConsentValid) {
-        toast.error(copy.agreePoliciesFirst);
-        return false;
-      }
-
-      const isMobileNetworkPayment = paymentMethod === 'tzs' || paymentMethod === 'ntzs';
-      const effectiveMobileDetails = mobileDetails ?? mobilePaymentDetails;
-      const normalizedMobilePhone = effectiveMobileDetails.phone.trim().replace(/[\s()-]/g, '');
-      const mobileDetailsValid =
-        !isMobileNetworkPayment ||
-        (!!effectiveMobileDetails.network && /^\+?[0-9]{10,15}$/.test(normalizedMobilePhone));
-
-      if (!mobileDetailsValid) {
-        toast.error(copy.mobileDetailsRequired);
-        return false;
-      }
-
-      const preflight = reconcileCartItemsWithStock(items);
-      if (preflight.changes.length > 0) {
-        setItems(preflight.items);
-        setCartItems(preflight.items);
-
-        const removedCount = preflight.changes.filter((change) => change.type === 'removed_unavailable').length;
-        const reducedCount = preflight.changes.filter((change) => change.type === 'reduced_quantity').length;
-
-        if (removedCount > 0) {
-          toast.warning(copy.removedBeforeCheckout(removedCount));
-        }
-        if (reducedCount > 0) {
-          toast.warning(copy.reducedBeforeCheckout(reducedCount));
-        }
-      }
-
-      const preflightItems = preflight.items;
-      if (preflightItems.length === 0) {
-        toast.error(copy.cartEmpty);
-        return false;
-      }
-
-      const preflightTotal = getCartTotal(preflightItems);
-      if (preflightTotal <= 0) {
-        toast.error(copy.cartEmpty);
-        return false;
-      }
-
-      const stockConflicts = preflightItems
-        .map((item) => ({ item, check: canAddToCart(item.id, item.quantity) }))
-        .filter(({ check }) => !check.allowed);
-
-      if (stockConflicts.length > 0) {
-        const firstConflict = stockConflicts[0];
-        toast.error(`${firstConflict.item.name}: ${firstConflict.check.reason || copy.productUnavailable}`);
-        return false;
-      }
-
-      // B. UHAKIKI WA SALIO LA WALLET (FIRESTORE BALANCE CHECK)
-      const costInSelectedCurrency = convertAmount(estimatedGrandTotalUsd, 'usd', paymentMethod);
-      const userBalance = profile?.balances?.[paymentMethod] || 0;
-      if (userBalance < costInSelectedCurrency) {
-        toast.error(isSwahili 
-          ? `Salio lako halitoshi! Thamani ya oda ni ${formatCurrencyAmount(paymentMethod, costInSelectedCurrency)} lakini unamiliki tu ${formatCurrencyAmount(paymentMethod, userBalance)} kwenye Wallet.`
-          : `Insufficient balance! Order total is ${formatCurrencyAmount(paymentMethod, costInSelectedCurrency)} but you only have ${formatCurrencyAmount(paymentMethod, userBalance)} in your Wallet.`
-        );
-        return false;
-      }
-
-      const reorderSourceOrderId =
-        typeof window !== 'undefined'
-          ? window.sessionStorage.getItem(REORDER_SOURCE_KEY) || undefined
-          : undefined;
-
-      const order: StoredOrder = {
-        id: `ORD-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        itemCount: preflightItems.reduce((sum, item) => sum + item.quantity, 0),
-        totalUsd: preflightTotal,
-        paymentMethod,
+  const displayTotal =
+    useMemo(
+      () =>
+        convertAmount(
+          total,
+          'usd',
+          displayCurrency,
+        ),
+      [
+        total,
         displayCurrency,
-        items: preflightItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image,
-        })),
-        customer: {
-          fullName: shipping.fullName.trim(),
-          phone: shipping.phone.trim(),
-          addressLine1: shipping.addressLine1.trim(),
-          city: shipping.city.trim(),
-          country: shipping.country.trim(),
-        },
-        audit: {
-          schemaVersion: 4,
-          sourceRoute: '/checkout',
-          channel: 'web',
-          recordedAt: new Date().toISOString(),
-          reorderSourceOrderId,
-          mobilePayment: isMobileNetworkPayment
-            ? {
-                network: (effectiveMobileDetails.network as "mpesa" | "tigopesa" | "airtelmoney" | "halopesa") || 'mpesa',
-                phone: normalizedMobilePhone,
-              }
-            : undefined,
-          consent: {
-            agreedToTerms: true,
-            agreedToPrivacy: true,
-            agreedAt: new Date().toISOString(),
-            termsVersion: policyVersions.termsVersion,
-            privacyVersion: policyVersions.privacyVersion,
-          },
-        },
-      };
+      ],
+    );
 
-      const stockCommit = applyProductStockPurchase(
-        preflightItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
-        `order:${order.id}`
+  const itemCount =
+    useMemo(
+      () =>
+        items.reduce(
+          (
+            sum,
+            item,
+          ) =>
+            sum +
+            item.quantity,
+          0,
+        ),
+      [items],
+    );
+
+  const shippingValid =
+    useMemo(
+      () =>
+        shipping.fullName
+          .trim()
+          .length >= 3 &&
+        shipping.phone
+          .trim()
+          .length >= 7 &&
+        shipping.addressLine1
+          .trim()
+          .length >= 6 &&
+        shipping.city
+          .trim()
+          .length >= 2 &&
+        shipping.country
+          .trim()
+          .length >= 2,
+      [shipping],
+    );
+
+  const policyConsentValid =
+    checkoutConsent
+      .agreedToTerms &&
+    checkoutConsent
+      .agreedToPrivacy;
+
+  const completePurchase =
+    async (
+      paymentMethod:
+        PaymentMethod,
+
+      mobileDetails?: {
+        network:
+          string | null;
+
+        phone:
+          string;
+      },
+    ) => {
+      if (
+        isSubmitting
+      ) {
+        return false;
+      }
+
+      if (
+        !currentUser
+      ) {
+        toast.error(
+          copy.authenticationRequired,
+        );
+
+        return false;
+      }
+
+      setIsSubmitting(
+        true,
       );
 
-      if (!stockCommit.success) {
-        toast.error(stockCommit.reason || copy.unableUpdateStock);
+      try {
+        if (
+          maintenanceMode
+        ) {
+          toast.error(
+            copy.checkoutDisabledMaintenance,
+          );
+
+          return false;
+        }
+
+        if (
+          paymentMethod ===
+            'pi' &&
+          !allowPiPayments
+        ) {
+          toast.error(
+            copy.piDisabledByAdmin,
+          );
+
+          return false;
+        }
+
+        if (
+          items.length === 0 ||
+          total <= 0
+        ) {
+          toast.error(
+            copy.cartEmpty,
+          );
+
+          return false;
+        }
+
+        if (
+          !shippingValid
+        ) {
+          toast.error(
+            copy.completeShippingFirst,
+          );
+
+          return false;
+        }
+
+        if (
+          !policyConsentValid
+        ) {
+          toast.error(
+            copy.agreePoliciesFirst,
+          );
+
+          return false;
+        }
+
+        const isMobileNetworkPayment =
+          paymentMethod ===
+            'tzs' ||
+          paymentMethod ===
+            'ntzs';
+
+        const effectiveMobileDetails =
+          mobileDetails ??
+          mobilePaymentDetails;
+
+        const normalizedMobilePhone =
+          effectiveMobileDetails
+            .phone
+            .trim()
+            .replace(
+              /[\s()-]/g,
+              '',
+            );
+
+        const mobileDetailsValid =
+          !isMobileNetworkPayment ||
+          (
+            Boolean(
+              effectiveMobileDetails
+                .network,
+            ) &&
+            /^\+?[0-9]{10,15}$/.test(
+              normalizedMobilePhone,
+            )
+          );
+
+        if (
+          !mobileDetailsValid
+        ) {
+          toast.error(
+            copy.mobileDetailsRequired,
+          );
+
+          return false;
+        }
+
+        /*
+         * Client-side reconciliation is UX only.
+         *
+         * It is NOT financial or stock authority.
+         * Server checkout transaction performs the
+         * authoritative stock validation.
+         */
+        const preflight =
+          reconcileCartItemsWithStock(
+            items,
+          );
+
+        if (
+          preflight.changes.length >
+          0
+        ) {
+          setItems(
+            preflight.items,
+          );
+
+          setCartItems(
+            preflight.items,
+          );
+
+          const removedCount =
+            preflight.changes.filter(
+              (change) =>
+                change.type ===
+                'removed_unavailable',
+            ).length;
+
+          const reducedCount =
+            preflight.changes.filter(
+              (change) =>
+                change.type ===
+                'reduced_quantity',
+            ).length;
+
+          if (
+            removedCount > 0
+          ) {
+            toast.warning(
+              copy.removedBeforeCheckout(
+                removedCount,
+              ),
+            );
+          }
+
+          if (
+            reducedCount > 0
+          ) {
+            toast.warning(
+              copy.reducedBeforeCheckout(
+                reducedCount,
+              ),
+            );
+          }
+        }
+
+        const preflightItems =
+          preflight.items;
+
+        if (
+          preflightItems.length ===
+          0
+        ) {
+          toast.error(
+            copy.cartEmpty,
+          );
+
+          return false;
+        }
+
+        /*
+         * SECURITY BOUNDARY:
+         *
+         * Firebase token is obtained only for this
+         * authenticated request sequence.
+         *
+         * It is never rendered, logged, copied or
+         * persisted by this checkout client.
+         */
+        const idToken =
+          await currentUser
+            .getIdToken(
+              true,
+            );
+
+        /*
+         * STEP 1 — SERVER AUTHORITATIVE QUOTE
+         *
+         * Browser supplies only canonical product IDs,
+         * quantities and selected payment asset.
+         *
+         * Browser does NOT supply authoritative:
+         *
+         * - product price
+         * - tax
+         * - fees
+         * - exchange rate
+         * - grand total
+         * - customer UID
+         * - wallet balance
+         */
+        const quoteResponse =
+          await fetch(
+            '/api/payment/quote',
+            {
+              method:
+                'POST',
+
+              headers: {
+                Authorization:
+                  `Bearer ${idToken}`,
+
+                'Content-Type':
+                  'application/json',
+              },
+
+              cache:
+                'no-store',
+
+              body:
+                JSON.stringify({
+                  items:
+                    preflightItems.map(
+                      (item) => ({
+                        productId:
+                          item.id,
+
+                        quantity:
+                          item.quantity,
+                      }),
+                    ),
+
+                  paymentAsset:
+                    toPaymentAsset(
+                      paymentMethod,
+                    ),
+                }),
+            },
+          );
+
+        const quoteBody =
+          await readJsonResponse(
+            quoteResponse,
+          );
+
+        if (
+          !quoteResponse.ok
+        ) {
+          toast.error(
+            getErrorMessage(
+              quoteBody,
+            ) ??
+              copy.quoteFailed,
+          );
+
+          return false;
+        }
+
+        const typedQuoteBody =
+          quoteBody as
+            QuoteApiResponse;
+
+        const quoteId =
+          typedQuoteBody
+            .quote
+            ?.quoteId;
+
+        if (
+          typeof quoteId !==
+            'string' ||
+          !quoteId.trim()
+        ) {
+          toast.error(
+            copy.quoteFailed,
+          );
+
+          return false;
+        }
+
+        /*
+         * STEP 2 — ATOMIC SERVER CHECKOUT
+         *
+         * This operation ID belongs to this checkout
+         * attempt. The server provides idempotency and
+         * atomically coordinates:
+         *
+         * - quote consumption
+         * - ledger debit
+         * - stock
+         * - order
+         */
+        const operationId =
+          createCheckoutOperationId();
+
+        const checkoutResponse =
+          await fetch(
+            '/api/checkout',
+            {
+              method:
+                'POST',
+
+              headers: {
+                Authorization:
+                  `Bearer ${idToken}`,
+
+                'Content-Type':
+                  'application/json',
+              },
+
+              cache:
+                'no-store',
+
+              body:
+                JSON.stringify({
+                  quoteId,
+                  operationId,
+                }),
+            },
+          );
+
+        const checkoutBody =
+          await readJsonResponse(
+            checkoutResponse,
+          );
+
+        if (
+          !checkoutResponse.ok
+        ) {
+          toast.error(
+            getErrorMessage(
+              checkoutBody,
+            ) ??
+              copy.checkoutFailed,
+          );
+
+          return false;
+        }
+
+        const typedCheckoutBody =
+          checkoutBody as
+            CheckoutApiResponse;
+
+        if (
+          typedCheckoutBody
+            .success !== true ||
+          typeof typedCheckoutBody
+            .orderId !==
+            'string' ||
+          !typedCheckoutBody
+            .orderId
+            .trim() ||
+          typedCheckoutBody
+            .status !==
+            'COMPLETED'
+        ) {
+          toast.error(
+            copy.checkoutFailed,
+          );
+
+          return false;
+        }
+
+        const authoritativeOrderId =
+          typedCheckoutBody
+            .orderId;
+
+        const authoritativeQuote =
+          typedQuoteBody
+            .quote;
+
+        const authoritativeSubtotalUsd =
+          typeof authoritativeQuote
+            ?.subtotalUsd ===
+            'number'
+            ? authoritativeQuote
+                .subtotalUsd
+            : total;
+
+        const authoritativeGrandTotalUsd =
+          typeof authoritativeQuote
+            ?.grandTotalUsd ===
+            'number'
+            ? authoritativeQuote
+                .grandTotalUsd
+            : authoritativeSubtotalUsd;
+
+        const reorderSourceOrderId =
+          typeof window !==
+            'undefined'
+            ? window
+                .sessionStorage
+                .getItem(
+                  REORDER_SOURCE_KEY,
+                ) ||
+              undefined
+            : undefined;
+
+        /*
+         * Local StoredOrder is a UI/read-model cache only.
+         *
+         * It is NOT financial authority and does not
+         * create the server order.
+         *
+         * The authoritative order has already been
+         * committed atomically by /api/checkout.
+         */
+        const localOrder:
+          StoredOrder = {
+            id:
+              authoritativeOrderId,
+
+            createdAt:
+              new Date()
+                .toISOString(),
+
+            itemCount:
+              preflightItems.reduce(
+                (
+                  sum,
+                  item,
+                ) =>
+                  sum +
+                  item.quantity,
+                0,
+              ),
+
+            totalUsd:
+              authoritativeGrandTotalUsd,
+
+            paymentMethod,
+
+            displayCurrency,
+
+            items:
+              preflightItems.map(
+                (item) => ({
+                  id:
+                    item.id,
+
+                  name:
+                    item.name,
+
+                  price:
+                    item.price,
+
+                  quantity:
+                    item.quantity,
+
+                  image:
+                    item.image,
+                }),
+              ),
+
+            customer: {
+              fullName:
+                shipping.fullName
+                  .trim(),
+
+              phone:
+                shipping.phone
+                  .trim(),
+
+              addressLine1:
+                shipping.addressLine1
+                  .trim(),
+
+              city:
+                shipping.city
+                  .trim(),
+
+              country:
+                shipping.country
+                  .trim(),
+            },
+
+            audit: {
+              schemaVersion:
+                4,
+
+              sourceRoute:
+                '/checkout',
+
+              channel:
+                'web',
+
+              recordedAt:
+                new Date()
+                  .toISOString(),
+
+              reorderSourceOrderId,
+
+              mobilePayment:
+                isMobileNetworkPayment
+                  ? {
+                      network:
+                        (
+                          effectiveMobileDetails
+                            .network as
+                            | 'mpesa'
+                            | 'tigopesa'
+                            | 'airtelmoney'
+                            | 'halopesa'
+                        ) ||
+                        'mpesa',
+
+                      phone:
+                        normalizedMobilePhone,
+                    }
+                  : undefined,
+
+              consent: {
+                agreedToTerms:
+                  true,
+
+                agreedToPrivacy:
+                  true,
+
+                agreedAt:
+                  new Date()
+                    .toISOString(),
+
+                termsVersion:
+                  policyVersions
+                    .termsVersion,
+
+                privacyVersion:
+                  policyVersions
+                    .privacyVersion,
+              },
+            },
+          };
+
+        saveOrder(
+          localOrder,
+        );
+
+        if (
+          typeof window !==
+          'undefined'
+        ) {
+          window
+            .sessionStorage
+            .removeItem(
+              REORDER_SOURCE_KEY,
+            );
+        }
+
+        setRecentOrder(
+          localOrder,
+        );
+
+        setCartItems(
+          [],
+        );
+
+        setItems(
+          [],
+        );
+
+        toast.success(
+          copy.orderConfirmedToast(
+            authoritativeOrderId,
+          ),
+        );
+
+        return true;
+      } catch {
+        toast.error(
+          copy.checkoutFailed,
+        );
+
         return false;
+      } finally {
+        setIsSubmitting(
+          false,
+        );
       }
+    };
 
-      // C. KUKATA SALIO LA WALLET MOJA KWA MOJA NA KUREKODI KISEVER
-      await adjustUserBalance(currentUser.uid, paymentMethod, -costInSelectedCurrency);
-      
-      // Rekodi muamala kiserver
-      await addDoc(collection(db, 'transactions'), {
-        uid: currentUser.uid, type: 'debit', currency: paymentMethod, amount: costInSelectedCurrency,
-        description: `Malipo ya Oda ${order.id} kwenye Soko`, createdAt: serverTimestamp()
-      });
-
-      // Hifadhi oda kwenye database kiserver
-      await setDoc(doc(db, 'orders', order.id), {
-        ...order, uid: currentUser.uid, status: 'PENDING_DELIVERY', createdAt: serverTimestamp()
-      });
-
-      saveOrder(order);
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(REORDER_SOURCE_KEY);
-      }
-      setRecentOrder(order);
-      setCartItems([]);
-      setItems([]);
-      toast.success(copy.orderConfirmedToast(order.id));
-      return true;
-    } catch {
-      toast.error(isSwahili ? 'Kosa la usajili wa oda kiserver limejitokeza.' : 'Error creating server order.');
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-    
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_26%),radial-gradient(circle_at_bottom_center,rgba(245,158,11,0.12),transparent_25%)]" />
 
       <section className="relative mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className={`mb-6 flex flex-wrap items-center justify-between gap-3 ${isMobile ? 'flex-col' : ''}`}>
+        <div
+          className={`mb-6 flex flex-wrap items-center justify-between gap-3 ${
+            isMobile
+              ? 'flex-col'
+              : ''
+          }`}
+        >
           <div>
-            <h1 className="text-3xl font-black sm:text-4xl">{copy.title}</h1>
+            <h1 className="text-3xl font-black sm:text-4xl">
+              {copy.title}
+            </h1>
+
             <p className="mt-2 text-sm text-amber-50/85 sm:text-base">
               {copy.subtitle}
             </p>
           </div>
-          <div className={`flex flex-wrap gap-2 ${isMobile ? 'w-full flex-col' : ''}`}>
-            <Link href="/cart" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'center' : 'flex-start' }} className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100">
+
+          <div
+            className={`flex flex-wrap gap-2 ${
+              isMobile
+                ? 'w-full flex-col'
+                : ''
+            }`}
+          >
+            <Link
+              href="/cart"
+              style={{
+                display:
+                  'inline-flex',
+                minHeight:
+                  '44px',
+                alignItems:
+                  'center',
+                padding:
+                  '8px 16px',
+                width:
+                  isMobile
+                    ? '100%'
+                    : 'auto',
+                justifyContent:
+                  isMobile
+                    ? 'center'
+                    : 'flex-start',
+              }}
+              className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100"
+            >
               {copy.backToCart}
             </Link>
-            <Link href="/marketplace" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'center' : 'flex-start' }} className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900">
+
+            <Link
+              href="/marketplace"
+              style={{
+                display:
+                  'inline-flex',
+                minHeight:
+                  '44px',
+                alignItems:
+                  'center',
+                padding:
+                  '8px 16px',
+                width:
+                  isMobile
+                    ? '100%'
+                    : 'auto',
+                justifyContent:
+                  isMobile
+                    ? 'center'
+                    : 'flex-start',
+              }}
+              className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900"
+            >
               {copy.continueShopping}
             </Link>
-            <Link href="/orders" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'center' : 'flex-start' }} className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100">
+
+            <Link
+              href="/orders"
+              style={{
+                display:
+                  'inline-flex',
+                minHeight:
+                  '44px',
+                alignItems:
+                  'center',
+                padding:
+                  '8px 16px',
+                width:
+                  isMobile
+                    ? '100%'
+                    : 'auto',
+                justifyContent:
+                  isMobile
+                    ? 'center'
+                    : 'flex-start',
+              }}
+              className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100"
+            >
               {copy.orders}
             </Link>
           </div>
         </div>
 
-        <div className={`mb-4 flex flex-wrap items-center gap-2 text-xs ${isMobile ? 'flex-col items-start gap-3' : ''}`}>
-          <span className="text-amber-50/90">{copy.displayCurrency}</span>
-          <div className={`flex flex-wrap gap-2 ${isMobile ? 'w-full' : ''}`}>
-            {enabledDisplayCurrencies.includes('usd') && (
+        <div
+          className={`mb-4 flex flex-wrap items-center gap-2 text-xs ${
+            isMobile
+              ? 'flex-col items-start gap-3'
+              : ''
+          }`}
+        >
+          <span className="text-amber-50/90">
+            {copy.displayCurrency}
+          </span>
+
+          <div
+            className={`flex flex-wrap gap-2 ${
+              isMobile
+                ? 'w-full'
+                : ''
+            }`}
+          >
+            {enabledDisplayCurrencies.includes(
+              'usd',
+            ) && (
               <button
                 type="button"
-                onClick={() => setCurrency('usd')}
-                style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
-                className={`rounded-lg px-3 py-1 font-semibold ${displayCurrency === 'usd' ? 'bg-amber-300 text-slate-900' : 'bg-slate-800/70 text-amber-100'}`}
+                onClick={() =>
+                  setCurrency(
+                    'usd',
+                  )
+                }
+                style={{
+                  display:
+                    'inline-flex',
+                  minHeight:
+                    '44px',
+                  alignItems:
+                    'center',
+                  padding:
+                    '8px 16px',
+                }}
+                className={`rounded-lg px-3 py-1 font-semibold ${
+                  displayCurrency ===
+                  'usd'
+                    ? 'bg-amber-300 text-slate-900'
+                    : 'bg-slate-800/70 text-amber-100'
+                }`}
               >
                 USD
               </button>
             )}
-            {enabledDisplayCurrencies.includes('tzs') && (
+
+            {enabledDisplayCurrencies.includes(
+              'tzs',
+            ) && (
               <button
                 type="button"
-                onClick={() => setCurrency('tzs')}
-                style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
-                className={`rounded-lg px-3 py-1 font-semibold ${displayCurrency === 'tzs' ? 'bg-amber-100 text-slate-900' : 'bg-slate-800/70 text-amber-100'}`}
+                onClick={() =>
+                  setCurrency(
+                    'tzs',
+                  )
+                }
+                style={{
+                  display:
+                    'inline-flex',
+                  minHeight:
+                    '44px',
+                  alignItems:
+                    'center',
+                  padding:
+                    '8px 16px',
+                }}
+                className={`rounded-lg px-3 py-1 font-semibold ${
+                  displayCurrency ===
+                  'tzs'
+                    ? 'bg-amber-100 text-slate-900'
+                    : 'bg-slate-800/70 text-amber-100'
+                }`}
               >
                 TZS
               </button>
             )}
-            {enabledDisplayCurrencies.includes('ntzs') && (
+
+            {enabledDisplayCurrencies.includes(
+              'ntzs',
+            ) && (
               <button
                 type="button"
-                onClick={() => setCurrency('ntzs')}
-                style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
-                className={`rounded-lg px-3 py-1 font-semibold ${displayCurrency === 'ntzs' ? 'bg-cyan-200 text-slate-900' : 'bg-slate-800/70 text-amber-100'}`}
+                onClick={() =>
+                  setCurrency(
+                    'ntzs',
+                  )
+                }
+                style={{
+                  display:
+                    'inline-flex',
+                  minHeight:
+                    '44px',
+                  alignItems:
+                    'center',
+                  padding:
+                    '8px 16px',
+                }}
+                className={`rounded-lg px-3 py-1 font-semibold ${
+                  displayCurrency ===
+                  'ntzs'
+                    ? 'bg-cyan-200 text-slate-900'
+                    : 'bg-slate-800/70 text-amber-100'
+                }`}
               >
                 nTZS
               </button>
             )}
-            {enabledDisplayCurrencies.includes('pi') && (
+
+            {enabledDisplayCurrencies.includes(
+              'pi',
+            ) && (
               <button
                 type="button"
-                onClick={() => setCurrency('pi')}
-                style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }}
-                className={`rounded-lg px-3 py-1 font-semibold ${displayCurrency === 'pi' ? 'bg-yellow-300 text-slate-900' : 'bg-slate-800/70 text-amber-100'}`}
+                onClick={() =>
+                  setCurrency(
+                    'pi',
+                  )
+                }
+                style={{
+                  display:
+                    'inline-flex',
+                  minHeight:
+                    '44px',
+                  alignItems:
+                    'center',
+                  padding:
+                    '8px 16px',
+                }}
+                className={`rounded-lg px-3 py-1 font-semibold ${
+                  displayCurrency ===
+                  'pi'
+                    ? 'bg-yellow-300 text-slate-900'
+                    : 'bg-slate-800/70 text-amber-100'
+                }`}
               >
                 PI
               </button>
@@ -531,32 +1778,113 @@ export default function CheckoutClient() {
 
         {recentOrder ? (
           <div className="rounded-2xl border border-green-300/40 bg-green-500/10 p-6 global-glass">
-            <h2 className="text-2xl font-bold text-green-200">{copy.orderConfirmed}</h2>
-            <p className="mt-2 text-sm text-green-100">{copy.orderPlaced}</p>
+            <h2 className="text-2xl font-bold text-green-200">
+              {copy.orderConfirmed}
+            </h2>
+
+            <p className="mt-2 text-sm text-green-100">
+              {copy.orderPlaced}
+            </p>
+
             <div className="mt-4 space-y-2 text-sm text-green-50">
-              <p>{copy.orderId}: {recentOrder.id}</p>
-              <p>{copy.items}: {recentOrder.itemCount}</p>
-              <p>{copy.payment}: {recentOrder.paymentMethod.toUpperCase()}</p>
-              {(recentOrder.paymentMethod === 'tzs' || recentOrder.paymentMethod === 'ntzs') && (
+              <p>
+                {copy.orderId}:{' '}
+                {recentOrder.id}
+              </p>
+
+              <p>
+                {copy.items}:{' '}
+                {recentOrder.itemCount}
+              </p>
+
+              <p>
+                {copy.payment}:{' '}
+                {recentOrder.paymentMethod.toUpperCase()}
+              </p>
+
+              {(recentOrder.paymentMethod ===
+                'tzs' ||
+                recentOrder.paymentMethod ===
+                  'ntzs') && (
                 <>
                   <p>
                     {copy.mobileNetworkLabel}:{' '}
-                    {recentOrder.audit?.mobilePayment
-                      ? resolveMobileNetworkLabel(recentOrder.audit.mobilePayment.network)
+                    {recentOrder.audit
+                      ?.mobilePayment
+                      ? resolveMobileNetworkLabel(
+                          recentOrder
+                            .audit
+                            .mobilePayment
+                            .network,
+                        )
                       : copy.notProvided}
                   </p>
+
                   <p>
                     {copy.paymentPhoneLabel}:{' '}
-                    {recentOrder.audit?.mobilePayment?.phone || copy.notProvided}
+                    {recentOrder.audit
+                      ?.mobilePayment
+                      ?.phone ||
+                      copy.notProvided}
                   </p>
                 </>
               )}
             </div>
-            <div className={`mt-5 flex flex-wrap gap-2 ${isMobile ? 'flex-col' : ''}`}>
-              <Link href="/marketplace" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'center' : 'flex-start' }} className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900">
+
+            <div
+              className={`mt-5 flex flex-wrap gap-2 ${
+                isMobile
+                  ? 'flex-col'
+                  : ''
+              }`}
+            >
+              <Link
+                href="/marketplace"
+                style={{
+                  display:
+                    'inline-flex',
+                  minHeight:
+                    '44px',
+                  alignItems:
+                    'center',
+                  padding:
+                    '8px 16px',
+                  width:
+                    isMobile
+                      ? '100%'
+                      : 'auto',
+                  justifyContent:
+                    isMobile
+                      ? 'center'
+                      : 'flex-start',
+                }}
+                className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900"
+              >
                 {copy.continueShopping}
               </Link>
-              <Link href="/cart" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'center' : 'flex-start' }} className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100">
+
+              <Link
+                href="/cart"
+                style={{
+                  display:
+                    'inline-flex',
+                  minHeight:
+                    '44px',
+                  alignItems:
+                    'center',
+                  padding:
+                    '8px 16px',
+                  width:
+                    isMobile
+                      ? '100%'
+                      : 'auto',
+                  justifyContent:
+                    isMobile
+                      ? 'center'
+                      : 'flex-start',
+                }}
+                className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-amber-100"
+              >
                 {copy.viewCart}
               </Link>
             </div>
@@ -564,206 +1892,521 @@ export default function CheckoutClient() {
         ) : items.length > 0 ? (
           <div className="space-y-4">
             <div className="rounded-xl border border-white/20 bg-white/10 p-4 text-sm text-amber-50/90 global-glass">
-              {copy.readyForCheckout(items.length)}
+              {copy.readyForCheckout(
+                items.length,
+              )}
             </div>
+
             <div className="rounded-xl border border-white/20 bg-white/10 p-4 global-glass">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-amber-50">{copy.orderReview}</h2>
-                  <p className="mt-1 text-xs text-amber-50/80">{copy.itemCountLabel}: {itemCount}</p>
+                  <h2 className="text-lg font-semibold text-amber-50">
+                    {copy.orderReview}
+                  </h2>
+
+                  <p className="mt-1 text-xs text-amber-50/80">
+                    {copy.itemCountLabel}:{' '}
+                    {itemCount}
+                  </p>
                 </div>
+
                 <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-                  <span className={`rounded-full border px-3 py-1 ${shippingValid ? 'border-green-300/40 bg-green-500/10 text-green-200' : 'border-amber-300/40 bg-amber-500/10 text-amber-100'}`}>
-                    {copy.shippingStatusLabel}: {shippingValid ? copy.ready : copy.pending}
+                  <span
+                    className={`rounded-full border px-3 py-1 ${
+                      shippingValid
+                        ? 'border-green-300/40 bg-green-500/10 text-green-200'
+                        : 'border-amber-300/40 bg-amber-500/10 text-amber-100'
+                    }`}
+                  >
+                    {copy.shippingStatusLabel}:{' '}
+                    {shippingValid
+                      ? copy.ready
+                      : copy.pending}
                   </span>
-                  <span className={`rounded-full border px-3 py-1 ${policyConsentValid ? 'border-green-300/40 bg-green-500/10 text-green-200' : 'border-amber-300/40 bg-amber-500/10 text-amber-100'}`}>
-                    {copy.policyStatusLabel}: {policyConsentValid ? copy.ready : copy.pending}
+
+                  <span
+                    className={`rounded-full border px-3 py-1 ${
+                      policyConsentValid
+                        ? 'border-green-300/40 bg-green-500/10 text-green-200'
+                        : 'border-amber-300/40 bg-amber-500/10 text-amber-100'
+                    }`}
+                  >
+                    {copy.policyStatusLabel}:{' '}
+                    {policyConsentValid
+                      ? copy.ready
+                      : copy.pending}
                   </span>
+
                   <span className="rounded-full border border-cyan-300/40 bg-cyan-500/10 px-3 py-1 text-cyan-100">
-                    {copy.estimatedTotalLabel}: {formatCurrencyAmount(displayCurrency, convertAmount(estimatedGrandTotalUsd, 'usd', displayCurrency))}
+                    {copy.estimatedTotalLabel}:{' '}
+                    {formatCurrencyAmount(
+                      displayCurrency,
+                      displayTotal,
+                    )}
                   </span>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-[1.3fr_0.9fr]">
                 <div className="space-y-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-white">{item.name}</p>
-                          <p className="mt-1 text-xs text-amber-50/70">
-                            {formatCurrencyAmount(displayCurrency, convertAmount(item.price, 'usd', displayCurrency))} x {item.quantity}
+                  {items.map(
+                    (item) => (
+                      <div
+                        key={
+                          item.id
+                        }
+                        className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              {item.name}
+                            </p>
+
+                            <p className="mt-1 text-xs text-amber-50/70">
+                              {formatCurrencyAmount(
+                                displayCurrency,
+                                convertAmount(
+                                  item.price,
+                                  'usd',
+                                  displayCurrency,
+                                ),
+                              )}{' '}
+                              x{' '}
+                              {item.quantity}
+                            </p>
+                          </div>
+
+                          <p className="text-sm font-bold text-amber-100">
+                            {formatCurrencyAmount(
+                              displayCurrency,
+                              convertAmount(
+                                item.price *
+                                  item.quantity,
+                                'usd',
+                                displayCurrency,
+                              ),
+                            )}
                           </p>
                         </div>
-                        <p className="text-sm font-bold text-amber-100">
-                          {formatCurrencyAmount(displayCurrency, convertAmount(item.price * item.quantity, 'usd', displayCurrency))}
-                        </p>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
 
                 <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 p-4">
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center justify-between gap-3 text-amber-50/90">
-                      <span>{copy.subtotalLabel}</span>
-                      <span className="font-semibold">{formatCurrencyAmount(displayCurrency, displayTotal)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 text-amber-50/90">
-                      <span>{copy.estimatedTaxLabel}</span>
+                      <span>
+                        {copy.subtotalLabel}
+                      </span>
+
                       <span className="font-semibold">
-                        {formatCurrencyAmount(displayCurrency, convertAmount(estimatedTaxUsd, 'usd', displayCurrency))}
+                        {formatCurrencyAmount(
+                          displayCurrency,
+                          displayTotal,
+                        )}
                       </span>
                     </div>
-                    <div className="border-t border-amber-200/20 pt-3 flex items-center justify-between gap-3 text-base text-white">
-                      <span className="font-semibold">{copy.estimatedTotalLabel}</span>
-                      <span className="font-black">
-                        {formatCurrencyAmount(displayCurrency, convertAmount(estimatedGrandTotalUsd, 'usd', displayCurrency))}
+
+                    <div className="flex items-center justify-between gap-3 text-amber-50/90">
+                      <span>
+                        {copy.serverChargesLabel}
                       </span>
+
+                      <span className="font-semibold">
+                        Server
+                      </span>
+                    </div>
+
+                    <div className="border-t border-amber-200/20 pt-3">
+                      <p className="text-xs leading-5 text-amber-50/75">
+                        {copy.authoritativeNote}
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+
             <div className="rounded-xl border border-white/20 bg-white/10 p-4 global-glass">
-              <h2 className="text-lg font-semibold text-amber-50">{copy.shippingDetails}</h2>
-              <p className="mt-1 text-xs text-amber-50/80">{copy.shippingRequired}</p>
+              <h2 className="text-lg font-semibold text-amber-50">
+                {copy.shippingDetails}
+              </h2>
+
+              <p className="mt-1 text-xs text-amber-50/80">
+                {copy.shippingRequired}
+              </p>
+
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="text"
-                  value={shipping.fullName}
-                  onChange={(e) => setShipping((prev) => ({ ...prev, fullName: e.target.value }))}
-                  placeholder={copy.fullName}
-                  style={{ minHeight: '44px' }}
+                  value={
+                    shipping.fullName
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setShipping(
+                      (
+                        previous,
+                      ) => ({
+                        ...previous,
+                        fullName:
+                          event
+                            .target
+                            .value,
+                      }),
+                    )
+                  }
+                  placeholder={
+                    copy.fullName
+                  }
+                  style={{
+                    minHeight:
+                      '44px',
+                  }}
                   className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
                 />
+
                 <input
                   type="tel"
-                  value={shipping.phone}
-                  onChange={(e) => setShipping((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder={copy.phone}
-                  style={{ minHeight: '44px' }}
+                  value={
+                    shipping.phone
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setShipping(
+                      (
+                        previous,
+                      ) => ({
+                        ...previous,
+                        phone:
+                          event
+                            .target
+                            .value,
+                      }),
+                    )
+                  }
+                  placeholder={
+                    copy.phone
+                  }
+                  style={{
+                    minHeight:
+                      '44px',
+                  }}
                   className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
                 />
+
                 <input
                   type="text"
-                  value={shipping.addressLine1}
-                  onChange={(e) => setShipping((prev) => ({ ...prev, addressLine1: e.target.value }))}
-                  placeholder={copy.addressLine}
-                  style={{ minHeight: '44px' }}
+                  value={
+                    shipping.addressLine1
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setShipping(
+                      (
+                        previous,
+                      ) => ({
+                        ...previous,
+                        addressLine1:
+                          event
+                            .target
+                            .value,
+                      }),
+                    )
+                  }
+                  placeholder={
+                    copy.addressLine
+                  }
+                  style={{
+                    minHeight:
+                      '44px',
+                  }}
                   className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300 sm:col-span-2"
                 />
+
                 <input
                   type="text"
-                  value={shipping.city}
-                  onChange={(e) => setShipping((prev) => ({ ...prev, city: e.target.value }))}
-                  placeholder={copy.city}
-                  style={{ minHeight: '44px' }}
+                  value={
+                    shipping.city
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setShipping(
+                      (
+                        previous,
+                      ) => ({
+                        ...previous,
+                        city:
+                          event
+                            .target
+                            .value,
+                      }),
+                    )
+                  }
+                  placeholder={
+                    copy.city
+                  }
+                  style={{
+                    minHeight:
+                      '44px',
+                  }}
                   className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
                 />
+
                 <input
                   type="text"
-                  value={shipping.country}
-                  onChange={(e) => setShipping((prev) => ({ ...prev, country: e.target.value }))}
-                  placeholder={copy.country}
-                  style={{ minHeight: '44px' }}
+                  value={
+                    shipping.country
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setShipping(
+                      (
+                        previous,
+                      ) => ({
+                        ...previous,
+                        country:
+                          event
+                            .target
+                            .value,
+                      }),
+                    )
+                  }
+                  placeholder={
+                    copy.country
+                  }
+                  style={{
+                    minHeight:
+                      '44px',
+                  }}
                   className="rounded-lg border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
                 />
               </div>
-              <p className={`mt-3 text-xs ${shippingValid ? 'text-green-300' : 'text-amber-200'}`}>
-                {shippingValid ? copy.shippingComplete : copy.shippingIncomplete}
+
+              <p
+                className={`mt-3 text-xs ${
+                  shippingValid
+                    ? 'text-green-300'
+                    : 'text-amber-200'
+                }`}
+              >
+                {shippingValid
+                  ? copy.shippingComplete
+                  : copy.shippingIncomplete}
               </p>
             </div>
 
             <div className="rounded-xl border border-amber-300/30 bg-amber-500/10 p-4 global-glass">
-              <h2 className="text-lg font-semibold text-amber-50">{copy.legalConsent}</h2>
+              <h2 className="text-lg font-semibold text-amber-50">
+                {copy.legalConsent}
+              </h2>
+
               <p className="mt-1 text-xs text-amber-50/80">
                 {copy.legalConsentNote}
               </p>
+
               <div className="mt-3 space-y-3 text-sm">
                 <label className="flex items-start gap-2 text-amber-50">
                   <input
                     type="checkbox"
-                    checked={checkoutConsent.agreedToTerms}
-                    onChange={(e) =>
-                      setCheckoutConsent((prev) => ({
-                        ...prev,
-                        agreedToTerms: e.target.checked,
-                      }))
+                    checked={
+                      checkoutConsent
+                        .agreedToTerms
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      setCheckoutConsent(
+                        (
+                          previous,
+                        ) => ({
+                          ...previous,
+
+                          agreedToTerms:
+                            event
+                              .target
+                              .checked,
+                        }),
+                      )
                     }
                     className="mt-1"
                   />
+
                   <span>
                     {copy.agreeTermsPrefix}{' '}
-                    <Link href="/terms-of-service" className="font-semibold underline text-amber-200">
+
+                    <Link
+                      href="/terms-of-service"
+                      className="font-semibold underline text-amber-200"
+                    >
                       {copy.terms}
-                    </Link>
-                    {' '}
-                    (v{policyVersions.termsVersion}).
+                    </Link>{' '}
+
+                    (v
+                    {policyVersions
+                      .termsVersion}
+                    ).
                   </span>
                 </label>
+
                 <label className="flex items-start gap-2 text-amber-50">
                   <input
                     type="checkbox"
-                    checked={checkoutConsent.agreedToPrivacy}
-                    onChange={(e) =>
-                      setCheckoutConsent((prev) => ({
-                        ...prev,
-                        agreedToPrivacy: e.target.checked,
-                      }))
+                    checked={
+                      checkoutConsent
+                        .agreedToPrivacy
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      setCheckoutConsent(
+                        (
+                          previous,
+                        ) => ({
+                          ...previous,
+
+                          agreedToPrivacy:
+                            event
+                              .target
+                              .checked,
+                        }),
+                      )
                     }
                     className="mt-1"
                   />
+
                   <span>
                     {copy.agreePrivacyPrefix}{' '}
-                    <Link href="/privacy-policy" className="font-semibold underline text-amber-200">
+
+                    <Link
+                      href="/privacy-policy"
+                      className="font-semibold underline text-amber-200"
+                    >
                       {copy.privacy}
-                    </Link>
-                    {' '}
-                    (v{policyVersions.privacyVersion}).
+                    </Link>{' '}
+
+                    (v
+                    {policyVersions
+                      .privacyVersion}
+                    ).
                   </span>
                 </label>
               </div>
-              <p className={`mt-3 text-xs ${policyConsentValid ? 'text-green-300' : 'text-amber-200'}`}>
-                {policyConsentValid ? copy.policyConsentComplete : copy.policyConsentIncomplete}
+
+              <p
+                className={`mt-3 text-xs ${
+                  policyConsentValid
+                    ? 'text-green-300'
+                    : 'text-amber-200'
+                }`}
+              >
+                {policyConsentValid
+                  ? copy.policyConsentComplete
+                  : copy.policyConsentIncomplete}
               </p>
             </div>
 
-                 <Checkout
-              total={displayTotal}
-              currency={displayCurrency}
-              language={isSwahili ? 'sw' : 'en'}
-              onMobilePaymentDetailsChange={setMobilePaymentDetails}
-              onCompletePurchase={completePurchase}
-              canCompletePurchase={shippingValid && policyConsentValid && !maintenanceMode && !isSubmitting}
-              isSubmitting={isSubmitting}
-              onBlockedPurchase={(reason) => {
-                if (reason === 'mobile_details') {
-                  toast.error(copy.mobileDetailsRequired);
+            <Checkout
+              total={
+                displayTotal
+              }
+              currency={
+                displayCurrency
+              }
+              language={
+                isSwahili
+                  ? 'sw'
+                  : 'en'
+              }
+              onMobilePaymentDetailsChange={
+                setMobilePaymentDetails
+              }
+              onCompletePurchase={
+                completePurchase
+              }
+              canCompletePurchase={
+                shippingValid &&
+                policyConsentValid &&
+                !maintenanceMode &&
+                !isSubmitting
+              }
+              isSubmitting={
+                isSubmitting
+              }
+              onBlockedPurchase={(
+                reason,
+              ) => {
+                if (
+                  reason ===
+                  'mobile_details'
+                ) {
+                  toast.error(
+                    copy.mobileDetailsRequired,
+                  );
+
                   return;
                 }
 
-                if (maintenanceMode) {
-                  toast.error(copy.pausedDuringMaintenance);
+                if (
+                  maintenanceMode
+                ) {
+                  toast.error(
+                    copy.pausedDuringMaintenance,
+                  );
+
                   return;
                 }
 
-                if (!shippingValid) {
-                  toast.error(copy.fillShippingBeforeComplete);
+                if (
+                  !shippingValid
+                ) {
+                  toast.error(
+                    copy.fillShippingBeforeComplete,
+                  );
+
                   return;
                 }
 
-                toast.error(copy.acceptPoliciesBeforeComplete);
+                toast.error(
+                  copy.acceptPoliciesBeforeComplete,
+                );
               }}
-              allowPiPayments={allowPiPayments}
+              allowPiPayments={
+                allowPiPayments
+              }
             />
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/20 bg-white/10 p-6 sm:p-8 text-center global-glass">
-            <p className="text-lg font-semibold text-amber-50">{copy.emptyCartTitle}</p>
-            <p className="mt-2 text-sm text-amber-50/85">{copy.emptyCartBody}</p>
-            <Link href="/marketplace" style={{ display: 'inline-flex', minHeight: '44px', alignItems: 'center', padding: '8px 16px' }} className="mt-4 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900">
+          <div className="rounded-2xl border border-white/20 bg-white/10 p-6 text-center global-glass sm:p-8">
+            <p className="text-lg font-semibold text-amber-50">
+              {copy.emptyCartTitle}
+            </p>
+
+            <p className="mt-2 text-sm text-amber-50/85">
+              {copy.emptyCartBody}
+            </p>
+
+            <Link
+              href="/marketplace"
+              style={{
+                display:
+                  'inline-flex',
+                minHeight:
+                  '44px',
+                alignItems:
+                  'center',
+                padding:
+                  '8px 16px',
+              }}
+              className="mt-4 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-4 py-2 text-sm font-semibold text-slate-900"
+            >
               {copy.goToMarketplace}
             </Link>
           </div>

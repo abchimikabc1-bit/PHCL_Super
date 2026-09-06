@@ -8,7 +8,6 @@ import { useCommerceBootstrap } from '@/hooks/use-commerce-bootstrap';
 import {
   getProductStockConfig,
   getProductStockAudit,
-  getStockStatus,
   type ProductStock,
   type ProductStockAuditEntry,
 } from '@/lib/admin-product-stock';
@@ -16,26 +15,52 @@ import { AlertCircle, CheckCircle2, Package, RefreshCw, TrendingDown } from 'luc
 
 export default function ProductsPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, refreshSession, sessionDebug, adminUser } = useAdmin();
+  const { isAuthenticated, isLoading, refreshSession, sessionDebug } = useAdmin();
   const [loadingGuardElapsed, setLoadingGuardElapsed] = useState(false);
   const [stocks, setStocks] = useState<Record<string, ProductStock>>({});
   const [auditEvents, setAuditEvents] = useState<ProductStockAuditEntry[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingStock, setEditingStock] = useState<number | null>(null);
+  const [editingStock, setEditingStock] = useState('');
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'critical' | 'enabled' | 'disabled'>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
 
-  const actor =
-    (typeof adminUser?.name === 'string' && adminUser.name.trim()) ||
-    (typeof adminUser?.email === 'string' && adminUser.email.trim()) ||
-    'PHCL Administrator';
+  const parseStockInput = (value: string): number | null => {
+    const trimmed = value.trim();
+    if (!/^-?\d+$/.test(trimmed)) return null;
+
+    const parsed = Number(trimmed);
+    if (!Number.isSafeInteger(parsed)) return null;
+    if (parsed < -1) return null;
+
+    return parsed;
+  };
+
+  const getStockStatusFromProduct = (product: ProductStock) => {
+    if (!product.enabledForSale) {
+      return { label: 'Disabled', color: 'red' as const };
+    }
+
+    if (product.stock === 0) {
+      return { label: 'Out of Stock', color: 'red' as const };
+    }
+
+    if (product.stock > 0 && product.stock < 5) {
+      return { label: 'Low Stock', color: 'amber' as const };
+    }
+
+    return { label: 'Available', color: 'green' as const };
+  };
 
   const fetchStockData = async () => {
     try {
-      const response = await fetch('/api/admin/stock', { cache: 'no-store' });
+      const response = await fetch('/api/admin/stock', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       if (!response.ok) throw new Error('Failed to fetch');
       const payload = (await response.json()) as {
         success?: boolean;
@@ -83,13 +108,14 @@ export default function ProductsPage() {
     if (!current || isSaving) return;
 
     setIsSaving(true);
+    setStockError(null);
     try {
       const response = await fetch('/api/admin/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'update_product',
-          actor,
           productId,
           updates: {
             stock: newStock,
@@ -103,10 +129,18 @@ export default function ProductsPage() {
         setStocks(payload.config.products as Record<string, ProductStock>);
         setAuditEvents((payload.audit || []) as ProductStockAuditEntry[]);
         setEditingId(null);
-        setEditingStock(null);
+        setEditingStock('');
+        setStockError(null);
+      } else {
+        const message =
+          typeof payload?.error === 'string'
+            ? payload.error
+            : 'Unable to save product stock.';
+        setStockError(message);
       }
     } catch (error) {
       console.error('Error saving stock:', error);
+      setStockError('Unable to save product stock.');
     } finally {
       setIsSaving(false);
     }
@@ -130,6 +164,7 @@ export default function ProductsPage() {
     if (selectedIds.length === 0 || isSaving) return;
 
     setIsSaving(true);
+    setStockError(null);
     try {
       const requests = selectedIds.map((productId) => {
         const current = stocks[productId];
@@ -147,15 +182,34 @@ export default function ProductsPage() {
         return fetch('/api/admin/stock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update_product', actor, productId, updates }),
+          credentials: 'include',
+          body: JSON.stringify({ action: 'update_product', productId, updates }),
         });
       });
 
-      await Promise.all(requests);
+      const responses = await Promise.all(requests);
+      const failedResponse = responses.find(
+        (response): response is Response => response instanceof Response && !response.ok
+      );
+
+      if (failedResponse) {
+        const payload = await failedResponse.json().catch(() => null);
+        throw new Error(
+          typeof payload?.error === 'string'
+            ? payload.error
+            : 'One or more stock updates failed.'
+        );
+      }
+
       await fetchStockData();
       setSelectedIds([]);
     } catch (error) {
       console.error('Error executing bulk action:', error);
+      setStockError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to complete bulk stock update.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -340,6 +394,12 @@ export default function ProductsPage() {
           </div>
         </div>
 
+        {stockError && (
+          <div className="mb-6 rounded-lg border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">
+            {stockError}
+          </div>
+        )}
+
         <div className="mb-8 overflow-hidden rounded-lg border border-white/10 bg-white/5 backdrop-blur-md">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -363,7 +423,7 @@ export default function ProductsPage() {
                 ) : (
                   filteredStocks.map((product) => {
                     const isEditing = editingId === product.productId;
-                    const status = getStockStatus(product.productId);
+                    const status = getStockStatusFromProduct(product);
 
                     return (
                       <tr key={product.productId} className="transition-colors hover:bg-white/5">
@@ -411,10 +471,12 @@ export default function ProductsPage() {
                           {isEditing ? (
                             <input
                               type="number"
-                              value={editingStock ?? ''}
+                              value={editingStock}
+                              min={-1}
+                              step={1}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                setEditingStock(val === '' ? null : Number.parseInt(val, 10));
+                                setEditingStock(e.target.value);
+                                setStockError(null);
                               }}
                               className="w-20 rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
                               placeholder="-1"
@@ -442,13 +504,32 @@ export default function ProductsPage() {
                             <div className="flex gap-2">
                               <button
                                 disabled={isSaving}
-                                onClick={() => handleSaveStock(product.productId, editingStock ?? -1, editingEnabled)}
+                                onClick={() => {
+                                  const parsedStock = parseStockInput(editingStock);
+
+                                  if (parsedStock === null) {
+                                    setStockError(
+                                      'Stock must be -1 or a non-negative integer.'
+                                    );
+                                    return;
+                                  }
+
+                                  void handleSaveStock(
+                                    product.productId,
+                                    parsedStock,
+                                    editingEnabled
+                                  );
+                                }}
                                 className="rounded bg-green-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
                               >
                                 Save
                               </button>
                               <button
-                                onClick={() => setEditingId(null)}
+                                onClick={() => {
+                                  setEditingId(null);
+                                  setEditingStock('');
+                                  setStockError(null);
+                                }}
                                 className="rounded bg-slate-700 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-slate-600"
                               >
                                 Cancel
@@ -459,7 +540,7 @@ export default function ProductsPage() {
                               <button
                                 onClick={() => {
                                   setEditingId(product.productId);
-                                  setEditingStock(product.stock);
+                                  setEditingStock(String(product.stock));
                                   setEditingEnabled(product.enabledForSale);
                                 }}
                                 className="rounded bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700"

@@ -1,64 +1,215 @@
 import 'server-only';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
+
+import { Timestamp } from 'firebase-admin/firestore';
+
+import { adminDb } from '@/lib/firebase-admin';
 
 type JsonObject = Record<string, unknown>;
-type RateLimitPolicy = { windowMs: number; maxAttempts: number; blockMs: number };
 
-const SECURITY_DIR = path.join(process.cwd(), 'generated', 'security');
-const AUDIT_FILE = path.join(SECURITY_DIR, 'admin-auth-audit.log');
-const RATE_LIMIT_FILE = path.join(SECURITY_DIR, 'admin-auth-rate-limit.json');
+type RateLimitPolicy = {
+  windowMs: number;
+  maxAttempts: number;
+  blockMs: number;
+};
 
-export function getAdminAuthAuditLogPath(): string {
-  return AUDIT_FILE;
+type LoginSecurityRecord = {
+  attempts?: number;
+  windowStart?: number;
+  blockedUntil?: number;
+  lastAttemptAt?: number;
+  updatedAt?: Timestamp;
+};
+
+type AuthAuditRecord = Record<string, unknown> & {
+  createdAt?: Timestamp;
+  createdAtMs?: number;
+};
+
+const LOGIN_SECURITY_COLLECTION =
+  'admin_login_security';
+
+const AUTH_AUDIT_COLLECTION =
+  'admin_auth_audit';
+
+const DEFAULT_LIMIT = 200;
+const MAX_LIMIT = 500;
+
+function normalizeLimit(
+  value: number
+): number {
+  if (
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    return DEFAULT_LIMIT;
+  }
+
+  return Math.min(
+    Math.floor(value),
+    MAX_LIMIT
+  );
 }
 
-export function getAdminAuthRateLimitPath(): string {
-  return RATE_LIMIT_FILE;
+function toSafeNumber(
+  value: unknown
+): number {
+  const numberValue =
+    typeof value === 'number'
+      ? value
+      : Number(value ?? 0);
+
+  return Number.isFinite(numberValue)
+    ? numberValue
+    : 0;
 }
 
-async function safeReadFile(filePath: string): Promise<string> {
+function timestampToMillis(
+  value: unknown
+): number {
+  if (value instanceof Timestamp) {
+    return value.toMillis();
+  }
+
+  return 0;
+}
+
+export async function readAuthAuditEvents(
+  limit = DEFAULT_LIMIT
+): Promise<JsonObject[]> {
+  const safeLimit =
+    normalizeLimit(limit);
+
   try {
-    return await fs.readFile(filePath, 'utf8');
-  } catch {
-    return '';
+    const snapshot =
+      await adminDb
+        .collection(
+          AUTH_AUDIT_COLLECTION
+        )
+        .orderBy(
+          'createdAt',
+          'desc'
+        )
+        .limit(
+          safeLimit
+        )
+        .get();
+
+    return snapshot.docs.map(
+      (document) => {
+        const data =
+          document.data() as AuthAuditRecord;
+
+        const createdAtMs =
+          toSafeNumber(
+            data.createdAtMs
+          ) ||
+          timestampToMillis(
+            data.createdAt
+          );
+
+        const safeEvent: JsonObject = {
+          ...data,
+        };
+
+        delete safeEvent.createdAt;
+
+        if (createdAtMs > 0) {
+          safeEvent.createdAtMs =
+            createdAtMs;
+
+          safeEvent.createdAt =
+            new Date(
+              createdAtMs
+            ).toISOString();
+        }
+
+        return safeEvent;
+      }
+    );
+  } catch (error) {
+    console.error(
+      'Unable to read Admin authentication audit events:',
+      error
+    );
+
+    return [];
   }
 }
 
-export async function readAuthAuditEvents(limit = 200): Promise<JsonObject[]> {
-  const raw = await safeReadFile(AUDIT_FILE);
-  if (!raw.trim()) return [];
-
-  const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
-  const parsed = lines
-    .map((line) => {
-      try {
-        return JSON.parse(line) as JsonObject;
-      } catch {
-        return null;
-      }
-    })
-    .filter((v): v is JsonObject => v !== null);
-
-  return parsed.slice(-limit).reverse();
-}
-
 export async function readRateLimitEntries(
-  limitOrPolicy: number | RateLimitPolicy = 200
+  limitOrPolicy:
+    | number
+    | RateLimitPolicy =
+    DEFAULT_LIMIT
 ): Promise<JsonObject[]> {
-  const limit = typeof limitOrPolicy === 'number' ? limitOrPolicy : 200;
-
-  const raw = await safeReadFile(RATE_LIMIT_FILE);
-  if (!raw.trim()) return [];
+  const limit =
+    normalizeLimit(
+      typeof limitOrPolicy ===
+        'number'
+        ? limitOrPolicy
+        : DEFAULT_LIMIT
+    );
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) return (parsed as JsonObject[]).slice(-limit).reverse();
-    if (parsed && typeof parsed === 'object') {
-      return Object.values(parsed as Record<string, JsonObject>).slice(-limit).reverse();
-    }
-    return [];
-  } catch {
+    const snapshot =
+      await adminDb
+        .collection(
+          LOGIN_SECURITY_COLLECTION
+        )
+        .orderBy(
+          'lastAttemptAt',
+          'desc'
+        )
+        .limit(
+          limit
+        )
+        .get();
+
+    return snapshot.docs.map(
+      (document) => {
+        const data =
+          document.data() as LoginSecurityRecord;
+
+        const attempts =
+          toSafeNumber(
+            data.attempts
+          );
+
+        const windowStart =
+          toSafeNumber(
+            data.windowStart
+          );
+
+        const blockedUntil =
+          toSafeNumber(
+            data.blockedUntil
+          );
+
+        const lastAttemptAt =
+          toSafeNumber(
+            data.lastAttemptAt
+          );
+
+        const updatedAtMs =
+          timestampToMillis(
+            data.updatedAt
+          );
+
+        return {
+          attempts,
+          windowStart,
+          blockedUntil,
+          lastAttemptAt,
+          updatedAtMs,
+        };
+      }
+    );
+  } catch (error) {
+    console.error(
+      'Unable to read Admin login rate-limit records:',
+      error
+    );
+
     return [];
   }
 }
