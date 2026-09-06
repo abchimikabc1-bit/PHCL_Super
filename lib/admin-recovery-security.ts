@@ -17,6 +17,9 @@ const RECOVERY_COLLECTION =
 
 const RECOVERY_CODE_COUNT = 10;
 
+const RECOVERY_CODE_RESERVATION_TTL_MS =
+  2 * 60 * 1000;
+
 const RECOVERY_ALPHABET =
   'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -24,6 +27,9 @@ type StoredRecoveryCode = {
   id: string;
   digest: string;
   usedAtMs: number | null;
+  reservationDigest?: string | null;
+  reservedAtMs?: number | null;
+  reservationExpiresAtMs?: number | null;
 };
 
 type RecoveryDocument = {
@@ -39,6 +45,11 @@ export type RecoveryCodeSummary = {
   remaining: number;
   used: number;
   createdAtMs: number | null;
+};
+
+export type RecoveryCodeReservation = {
+  reservationId: string;
+  expiresAtMs: number;
 };
 
 function normalizeEmail(
@@ -119,6 +130,29 @@ function createRecoveryDigest(
         'phcl-admin-recovery-code',
         principalId,
         normalizedCode,
+      ].join(':')
+    )
+    .digest('base64url');
+}
+
+function createRecoveryReservationDigest(
+  email: string,
+  rawReservationId: string
+): string {
+  const principalId =
+    createAdminPrincipalId(
+      email
+    );
+
+  return createHmac(
+    'sha256',
+    getRecoverySecret()
+  )
+    .update(
+      [
+        'phcl-admin-recovery-code-reservation',
+        principalId,
+        rawReservationId,
       ].join(':')
     )
     .digest('base64url');
@@ -228,6 +262,9 @@ export async function generateAdminRecoveryCodes(
           code
         ),
       usedAtMs: null,
+      reservationDigest: null,
+      reservedAtMs: null,
+      reservationExpiresAtMs: null,
     }));
 
   const documentId =
@@ -355,6 +392,385 @@ export async function getAdminRecoveryCodeSummary(
   };
 }
 
+export async function reserveAdminRecoveryCode(
+  email: string,
+  suppliedCode: string
+): Promise<RecoveryCodeReservation | null> {
+  const normalizedEmail =
+    normalizeEmail(email);
+
+  const normalizedCode =
+    normalizeRecoveryCode(
+      suppliedCode
+    );
+
+  if (
+    !normalizedCode.startsWith(
+      'PHCL'
+    ) ||
+    normalizedCode.length !== 24
+  ) {
+    return null;
+  }
+
+  const suppliedDigest =
+    createRecoveryDigest(
+      normalizedEmail,
+      suppliedCode
+    );
+
+  const reservationId =
+    randomBytes(32).toString(
+      'base64url'
+    );
+
+  const reservationDigest =
+    createRecoveryReservationDigest(
+      normalizedEmail,
+      reservationId
+    );
+
+  const documentId =
+    createRecoveryDocumentId(
+      normalizedEmail
+    );
+
+  const documentRef = adminDb
+    .collection(
+      RECOVERY_COLLECTION
+    )
+    .doc(documentId);
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          documentRef
+        );
+
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      const data =
+        snapshot.data() as
+          | RecoveryDocument
+          | undefined;
+
+      if (
+        !data ||
+        data.adminPrincipalId !==
+          createAdminPrincipalId(
+            normalizedEmail
+          ) ||
+        !Array.isArray(data.codes)
+      ) {
+        return null;
+      }
+
+      const now =
+        Date.now();
+
+      const codeIndex =
+        data.codes.findIndex(
+          (storedCode) =>
+            storedCode.usedAtMs ===
+              null &&
+            (
+              typeof storedCode
+                .reservationExpiresAtMs !==
+                'number' ||
+              storedCode
+                .reservationExpiresAtMs <=
+                now
+            ) &&
+            safeDigestEqual(
+              storedCode.digest,
+              suppliedDigest
+            )
+        );
+
+      if (codeIndex < 0) {
+        return null;
+      }
+
+      const expiresAtMs =
+        now +
+        RECOVERY_CODE_RESERVATION_TTL_MS;
+
+      const updatedCodes =
+        data.codes.map(
+          (
+            storedCode,
+            index
+          ) =>
+            index === codeIndex
+              ? {
+                  ...storedCode,
+                  reservationDigest,
+                  reservedAtMs:
+                    now,
+                  reservationExpiresAtMs:
+                    expiresAtMs,
+                }
+              : storedCode
+        );
+
+      transaction.update(
+        documentRef,
+        {
+          codes:
+            updatedCodes,
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        }
+      );
+
+      return {
+        reservationId,
+        expiresAtMs,
+      };
+    }
+  );
+}
+
+export async function completeAdminRecoveryCodeReservation(
+  email: string,
+  reservationId: string
+): Promise<boolean> {
+  if (!reservationId) {
+    return false;
+  }
+
+  const normalizedEmail =
+    normalizeEmail(email);
+
+  const reservationDigest =
+    createRecoveryReservationDigest(
+      normalizedEmail,
+      reservationId
+    );
+
+  const documentRef = adminDb
+    .collection(
+      RECOVERY_COLLECTION
+    )
+    .doc(
+      createRecoveryDocumentId(
+        normalizedEmail
+      )
+    );
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          documentRef
+        );
+
+      if (!snapshot.exists) {
+        return false;
+      }
+
+      const data =
+        snapshot.data() as
+          | RecoveryDocument
+          | undefined;
+
+      if (
+        !data ||
+        data.adminPrincipalId !==
+          createAdminPrincipalId(
+            normalizedEmail
+          ) ||
+        !Array.isArray(data.codes)
+      ) {
+        return false;
+      }
+
+      const now =
+        Date.now();
+
+      const codeIndex =
+        data.codes.findIndex(
+          (storedCode) =>
+            storedCode.usedAtMs ===
+              null &&
+            typeof storedCode
+              .reservationDigest ===
+              'string' &&
+            typeof storedCode
+              .reservationExpiresAtMs ===
+              'number' &&
+            storedCode
+              .reservationExpiresAtMs >
+              now &&
+            safeDigestEqual(
+              storedCode
+                .reservationDigest,
+              reservationDigest
+            )
+        );
+
+      if (codeIndex < 0) {
+        return false;
+      }
+
+      const updatedCodes =
+        data.codes.map(
+          (
+            storedCode,
+            index
+          ) =>
+            index === codeIndex
+              ? {
+                  ...storedCode,
+                  usedAtMs:
+                    now,
+                  reservationDigest:
+                    null,
+                  reservedAtMs:
+                    null,
+                  reservationExpiresAtMs:
+                    null,
+                }
+              : storedCode
+        );
+
+      transaction.update(
+        documentRef,
+        {
+          codes:
+            updatedCodes,
+
+          lastUsedAtMs:
+            now,
+
+          lastUsedAt:
+            FieldValue.serverTimestamp(),
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        }
+      );
+
+      return true;
+    }
+  );
+}
+
+export async function releaseAdminRecoveryCodeReservation(
+  email: string,
+  reservationId: string
+): Promise<boolean> {
+  if (!reservationId) {
+    return false;
+  }
+
+  const normalizedEmail =
+    normalizeEmail(email);
+
+  const reservationDigest =
+    createRecoveryReservationDigest(
+      normalizedEmail,
+      reservationId
+    );
+
+  const documentRef = adminDb
+    .collection(
+      RECOVERY_COLLECTION
+    )
+    .doc(
+      createRecoveryDocumentId(
+        normalizedEmail
+      )
+    );
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          documentRef
+        );
+
+      if (!snapshot.exists) {
+        return false;
+      }
+
+      const data =
+        snapshot.data() as
+          | RecoveryDocument
+          | undefined;
+
+      if (
+        !data ||
+        !Array.isArray(data.codes)
+      ) {
+        return false;
+      }
+
+      const codeIndex =
+        data.codes.findIndex(
+          (storedCode) =>
+            storedCode.usedAtMs ===
+              null &&
+            typeof storedCode
+              .reservationDigest ===
+              'string' &&
+            safeDigestEqual(
+              storedCode
+                .reservationDigest,
+              reservationDigest
+            )
+        );
+
+      if (codeIndex < 0) {
+        return false;
+      }
+
+      const updatedCodes =
+        data.codes.map(
+          (
+            storedCode,
+            index
+          ) =>
+            index === codeIndex
+              ? {
+                  ...storedCode,
+                  reservationDigest:
+                    null,
+                  reservedAtMs:
+                    null,
+                  reservationExpiresAtMs:
+                    null,
+                }
+              : storedCode
+        );
+
+      transaction.update(
+        documentRef,
+        {
+          codes:
+            updatedCodes,
+
+          updatedAt:
+            FieldValue.serverTimestamp(),
+        }
+      );
+
+      return true;
+    }
+  );
+}
+
+/**
+ * Legacy direct-consumption function.
+ *
+ * New recovery authorization should reserve the
+ * code, create its access session, and then complete
+ * the reservation.
+ */
 export async function consumeAdminRecoveryCode(
   email: string,
   suppliedCode: string

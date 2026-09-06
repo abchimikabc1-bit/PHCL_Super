@@ -6,7 +6,10 @@ import {
 import { compare } from 'bcryptjs';
 
 import {
-  consumeAdminRecoveryCode,
+  completeAdminRecoveryCodeReservation,
+  releaseAdminRecoveryCodeReservation,
+  reserveAdminRecoveryCode,
+  type RecoveryCodeReservation,
 } from '@/lib/admin-recovery-security';
 
 import {
@@ -15,6 +18,7 @@ import {
   createAdminRecoveryAccessSession,
   createRecoveryFingerprint,
   recordFailedAdminRecoveryAttempt,
+  revokeAdminRecoveryAccessSession,
   writeAdminRecoveryAudit,
 } from '@/lib/admin-recovery-access-security';
 
@@ -108,7 +112,7 @@ async function recordRecoveryFailure(
     fingerprint
   );
 
-  await writeAdminRecoveryAudit(
+  await safeWriteRecoveryAudit(
     'recovery_failed',
     {
       email,
@@ -119,6 +123,33 @@ async function recordRecoveryFailure(
   );
 }
 
+async function safeWriteRecoveryAudit(
+  event:
+    | 'recovery_attempt'
+    | 'recovery_failed'
+    | 'recovery_rate_limited'
+    | 'recovery_code_accepted'
+    | 'recovery_session_created',
+  details: {
+    email?: string;
+    ipAddress: string;
+    success?: boolean;
+    reason?: string;
+  }
+): Promise<void> {
+  try {
+    await writeAdminRecoveryAudit(
+      event,
+      details
+    );
+  } catch (error) {
+    console.error(
+      'Unable to persist Admin recovery audit event:',
+      error
+    );
+  }
+}
+
 export async function POST(
   request: NextRequest
 ) {
@@ -126,6 +157,21 @@ export async function POST(
     getClientIp(request);
 
   let email = '';
+
+  let codeReservation:
+    | RecoveryCodeReservation
+    | null = null;
+
+  let recoverySession:
+    | Awaited<
+        ReturnType<
+          typeof createAdminRecoveryAccessSession
+        >
+      >
+    | null = null;
+
+  let codeReservationCompleted =
+    false;
 
   try {
     let body: RecoveryRequestBody;
@@ -185,7 +231,7 @@ export async function POST(
       );
 
     if (!limit.allowed) {
-      await writeAdminRecoveryAudit(
+      await safeWriteRecoveryAudit(
         'recovery_rate_limited',
         {
           email,
@@ -218,7 +264,7 @@ export async function POST(
       return response;
     }
 
-    await writeAdminRecoveryAudit(
+    await safeWriteRecoveryAudit(
       'recovery_attempt',
       {
         email,
@@ -271,16 +317,18 @@ export async function POST(
     }
 
     /*
-     * Only consume the one-time code after
-     * the Admin password has been verified.
+     * Reserve the one-time code after the Admin
+     * password is verified. The code is consumed
+     * only after the recovery-access session has
+     * been created successfully.
      */
-    const recoveryCodeAccepted =
-      await consumeAdminRecoveryCode(
+    codeReservation =
+      await reserveAdminRecoveryCode(
         email,
         recoveryCode
       );
 
-    if (!recoveryCodeAccepted) {
+    if (!codeReservation) {
       await recordRecoveryFailure(
         fingerprint,
         email,
@@ -300,11 +348,51 @@ export async function POST(
       );
     }
 
+    recoverySession =
+      await createAdminRecoveryAccessSession(
+        email
+      );
+
+    codeReservationCompleted =
+      await completeAdminRecoveryCodeReservation(
+        email,
+        codeReservation.reservationId
+      );
+
+    if (!codeReservationCompleted) {
+      await revokeAdminRecoveryAccessSession(
+        recoverySession.sessionId
+      ).catch(() => {
+        /*
+         * The raw session token is never disclosed
+         * when reservation completion fails.
+         */
+      });
+
+      await releaseAdminRecoveryCodeReservation(
+        email,
+        codeReservation.reservationId
+      ).catch(() => {
+        // The short reservation expires automatically.
+      });
+
+      return json(
+        {
+          ok: false,
+          code:
+            'RECOVERY_AUTHORIZATION_CONFLICT',
+          message:
+            'Recovery authorization could not be completed. Please try again.',
+        },
+        409
+      );
+    }
+
     await clearAdminRecoveryFailures(
       fingerprint
     );
 
-    await writeAdminRecoveryAudit(
+    await safeWriteRecoveryAudit(
       'recovery_code_accepted',
       {
         email,
@@ -313,12 +401,7 @@ export async function POST(
       }
     );
 
-    const recoverySession =
-      await createAdminRecoveryAccessSession(
-        email
-      );
-
-    await writeAdminRecoveryAudit(
+    await safeWriteRecoveryAudit(
       'recovery_session_created',
       {
         email,
@@ -345,7 +428,17 @@ export async function POST(
           'production',
         sameSite: 'strict',
         path: '/',
-        maxAge: 10 * 60,
+        maxAge:
+          Math.max(
+            1,
+            Math.ceil(
+              (
+                recoverySession
+                  .expiresAtMs -
+                Date.now()
+              ) / 1000
+            )
+          ),
       }
     );
 
@@ -356,7 +449,30 @@ export async function POST(
       error
     );
 
-    await writeAdminRecoveryAudit(
+    if (
+      codeReservation &&
+      !codeReservationCompleted
+    ) {
+      await releaseAdminRecoveryCodeReservation(
+        email,
+        codeReservation.reservationId
+      ).catch(() => {
+        // The short reservation expires automatically.
+      });
+    }
+
+    if (
+      recoverySession &&
+      !codeReservationCompleted
+    ) {
+      await revokeAdminRecoveryAccessSession(
+        recoverySession.sessionId
+      ).catch(() => {
+        // The raw session token was never disclosed.
+      });
+    }
+
+    await safeWriteRecoveryAudit(
       'recovery_failed',
       {
         email:
@@ -366,9 +482,7 @@ export async function POST(
         reason:
           'server_error',
       }
-    ).catch(() => {
-      // Do not replace the primary error.
-    });
+    );
 
     return json(
       {
