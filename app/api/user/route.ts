@@ -5,9 +5,12 @@ import {
 } from 'next/server';
 
 import {
-  adminAuth,
   adminDb,
 } from '@/lib/firebase-admin';
+
+import {
+  authenticateFirebaseUser,
+} from '@/lib/firebase-user-auth';
 
 export const runtime =
   'nodejs';
@@ -15,115 +18,109 @@ export const runtime =
 export const dynamic =
   'force-dynamic';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control':
+    'no-store, max-age=0',
+  Pragma:
+    'no-cache',
+  Vary:
+    'Authorization',
+};
+
 function jsonResponse(
-  body: unknown,
+  body: Record<string, unknown>,
   status = 200,
-) {
+  additionalHeaders?:
+    Record<string, string>,
+): NextResponse {
   return NextResponse.json(
     body,
     {
       status,
-
       headers: {
-        'Cache-Control':
-          'no-store, max-age=0',
-
-        Pragma:
-          'no-cache',
+        ...NO_STORE_HEADERS,
+        ...additionalHeaders,
       },
     },
   );
 }
 
-function getBearerToken(
-  request: Request,
+function getSafeString(
+  value: unknown,
+  maxLength: number,
 ): string | null {
-  const authorization =
-    request.headers.get(
-      'authorization',
-    );
-
-  if (!authorization) {
+  if (
+    typeof value !==
+      'string'
+  ) {
     return null;
   }
 
-  const match =
-    authorization.match(
-      /^Bearer\s+(.+)$/i,
-    );
-
-  const token =
-    match?.[1]?.trim();
-
-  return token || null;
-}
-
-async function getAuthenticatedUid(
-  request: Request,
-): Promise<string | null> {
-  const token =
-    getBearerToken(
-      request,
-    );
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    /**
-     * SECURITY:
-     *
-     * The UID comes from the verified
-     * Firebase ID token.
-     *
-     * Never trust a UID supplied by
-     * query string or request body.
-     */
-    const decodedToken =
-      await adminAuth.verifyIdToken(
-        token,
-        true,
+  const normalized =
+    value
+      .trim()
+      .slice(
+        0,
+        maxLength,
       );
 
-    return (
-      decodedToken.uid ||
-      null
-    );
-  } catch {
-    return null;
-  }
+  return normalized || null;
+}
+
+function getSafeBalance(
+  value: unknown,
+): number {
+  return (
+    typeof value ===
+      'number' &&
+    Number.isFinite(value)
+  )
+    ? value
+    : 0;
+}
+
+function getBalanceMap(
+  value: unknown,
+): Record<string, unknown> {
+  return (
+    typeof value ===
+      'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  )
+    ? value as
+        Record<string, unknown>
+    : {};
 }
 
 /**
  * GET /api/user
  *
- * Returns the authenticated user's
- * own profile.
+ * Returns only the authenticated
+ * customer's approved self-profile
+ * projection.
  *
- * Required header:
- *
- * Authorization:
- * Bearer <Firebase ID token>
- *
- * IMPORTANT:
- *
- * There is intentionally no ?uid=
- * parameter. Identity is derived
- * exclusively from the verified
- * Firebase ID token.
+ * Identity authority comes exclusively
+ * from a verified, non-revoked Firebase
+ * ID token.
  */
 export async function GET(
   request: Request,
-) {
-  const uid =
-    await getAuthenticatedUid(
+): Promise<NextResponse> {
+  const authentication =
+    await authenticateFirebaseUser(
       request,
     );
 
-  if (!uid) {
+  if (
+    !authentication.authenticated
+  ) {
     return jsonResponse(
       {
+        ok: false,
+        success: false,
+        code:
+          'AUTHENTICATION_REQUIRED',
         error:
           'Authentication required.',
       },
@@ -131,16 +128,31 @@ export async function GET(
     );
   }
 
+  const {
+    uid,
+    email:
+      authenticatedEmail,
+    emailVerified,
+    phoneNumber:
+      authenticatedPhone,
+  } = authentication.user;
+
   try {
     const snapshot =
       await adminDb
-        .collection('users')
+        .collection(
+          'users',
+        )
         .doc(uid)
         .get();
 
     if (!snapshot.exists) {
       return jsonResponse(
         {
+          ok: false,
+          success: false,
+          code:
+            'USER_PROFILE_NOT_FOUND',
           error:
             'User profile not found.',
         },
@@ -154,6 +166,10 @@ export async function GET(
     if (!data) {
       return jsonResponse(
         {
+          ok: false,
+          success: false,
+          code:
+            'USER_PROFILE_NOT_FOUND',
           error:
             'User profile not found.',
         },
@@ -161,69 +177,166 @@ export async function GET(
       );
     }
 
-    /**
-     * SECURITY:
+    /*
+     * If the document explicitly contains
+     * a UID, it must match the UID derived
+     * from the verified token.
+     */
+    if (
+      typeof data.uid ===
+        'string' &&
+      data.uid !== uid
+    ) {
+      return jsonResponse(
+        {
+          ok: false,
+          success: false,
+          code:
+            'USER_PROFILE_IDENTITY_MISMATCH',
+          error:
+            'User profile is unavailable.',
+        },
+        403,
+      );
+    }
+
+    const fullName =
+      getSafeString(
+        data.fullName,
+        120,
+      ) ??
+      getSafeString(
+        data.displayName,
+        120,
+      );
+
+    const storedEmail =
+      getSafeString(
+        data.email,
+        320,
+      );
+
+    const storedPhone =
+      getSafeString(
+        data.phone,
+        40,
+      ) ??
+      getSafeString(
+        data.phoneNumber,
+        40,
+      );
+
+    const photoURL =
+      getSafeString(
+        data.photoURL,
+        2_048,
+      );
+
+    const balances =
+      getBalanceMap(
+        data.balances,
+      );
+
+    const safeBalances = {
+      usd:
+        getSafeBalance(
+          balances.usd,
+        ),
+
+      tzs:
+        getSafeBalance(
+          balances.tzs,
+        ),
+
+      ntzs:
+        getSafeBalance(
+          balances.ntzs,
+        ),
+
+      pi:
+        getSafeBalance(
+          balances.pi,
+        ),
+    };
+
+    /*
+     * Preserve temporary aliases used by
+     * older pages while the application
+     * migrates to the canonical fields:
      *
-     * Return only explicitly approved
-     * self-profile fields.
-     *
-     * Do not return the entire
-     * Firestore document because it
-     * may later contain internal risk,
-     * KYC/KYS/KYB, fraud, compliance,
-     * admin or security metadata.
+     * fullName
+     * phone
      */
     const profile = {
       uid,
 
+      fullName,
+
       displayName:
-        typeof data.displayName ===
-        'string'
-          ? data.displayName
-          : null,
+        fullName,
 
       email:
-        typeof data.email ===
-        'string'
-          ? data.email
-          : null,
+        authenticatedEmail ??
+        storedEmail,
 
-      photoURL:
-        typeof data.photoURL ===
-        'string'
-          ? data.photoURL
-          : null,
+      emailVerified,
+
+      phone:
+        storedPhone,
 
       phoneNumber:
-        typeof data.phoneNumber ===
-        'string'
-          ? data.phoneNumber
+        authenticatedPhone ??
+        storedPhone,
+
+      phoneVerified:
+        typeof authenticatedPhone ===
+          'string' &&
+        authenticatedPhone
+          .trim()
+          .length > 0,
+
+      photoURL,
+
+      role:
+        'user' as const,
+
+      tier:
+        data.tier ===
+          'regular' ||
+        data.tier ===
+          'small_business' ||
+        data.tier ===
+          'corporate'
+          ? data.tier
           : null,
 
       balances:
-        typeof data.balances ===
-          'object' &&
-        data.balances !== null &&
-        !Array.isArray(
-          data.balances,
-        )
-          ? data.balances
-          : {},
+        safeBalances,
     };
 
     return jsonResponse({
+      ok: true,
       success: true,
-
       profile,
     });
-  } catch {
-    /**
-     * Do not leak Firestore/Admin SDK
-     * internal error messages to the
-     * browser.
+  } catch (error) {
+    /*
+     * Do not expose Firestore, Firebase
+     * token or infrastructure details.
      */
+    console.error(
+      'Unable to load authenticated user profile:',
+      error instanceof Error
+        ? error.name
+        : 'UNKNOWN_ERROR',
+    );
+
     return jsonResponse(
       {
+        ok: false,
+        success: false,
+        code:
+          'USER_PROFILE_UNAVAILABLE',
         error:
           'Unable to load user profile.',
       },
@@ -233,21 +346,27 @@ export async function GET(
 }
 
 /**
- * Financial balance mutation through
- * this legacy route is intentionally
- * disabled.
+ * Direct profile balance mutation through
+ * this legacy route is prohibited.
  *
- * Credits/debits must later pass
- * through the authoritative financial
- * ledger + idempotent checkout/refund/
- * transfer settlement layer.
+ * Financial writes must use the
+ * authoritative server-side ledger.
  */
-export async function POST() {
+export async function POST():
+  Promise<NextResponse> {
   return jsonResponse(
     {
+      ok: false,
+      success: false,
+      code:
+        'METHOD_NOT_ALLOWED',
       error:
         'Direct balance mutation is not allowed.',
     },
     405,
+    {
+      Allow:
+        'GET',
+    },
   );
 }

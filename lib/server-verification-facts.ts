@@ -61,6 +61,12 @@ const FINANCIAL_LEDGER_COLLECTION =
 const MAX_UID_LENGTH =
   256;
 
+const MAX_OPERATION_ID_LENGTH =
+  160;
+
+const VALID_OPERATION_ID_PATTERN =
+  /^[A-Za-z0-9._:-]+$/;
+
 type UnknownRecord =
   Record<string, unknown>;
 
@@ -393,7 +399,14 @@ async function countCompletedTransactions(
         ? data.operationId.trim()
         : '';
 
-    if (operationId) {
+    if (
+      operationId &&
+      operationId.length <=
+        MAX_OPERATION_ID_LENGTH &&
+      VALID_OPERATION_ID_PATTERN.test(
+        operationId,
+      )
+    ) {
       operationIds.add(
         operationId,
       );
@@ -415,6 +428,7 @@ async function readFirebaseAuthFacts(
 ): Promise<{
   emailVerified: boolean;
   phoneVerified: boolean;
+  accountEnabled: boolean;
 }> {
   const user =
     await adminAuth.getUser(
@@ -429,6 +443,9 @@ async function readFirebaseAuthFacts(
       : null;
 
   return {
+    accountEnabled:
+      user.disabled !== true,
+
     emailVerified:
       user.emailVerified ===
       true,
@@ -653,6 +670,7 @@ export async function getServerVerificationFacts(
       authFacts.phoneVerified,
 
     goodAccountStanding:
+      authFacts.accountEnabled &&
       readAccountStanding(
         profile.accountStatus,
       ),

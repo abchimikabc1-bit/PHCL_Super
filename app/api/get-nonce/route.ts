@@ -1,30 +1,54 @@
-import { NextResponse } from 'next/server';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import {
+  NextResponse,
+} from 'next/server';
 
-if (!getApps().length) {
-  initializeApp(); // App Hosting inasoma Service Account kiotomatiki
-}
+export const runtime =
+  'nodejs';
 
-const db = getFirestore();
+export const dynamic =
+  'force-dynamic';
 
-export async function POST(request: Request) {
-  try {
-    const { walletAddress } = await request.json();
-    if (!walletAddress) {
-      return NextResponse.json({ error: 'Anwani ya pochi inahitajika' }, { status: 400 });
+const NO_STORE_HEADERS = {
+  'Cache-Control':
+    'no-store, max-age=0',
+  Pragma:
+    'no-cache',
+};
+
+export async function POST():
+  Promise<NextResponse> {
+  /*
+   * SECURITY LOCKDOWN:
+   *
+   * Legacy Web3 authentication is
+   * intentionally disabled until the
+   * following controls are complete:
+   *
+   * - cryptographically secure nonce
+   * - domain and URI binding
+   * - chain binding
+   * - short expiration
+   * - atomic one-time consumption
+   * - wallet uniqueness
+   * - rate limiting
+   * - audit logging
+   * - server-controlled user creation
+   */
+  return NextResponse.json(
+    {
+      ok: false,
+      code:
+        'WEB3_AUTH_TEMPORARILY_DISABLED',
+      message:
+        'Web3 Wallet Login is temporarily unavailable while security verification is being completed.',
+    },
+    {
+      status: 503,
+      headers: {
+        ...NO_STORE_HEADERS,
+        'Retry-After':
+          '3600',
+      },
     }
-
-    const nonce = `Karibu PHCL Super! Thibitisha umiliki wa pochi yako kwa kusaini namba hii ya siri: ${Math.floor(100000 + Math.random() * 900000)}`;
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // Dakika 5
-
-    await db.collection('web3_nonces').doc(walletAddress.toLowerCase()).set({
-      nonce,
-      expiresAt,
-    });
-
-    return NextResponse.json({ nonce });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  );
 }

@@ -1,47 +1,57 @@
-import { NextResponse } from 'next/server';
-import { getApps, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { verifyMessage } from 'ethers';
+import {
+  NextResponse,
+} from 'next/server';
 
-if (!getApps().length) {
-  initializeApp();
-}
+export const runtime =
+  'nodejs';
 
-const db = getFirestore();
+export const dynamic =
+  'force-dynamic';
 
-export async function POST(request: Request) {
-  try {
-    const { walletAddress, signature } = await request.json();
+const NO_STORE_HEADERS = {
+  'Cache-Control':
+    'no-store, max-age=0',
+  Pragma:
+    'no-cache',
+};
 
-    if (!walletAddress || !signature) {
-      return NextResponse.json({ error: 'Data hazijakamilika' }, { status: 400 });
+export async function POST():
+  Promise<NextResponse> {
+  /*
+   * SECURITY LOCKDOWN:
+   *
+   * Legacy wallet-signature verification
+   * is intentionally disabled.
+   *
+   * It must not issue Firebase custom
+   * tokens until Web3 authentication has:
+   *
+   * - an EIP-4361-style signed message
+   * - secure server-generated nonce
+   * - domain, URI and chain binding
+   * - expiration and issued-at validation
+   * - atomic one-time nonce consumption
+   * - replay and concurrency protection
+   * - wallet uniqueness enforcement
+   * - rate limiting and audit logging
+   * - server-controlled Firebase identity
+   * - safe customer-profile association
+   */
+  return NextResponse.json(
+    {
+      ok: false,
+      code:
+        'WEB3_AUTH_TEMPORARILY_DISABLED',
+      message:
+        'Web3 Wallet Login is temporarily unavailable while security verification is being completed.',
+    },
+    {
+      status: 503,
+      headers: {
+        ...NO_STORE_HEADERS,
+        'Retry-After':
+          '3600',
+      },
     }
-
-    const docRef = db.collection('web3_nonces').doc(walletAddress.toLowerCase());
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      return NextResponse.json({ error: 'Nonce haipatikani. Omba mpya.' }, { status: 400 });
-    }
-
-    const { nonce, expiresAt } = doc.data()!;
-    
-    if (new Date() > expiresAt.toDate()) {
-      return NextResponse.json({ error: 'Muda wa saini umeisha. Jaribu tena.' }, { status: 400 });
-    }
-
-    const recoveredAddress = verifyMessage(nonce, signature);
-
-    if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-      return NextResponse.json({ error: 'Uthibitishaji umefeli!' }, { status: 401 });
-    }
-
-    await docRef.delete(); // Futa ili isitumiwe tena
-
-    const customToken = await getAuth().createCustomToken(walletAddress.toLowerCase());
-    return NextResponse.json({ customToken });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  );
 }

@@ -4,10 +4,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /*
-     * ============================================================
-     * PHCL SUPER — FIRESTORE SECURITY RULES
+     * * ============================================================
+     * PH * PHCL SUPER — FIRESTORE SECURITY RULES
      * Web2 + Web3 / Global Security Baseline
      * ============================================================
+     *
+     * Firebase * Firebase Admin SDK is is the authority for privileged writes.
+     * Every client path not explicitly allowed below is denied.
      */
 
     function isSignedIn() {
@@ -19,25 +22,34 @@ service cloud.firestore {
         && request.auth.uid == userId;
     }
 
-    /*
-     * Customer account tiers that may exist
-     * in the public customer profile.
-     *
-     * Tier selection does NOT mean
-     * KYC/KYS/KYB approval.
-     */
+    function hasAuthenticatedEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.size() > 0
+        && request.auth.token.email.size() <= 320;
+    }
+
     function isValidCustomerTier(tier) {
       return tier == 'regular'
         || tier == 'small_business'
         || tier == 'corporate';
     }
 
-    /*
-     * Validate zero-value initial wallet.
-     *
-     * Public registration must never
-     * mint, credit or assign funds.
-     */
+    function hasOnlySafeInitialProfileFields(data) {
+      return data.keys().hasOnly([
+        'uid',
+        'email',
+        'fullName',
+        'phone',
+        'role',
+        'tier',
+        'kycStatus',
+        'balances',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
     function hasZeroInitialBalances(data) {
       return data.balances is map
         && data.balances.keys().hasOnly([
@@ -52,82 +64,60 @@ service cloud.firestore {
         && data.balances.pi == 0;
     }
 
+    function hasValidBasicProfile(data) {
+      return data.fullName is string
+        && data.fullName.size() > 0
+        && data.fullName.size() <= 120
+
+        && data.phone is string
+        && data.phone.size() <= 40;
+    }
+
     /*
-     * Validate the initial customer profile.
+     * A customer may create only their own least-privileged profile.
      *
-     * Client may CREATE its own profile,
-     * but privileged state must begin
-     * in a safe state.
+     * The token email is Firebase Authentication authority. It need
+     * not yet be verified when the initial profile is created, but a
+     * caller cannot place another person's email in the document.
      */
     function isSafeCustomerCreate(userId) {
       return isOwner(userId)
+        && hasAuthenticatedEmail()
+        && hasOnlySafeInitialProfileFields(
+          request.resource.data
+        )
 
         && request.resource.data.uid == userId
-
+        && request.resource.data.email
+          == request.auth.token.email
         && request.resource.data.role == 'user'
 
-        && request.resource.data.fullName is string
-        && request.resource.data.fullName.size() > 0
-        && request.resource.data.fullName.size() <= 120
-
-        && request.resource.data.email is string
-        && request.resource.data.email.size() > 0
-        && request.resource.data.email.size() <= 320
-
-        && request.resource.data.phone is string
-        && request.resource.data.phone.size() <= 40
+        && hasValidBasicProfile(
+          request.resource.data
+        )
 
         && isValidCustomerTier(
           request.resource.data.tier
         )
 
-        /*
-         * Public/browser registration
-         * can NEVER approve KYC.
-         */
         && request.resource.data.kycStatus
           == 'NOT_STARTED'
 
-        /*
-         * Public registration begins with
-         * an empty wallet.
-         */
         && hasZeroInitialBalances(
           request.resource.data
         )
 
-        /*
-         * serverTimestamp() resolves to
-         * request.time during rule evaluation.
-         */
         && request.resource.data.createdAt
           == request.time
-
         && request.resource.data.updatedAt
           == request.time;
     }
 
     /*
-     * Customer may only modify basic
-     * non-privileged profile information.
+     * Customer-editable profile fields only.
      *
-     * IMPORTANT:
-     *
-     * Client cannot modify:
-     * - uid
-     * - email
-     * - role
-     * - tier
-     * - balances
-     * - KYC
-     * - KYS
-     * - KYB
-     * - accountStatus
-     * - verificationStatus
-     * - MFA authority
-     * - biometric authority
-     * - consent authority
-     * - createdAt
+     * All identity, role, tier, verification, account-standing,
+     * compliance and financial fields remain immutable to clients.
      */
     function isSafeCustomerUpdate() {
       return request.resource.data
@@ -139,12 +129,9 @@ service cloud.firestore {
           'updatedAt'
         ])
 
-        && request.resource.data.fullName is string
-        && request.resource.data.fullName.size() > 0
-        && request.resource.data.fullName.size() <= 120
-
-        && request.resource.data.phone is string
-        && request.resource.data.phone.size() <= 40
+        && hasValidBasicProfile(
+          request.resource.data
+        )
 
         && request.resource.data.updatedAt
           == request.time;
@@ -157,32 +144,18 @@ service cloud.firestore {
      */
 
     match /users/{userId} {
-
-      /*
-       * Customer may read only their own
-       * customer document.
-       */
       allow read:
         if isOwner(userId);
 
-      /*
-       * Public account creation is allowed
-       * only with safe initial values.
-       */
       allow create:
         if isSafeCustomerCreate(userId);
 
-      /*
-       * Customer may update only basic
-       * profile fields.
-       */
       allow update:
         if isOwner(userId)
         && isSafeCustomerUpdate();
 
       /*
-       * Account deletion must go through
-       * controlled server-side workflow.
+       * Account deletion must use a controlled server workflow.
        */
       allow delete:
         if false;
@@ -190,32 +163,24 @@ service cloud.firestore {
 
     /*
      * ============================================================
-     * FINANCIAL TRANSACTION LEDGER
+     * LEGACY CUSTOMER TRANSACTION HISTORY
      * ============================================================
      *
-     * Financial records are SERVER AUTHORITY.
+     * This collection remains read-only to its owner for current
+     * compatibility. Clients can never create or mutate records.
      *
-     * Firebase Admin SDK bypasses Firestore
-     * Security Rules and will later create
-     * these records through the PHCL secure
-     * ledger service.
+     * The authoritative financial_accounts, financial_ledger and
+     * financial_operations collections are intentionally not exposed;
+     * they remain protected by the default-deny rule below.
      */
 
     match /transactions/{transactionId} {
-
-      /*
-       * Customer may read only their own
-       * existing financial history.
-       */
       allow read:
         if isSignedIn()
+        && resource.data.userId is string
         && resource.data.userId
           == request.auth.uid;
 
-      /*
-       * Browser/client must NEVER create,
-       * modify or delete ledger entries.
-       */
       allow create, update, delete:
         if false;
     }
@@ -224,10 +189,6 @@ service cloud.firestore {
      * ============================================================
      * DEFAULT DENY
      * ============================================================
-     *
-     * Any Firestore collection that is not
-     * explicitly authorized above remains
-     * inaccessible to normal client SDKs.
      */
 
     match /{document=**} {
