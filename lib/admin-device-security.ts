@@ -1,10 +1,11 @@
 import 'server-only';
 
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 
 import {
   FieldValue,
   Timestamp,
+  type DocumentReference,
 } from 'firebase-admin/firestore';
 
 import {
@@ -108,6 +109,7 @@ type StoredChallenge = {
   purpose:
     | 'register-device'
     | 'recovery-register-device';
+  state: 'pending' | 'reserved';
 };
 
 export type TrustedAdminDevice = {
@@ -131,6 +133,104 @@ function credentialPublicKeyToBase64(
   return Buffer.from(publicKey).toString(
     'base64url'
   );
+}
+
+function getCredentialDocumentId(
+  credentialID: string
+): string {
+  return createHmac(
+    'sha256',
+    getSessionSecret()
+  )
+    .update(
+      `phcl-admin-webauthn-credential:${credentialID}`
+    )
+    .digest('hex');
+}
+
+async function reserveRegistrationChallenge(
+  email: string,
+  expectedPurpose: StoredChallenge['purpose']
+): Promise<{
+  challenge: StoredChallenge;
+  challengeRef: DocumentReference;
+}> {
+  const normalizedEmail =
+    email.trim().toLowerCase();
+
+  const challengeRef = adminDb
+    .collection(CHALLENGES_COLLECTION)
+    .doc(
+      getChallengeDocumentId(
+        normalizedEmail
+      )
+    );
+
+  const expectedPrincipalId =
+    createAdminPrincipalId(
+      normalizedEmail
+    );
+
+  const challenge =
+    await adminDb.runTransaction(
+      async (transaction) => {
+        const snapshot =
+          await transaction.get(
+            challengeRef
+          );
+
+        if (!snapshot.exists) {
+          throw new Error(
+            'REGISTRATION_CHALLENGE_NOT_FOUND'
+          );
+        }
+
+        const data =
+          snapshot.data() as
+            | Partial<StoredChallenge>
+            | undefined;
+
+        if (
+          !data ||
+          data.purpose !==
+            expectedPurpose ||
+          data.state !== 'pending' ||
+          typeof data.challenge !==
+            'string' ||
+          !data.challenge ||
+          data.adminPrincipalId !==
+            expectedPrincipalId ||
+          typeof data.createdAtMs !==
+            'number' ||
+          typeof data.expiresAtMs !==
+            'number' ||
+          data.expiresAtMs <=
+            Date.now()
+        ) {
+          throw new Error(
+            'REGISTRATION_CHALLENGE_INVALID'
+          );
+        }
+
+        transaction.update(
+          challengeRef,
+          {
+            state: 'reserved',
+            reservedAtMs:
+              Date.now(),
+            reservedAt:
+              FieldValue.serverTimestamp(),
+          }
+        );
+
+        return data as StoredChallenge;
+      }
+    );
+
+  return {
+    challenge,
+    challengeRef,
+  };
 }
 
 export function credentialPublicKeyFromBase64(
@@ -268,6 +368,7 @@ export async function createAdminDeviceRegistrationOptions(
     expiresAtMs:
       now + CHALLENGE_TTL_MS,
     purpose: 'register-device',
+    state: 'pending',
   };
 
   const challengeId =
@@ -314,44 +415,13 @@ export async function verifyAdminDeviceRegistration(
     );
   }
 
-  const challengeId =
-    getChallengeDocumentId(
-      normalizedEmail
-    );
-
-  const challengeRef = adminDb
-    .collection(CHALLENGES_COLLECTION)
-    .doc(challengeId);
-
-  const challengeSnapshot =
-    await challengeRef.get();
-
-  if (!challengeSnapshot.exists) {
-    throw new Error(
-      'REGISTRATION_CHALLENGE_NOT_FOUND'
-    );
-  }
-
-  const stored =
-    challengeSnapshot.data() as StoredChallenge;
-
-  /*
-   * Delete before verification so this challenge
-   * cannot be replayed, even if verification fails.
-   */
-  await challengeRef.delete();
-
-  if (
-    stored.purpose !==
-      'register-device' ||
-    !stored.challenge ||
-    !stored.adminPrincipalId ||
-    stored.expiresAtMs <= Date.now()
-  ) {
-    throw new Error(
-      'REGISTRATION_CHALLENGE_EXPIRED'
-    );
-  }
+  const {
+    challenge: stored,
+    challengeRef,
+  } = await reserveRegistrationChallenge(
+    normalizedEmail,
+    'register-device'
+  );
 
   const expectedPrincipalId =
     createAdminPrincipalId(
@@ -395,17 +465,23 @@ export async function verifyAdminDeviceRegistration(
     credentialBackedUp,
   } = verification.registrationInfo;
 
-  const deviceId = randomUUID();
+  const deviceId =
+    getCredentialDocumentId(
+      credential.id
+    );
   const now = Date.now();
 
   /*
    * WebAuthn private keys never reach PHCL.
    * Only the public credential is stored here.
    */
-  await adminDb
+  const deviceRef = adminDb
     .collection(TRUSTED_DEVICES_COLLECTION)
-    .doc(deviceId)
-    .create({
+    .doc(deviceId);
+
+  const batch = adminDb.batch();
+
+  batch.create(deviceRef, {
       adminPrincipalId:
         expectedPrincipalId,
       credentialID:
@@ -434,7 +510,11 @@ export async function verifyAdminDeviceRegistration(
         FieldValue.serverTimestamp(),
       updatedAt:
         FieldValue.serverTimestamp(),
-    });
+  });
+
+  batch.delete(challengeRef);
+
+  await batch.commit();
 
   return {
     verified: true,
@@ -518,6 +598,8 @@ export async function createRecoveryDeviceRegistrationOptions(
       adminPrincipalId,
       purpose:
         'recovery-register-device',
+      state:
+        'pending',
       createdAtMs:
         now,
       expiresAtMs:
@@ -543,51 +625,13 @@ export async function verifyRecoveryDeviceRegistration(
   const normalizedEmail =
     email.trim().toLowerCase();
 
-  const challengeId =
-    getChallengeDocumentId(
-      normalizedEmail
-    );
-
-  const challengeRef =
-    adminDb
-      .collection(
-        CHALLENGES_COLLECTION
-      )
-      .doc(challengeId);
-
-  const snapshot =
-    await challengeRef.get();
-
-  if (!snapshot.exists) {
-    throw new Error(
-      'RECOVERY_CHALLENGE_NOT_FOUND'
-    );
-  }
-
-  const data =
-    snapshot.data();
-
-  /*
-   * Consume the challenge before
-   * verification to prevent replay.
-   */
-  await challengeRef.delete();
-
-  if (
-    !data ||
-    data.purpose !==
-      'recovery-register-device' ||
-    typeof data.challenge !==
-      'string' ||
-    typeof data.expiresAtMs !==
-      'number' ||
-    data.expiresAtMs <=
-      Date.now()
-  ) {
-    throw new Error(
-      'RECOVERY_CHALLENGE_EXPIRED'
-    );
-  }
+  const {
+    challenge: data,
+    challengeRef,
+  } = await reserveRegistrationChallenge(
+    normalizedEmail,
+    'recovery-register-device'
+  );
 
   const adminPrincipalId =
     createAdminPrincipalId(
@@ -660,14 +704,19 @@ export async function verifyRecoveryDeviceRegistration(
 
   const now = Date.now();
 
-  const deviceRef =
-    adminDb
-      .collection(
-        TRUSTED_DEVICES_COLLECTION
+  const deviceRef = adminDb
+    .collection(
+      TRUSTED_DEVICES_COLLECTION
+    )
+    .doc(
+      getCredentialDocumentId(
+        credential.id
       )
-      .doc();
+    );
 
-  await deviceRef.create({
+  const batch = adminDb.batch();
+
+  batch.create(deviceRef, {
     adminPrincipalId,
     credentialID:
       credential.id,
@@ -703,6 +752,10 @@ export async function verifyRecoveryDeviceRegistration(
     updatedAt:
       FieldValue.serverTimestamp(),
   });
+
+  batch.delete(challengeRef);
+
+  await batch.commit();
 
   return {
     verified: true,

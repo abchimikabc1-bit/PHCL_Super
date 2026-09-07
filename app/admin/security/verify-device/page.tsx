@@ -5,31 +5,128 @@ import {
 } from 'react';
 
 import {
-  useRouter,
-} from 'next/navigation';
-
-import {
   startAuthentication,
 } from '@simplewebauthn/browser';
 
-type OptionsResponse = {
-  ok: boolean;
-  options?: Parameters<
+type AuthenticationOptions =
+  Parameters<
     typeof startAuthentication
   >[0]['optionsJSON'];
+
+type OptionsResponse = {
+  ok?: boolean;
+  code?: string;
+  options?: AuthenticationOptions;
   message?: string;
 };
 
 type VerifyResponse = {
-  ok: boolean;
+  ok?: boolean;
+  code?: string;
   verified?: boolean;
   message?: string;
 };
 
-export default function VerifyTrustedDevicePage() {
-  const router =
-    useRouter();
+const GENERIC_ERROR_MESSAGE =
+  'Uthibitishaji wa kifaa umeshindikana. Tafadhali jaribu tena.';
 
+function isRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null
+  );
+}
+
+async function readJsonResponse<T>(
+  response: Response
+): Promise<T | null> {
+  const contentType =
+    response.headers.get(
+      'content-type'
+    ) || '';
+
+  if (
+    !contentType
+      .toLowerCase()
+      .includes(
+        'application/json'
+      )
+  ) {
+    return null;
+  }
+
+  try {
+    const value: unknown =
+      await response.json();
+
+    return isRecord(value)
+      ? (value as T)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getWebAuthnErrorMessage(
+  error: unknown
+): string {
+  if (
+    error instanceof DOMException
+  ) {
+    if (
+      error.name ===
+      'NotAllowedError'
+    ) {
+      return (
+        'Windows Hello haikukamilishwa, ' +
+        'ilikataliwa au muda uliisha. ' +
+        'Jaribu tena na ukamilishe ombi linapoonekana.'
+      );
+    }
+
+    if (
+      error.name ===
+      'InvalidStateError'
+    ) {
+      return (
+        'Kifaa hiki hakipo katika hali sahihi ya uthibitishaji. ' +
+        'Huenda kikahitaji kusajiliwa upya.'
+      );
+    }
+
+    if (
+      error.name ===
+      'SecurityError'
+    ) {
+      return (
+        'Browser imezuia uthibitishaji wa kifaa kwa sababu ya ' +
+        'domain au usanidi wa usalama.'
+      );
+    }
+
+    if (
+      error.name ===
+      'AbortError'
+    ) {
+      return (
+        'Uthibitishaji wa kifaa umesitishwa. Tafadhali jaribu tena.'
+      );
+    }
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return GENERIC_ERROR_MESSAGE;
+}
+
+export default function VerifyTrustedDevicePage() {
   const [
     isVerifying,
     setIsVerifying,
@@ -45,12 +142,14 @@ export default function VerifyTrustedDevicePage() {
     setVerified,
   ] = useState(false);
 
-  async function verifyDevice() {
+  async function verifyDevice():
+    Promise<void> {
     if (isVerifying) {
       return;
     }
 
     setIsVerifying(true);
+    setVerified(false);
     setMessage('');
 
     try {
@@ -61,20 +160,46 @@ export default function VerifyTrustedDevicePage() {
             method: 'POST',
             credentials: 'include',
             cache: 'no-store',
+            headers: {
+              Accept:
+                'application/json',
+            },
           }
         );
 
       const optionsData =
-        (await optionsResponse.json()) as OptionsResponse;
+        await readJsonResponse<
+          OptionsResponse
+        >(
+          optionsResponse
+        );
 
       if (
         !optionsResponse.ok ||
-        !optionsData.ok ||
+        optionsData?.ok !== true ||
         !optionsData.options
       ) {
+        if (
+          optionsResponse.status ===
+          401
+        ) {
+          throw new Error(
+            'Admin session haijathibitishwa. Ingia upya kwanza.'
+          );
+        }
+
+        if (
+          optionsResponse.status ===
+          429
+        ) {
+          throw new Error(
+            'Majaribio yamezidi. Subiri kidogo kabla ya kujaribu tena.'
+          );
+        }
+
         throw new Error(
-          optionsData.message ||
-            'Unable to start device verification.'
+          optionsData?.message ||
+            'Imeshindikana kuanzisha uthibitishaji wa kifaa.'
         );
       }
 
@@ -92,6 +217,8 @@ export default function VerifyTrustedDevicePage() {
             credentials: 'include',
             cache: 'no-store',
             headers: {
+              Accept:
+                'application/json',
               'Content-Type':
                 'application/json',
             },
@@ -103,43 +230,63 @@ export default function VerifyTrustedDevicePage() {
         );
 
       const verifyData =
-        (await verifyResponse.json()) as VerifyResponse;
+        await readJsonResponse<
+          VerifyResponse
+        >(
+          verifyResponse
+        );
 
       if (
         !verifyResponse.ok ||
-        !verifyData.ok ||
-        !verifyData.verified
+        verifyData?.ok !== true ||
+        verifyData.verified !== true
       ) {
+        if (
+          verifyResponse.status ===
+          401
+        ) {
+          throw new Error(
+            'Admin session imekwisha au haijathibitishwa. Ingia upya.'
+          );
+        }
+
+        if (
+          verifyResponse.status ===
+          429
+        ) {
+          throw new Error(
+            'Majaribio yamezidi. Subiri kidogo kabla ya kujaribu tena.'
+          );
+        }
+
         throw new Error(
-          verifyData.message ||
-            'Trusted-device verification failed.'
+          verifyData?.message ||
+            'Kifaa hakikuweza kuthibitishwa.'
         );
       }
 
       setVerified(true);
 
       setMessage(
-        'Trusted Admin Device verified successfully. Opening dashboard...'
+        'Kifaa salama cha Admin kimethibitishwa. Dashboard inafunguliwa...'
       );
 
       /*
-       * The verify API has now set the trusted-device
-       * HttpOnly cookie.
-       *
-       * Refresh the server-component state first, then
-       * navigate into the protected Admin route group.
+       * Use a full navigation so the
+       * protected server layout receives
+       * the newly issued HttpOnly trusted
+       * device cookie immediately.
        */
-      router.refresh();
-      router.replace(
+      window.location.replace(
         '/admin/dashboard'
       );
     } catch (error) {
       setVerified(false);
 
       setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Trusted-device verification failed.'
+        getWebAuthnErrorMessage(
+          error
+        )
       );
     } finally {
       setIsVerifying(false);
@@ -154,19 +301,29 @@ export default function VerifyTrustedDevicePage() {
         </p>
 
         <h1 className="mt-3 text-3xl font-bold text-white">
-          Verify Trusted Device
+          Thibitisha Kifaa Salama
         </h1>
 
         <p className="mt-4 leading-7 text-slate-300">
-          Confirm that this is the registered
-          PHCL Super Admin device using
-          Windows Hello / WebAuthn.
+          Thibitisha kuwa hiki ndicho kifaa
+          kilichosajiliwa kwa Admin wa PHCL
+          Super kwa kutumia Windows Hello
+          au WebAuthn.
         </p>
 
         {message && (
           <div
-            className="mt-6 rounded-xl border border-white/15 bg-slate-950 p-4 text-sm text-white"
-            role="status"
+            className={
+              verified
+                ? 'mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200'
+                : 'mt-6 rounded-xl border border-amber-500/30 bg-slate-950 p-4 text-sm text-white'
+            }
+            role={
+              verified
+                ? 'status'
+                : 'alert'
+            }
+            aria-live="polite"
           >
             {message}
           </div>
@@ -175,21 +332,21 @@ export default function VerifyTrustedDevicePage() {
         {!verified ? (
           <button
             type="button"
-            onClick={
-              verifyDevice
-            }
-            disabled={
-              isVerifying
-            }
-            className="mt-6 rounded-xl bg-amber-400 px-6 py-3 font-bold text-slate-950 disabled:opacity-60"
+            onClick={() => {
+              void verifyDevice();
+            }}
+            disabled={isVerifying}
+            aria-busy={isVerifying}
+            className="mt-6 rounded-xl bg-amber-400 px-6 py-3 font-bold text-slate-950 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isVerifying
-              ? 'Verifying...'
-              : 'Verify This Trusted Device'}
+              ? 'Inathibitisha...'
+              : 'Thibitisha Kifaa Hiki'}
           </button>
         ) : (
           <p className="mt-6 font-semibold text-emerald-300">
-            ✓ Trusted Admin Device verified. Opening dashboard...
+            ✓ Kifaa cha Admin
+            kimethibitishwa.
           </p>
         )}
       </section>

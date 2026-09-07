@@ -6,7 +6,13 @@ import {
 
 import {
   writeAdminAuthAudit,
+  type AdminAuthAuditEvent,
+  type AdminAuthAuditReason,
 } from '@/lib/admin-auth-audit';
+
+import {
+  adminAuth,
+} from '@/lib/firebase-admin';
 
 import {
   revokeTrustedDeviceSession,
@@ -20,9 +26,17 @@ import {
 } from '@/lib/admin-login-security';
 
 import {
+  ADMIN_PHONE_ENROLLMENT_COOKIE,
+  ADMIN_PHONE_ENROLLMENT_MAX_AGE_SECONDS,
+  createAdminPhoneEnrollmentSession,
+  revokeAdminPhoneEnrollmentSession,
+} from '@/lib/admin-phone-enrollment-security';
+
+import {
   ADMIN_SESSION_COOKIE,
   ADMIN_SESSION_IDLE_TIMEOUT_SECONDS,
   ADMIN_SESSION_MAX_AGE_SECONDS,
+  ADMIN_SESSION_SECURITY_VERSION,
   decodeAdminSessionToken,
   encodeAdminSessionToken,
   isAdminSessionActive,
@@ -175,19 +189,17 @@ function getClientIp(
 }
 
 async function safeWriteAudit(
-  event:
-    | 'LOGIN_SUCCESS'
-    | 'LOGIN_FAILED'
-    | 'LOGIN_RATE_LIMITED'
-    | 'LOGOUT',
+  event: AdminAuthAuditEvent,
   email: string,
-  ipAddress: string
+  ipAddress: string,
+  reason?: AdminAuthAuditReason
 ): Promise<void> {
   try {
     await writeAdminAuthAudit({
       event,
       email,
       ipAddress,
+      reason,
     });
   } catch (error) {
     /*
@@ -667,6 +679,94 @@ export async function POST(
       );
     }
 
+    const firebaseUser =
+      await adminAuth.getUserByEmail(
+        credentials.email
+      );
+
+    const firebaseEmail =
+      firebaseUser.email
+        ?.trim()
+        .toLowerCase() || '';
+
+    if (
+      firebaseEmail !==
+      credentials.email
+    ) {
+      await safeWriteAudit(
+        'LOGIN_FAILED',
+        credentials.email,
+        clientIp,
+        'ADMIN_FIREBASE_ACCOUNT_MISMATCH'
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          authenticated: false,
+          code:
+            'ADMIN_ACCOUNT_VERIFICATION_FAILED',
+          message:
+            'Admin account verification failed.',
+        },
+        {
+          status: 403,
+          headers:
+            NO_STORE_HEADERS,
+        }
+      );
+    }
+
+    if (firebaseUser.disabled) {
+      await safeWriteAudit(
+        'LOGIN_FAILED',
+        credentials.email,
+        clientIp,
+        'ADMIN_ACCOUNT_DISABLED'
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          authenticated: false,
+          code:
+            'ADMIN_ACCOUNT_DISABLED',
+          message:
+            'Admin account is unavailable.',
+        },
+        {
+          status: 403,
+          headers:
+            NO_STORE_HEADERS,
+        }
+      );
+    }
+
+    if (!firebaseUser.emailVerified) {
+      await safeWriteAudit(
+        'LOGIN_FAILED',
+        credentials.email,
+        clientIp,
+        'ADMIN_EMAIL_NOT_VERIFIED'
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          authenticated: false,
+          code:
+            'ADMIN_EMAIL_NOT_VERIFIED',
+          message:
+            'Admin email verification is required.',
+        },
+        {
+          status: 403,
+          headers:
+            NO_STORE_HEADERS,
+        }
+      );
+    }
+
     await Promise.all([
       clearAdminLoginFailures(
         loginFingerprint
@@ -681,42 +781,157 @@ export async function POST(
       ),
     ]);
 
+    const linkedPhoneNumber =
+      firebaseUser.phoneNumber
+        ?.trim() || '';
+
+    if (!linkedPhoneNumber) {
+      const hasPasswordProvider =
+        firebaseUser.providerData.some(
+          (provider) =>
+            provider.providerId ===
+            'password'
+        );
+
+      if (!hasPasswordProvider) {
+        await safeWriteAudit(
+          'LOGIN_FAILED',
+          credentials.email,
+          clientIp,
+          'ADMIN_FIREBASE_ACCOUNT_MISMATCH'
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+            authenticated: false,
+            code:
+              'ADMIN_FIREBASE_PASSWORD_REQUIRED',
+            message:
+              'Admin phone enrollment is unavailable.',
+          },
+          {
+            status: 409,
+            headers:
+              NO_STORE_HEADERS,
+          }
+        );
+      }
+
+      const phoneEnrollment =
+        await createAdminPhoneEnrollmentSession(
+          credentials.email,
+          firebaseUser.uid
+        );
+
+      const response =
+        NextResponse.json(
+          {
+            ok: true,
+            authenticated: false,
+            nextStep:
+              'PHONE_ENROLLMENT',
+            code:
+              'ADMIN_PHONE_ENROLLMENT_REQUIRED',
+            message:
+              'Phone verification is required.',
+            expiresAtMs:
+              phoneEnrollment.expiresAtMs,
+          },
+          {
+            headers:
+              NO_STORE_HEADERS,
+          }
+        );
+
+      clearSessionCookie(
+        response
+      );
+
+      clearTrustedDeviceCookie(
+        response
+      );
+
+      setPhoneEnrollmentCookie(
+        response,
+        phoneEnrollment.sessionId,
+        ADMIN_PHONE_ENROLLMENT_MAX_AGE_SECONDS
+      );
+
+      await safeWriteAudit(
+        'PHONE_ENROLLMENT_REQUIRED',
+        credentials.email,
+        clientIp,
+        'ADMIN_PHONE_NOT_LINKED'
+      );
+
+      await safeWriteAudit(
+        'PHONE_ENROLLMENT_STARTED',
+        credentials.email,
+        clientIp,
+        'PHONE_ENROLLMENT_SESSION_CREATED'
+      );
+
+      return response;
+    }
+
+    const stalePhoneEnrollmentId =
+      request.cookies.get(
+        ADMIN_PHONE_ENROLLMENT_COOKIE
+      )?.value;
+
+    await safeRevokePhoneEnrollmentSession(
+      stalePhoneEnrollmentId
+    );
+
     const now =
       Date.now();
 
     const payload:
       AdminSessionPayload = {
-        email:
-          credentials.email,
+      securityVersion:
+        ADMIN_SESSION_SECURITY_VERSION,
 
-        role:
-          'admin',
+      firebaseUid:
+        firebaseUser.uid,
 
-        iat:
-          new Date(
-            now
-          ).toISOString(),
+      email:
+        credentials.email,
 
-        exp:
-          new Date(
+      emailVerified:
+        true,
+
+      phoneVerified:
+        true,
+
+      role:
+        'admin',
+
+      iat:
+        new Date(
+          now
+        ).toISOString(),
+
+      exp:
+        new Date(
+          now +
+            MAX_AGE_SECONDS *
+              1000
+        ).toISOString(),
+
+      idleExp:
+        new Date(
+          Math.min(
             now +
               MAX_AGE_SECONDS *
+                1000,
+
+            now +
+              IDLE_TIMEOUT_SECONDS *
                 1000
-          ).toISOString(),
-
-        idleExp:
-          new Date(
-            Math.min(
-              now +
-                MAX_AGE_SECONDS *
-                  1000,
-
-              now +
-                IDLE_TIMEOUT_SECONDS *
-                  1000
-            )
-          ).toISOString(),
-      };
+          )
+        ).toISOString(),
+    };
 
     const response =
       NextResponse.json(
@@ -725,6 +940,9 @@ export async function POST(
 
           authenticated:
             true,
+
+          nextStep:
+            'ADMIN_SESSION',
 
           message:
             'Login successful.',
@@ -761,6 +979,10 @@ export async function POST(
       encodeAdminSessionToken(
         payload
       )
+    );
+
+    clearPhoneEnrollmentCookie(
+      response
     );
 
     await safeWriteAudit(
@@ -813,6 +1035,11 @@ export async function DELETE(
       TRUSTED_DEVICE_COOKIE
     )?.value;
 
+  const phoneEnrollmentId =
+    request.cookies.get(
+      ADMIN_PHONE_ENROLLMENT_COOKIE
+    )?.value;
+
   const session =
     token
       ? decodeAdminSessionToken(
@@ -844,6 +1071,10 @@ export async function DELETE(
     );
   }
 
+  await safeRevokePhoneEnrollmentSession(
+    phoneEnrollmentId
+  );
+
   const response =
     NextResponse.json(
       {
@@ -869,5 +1100,66 @@ export async function DELETE(
     response
   );
 
+  clearPhoneEnrollmentCookie(
+    response
+  );
+
   return response;
+}
+
+function setPhoneEnrollmentCookie(
+  response: NextResponse,
+  sessionId: string,
+  maxAge: number
+): void {
+  response.cookies.set(
+    ADMIN_PHONE_ENROLLMENT_COOKIE,
+    sessionId,
+    {
+      path: '/',
+      maxAge,
+      httpOnly: true,
+      sameSite: 'strict',
+      secure:
+        process.env.NODE_ENV ===
+        'production',
+    }
+  );
+}
+
+function clearPhoneEnrollmentCookie(
+  response: NextResponse
+): void {
+  response.cookies.set(
+    ADMIN_PHONE_ENROLLMENT_COOKIE,
+    '',
+    {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'strict',
+      secure:
+        process.env.NODE_ENV ===
+        'production',
+    }
+  );
+}
+
+async function safeRevokePhoneEnrollmentSession(
+  sessionId: string | undefined
+): Promise<void> {
+  if (!sessionId) {
+    return;
+  }
+
+  try {
+    await revokeAdminPhoneEnrollmentSession(
+      sessionId
+    );
+  } catch (error) {
+    console.error(
+      'Unable to revoke Admin phone-enrollment session:',
+      error
+    );
+  }
 }

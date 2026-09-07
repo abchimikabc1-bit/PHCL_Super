@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import {
+  NextRequest,
+  NextResponse,
+} from 'next/server';
 
 import {
   ADMIN_SESSION_COOKIE,
@@ -12,45 +15,84 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control':
+    'no-store, max-age=0',
+  Pragma:
+    'no-cache',
+  Vary:
+    'Cookie',
+};
+
 function noStoreJson(
   body: Record<string, unknown>,
   status = 200
-) {
+): NextResponse {
   return NextResponse.json(
     body,
     {
       status,
-      headers: {
-        'Cache-Control': 'no-store',
-      },
+      headers:
+        NO_STORE_HEADERS,
     }
   );
 }
 
 export async function POST(
   request: NextRequest
-) {
+): Promise<NextResponse> {
+  const sessionToken =
+    request.cookies.get(
+      ADMIN_SESSION_COOKIE
+    )?.value;
+
+  let session;
+
   try {
-    const token =
-      request.cookies.get(
-        ADMIN_SESSION_COOKIE
-      )?.value;
-
-    const session =
-      verifyAdminSessionToken(token);
-
-    if (!session) {
-      return noStoreJson(
-        {
-          ok: false,
-          code: 'UNAUTHENTICATED',
-          message:
-            'Admin authentication is required.',
-        },
-        401
+    session =
+      verifyAdminSessionToken(
+        sessionToken
       );
-    }
+  } catch (error) {
+    console.error(
+      'Admin session verification failed during device registration:',
+      error
+    );
 
+    return noStoreJson(
+      {
+        ok: false,
+        code:
+          'DEVICE_REGISTRATION_UNAVAILABLE',
+        message:
+          'Unable to start trusted-device registration.',
+      },
+      500
+    );
+  }
+
+  if (!session) {
+    return noStoreJson(
+      {
+        ok: false,
+        code:
+          'UNAUTHENTICATED',
+        message:
+          'Admin authentication is required.',
+      },
+      401
+    );
+  }
+
+  try {
+    /*
+     * A valid Version 2 Admin session
+     * already guarantees:
+     *
+     * - Firebase UID is present
+     * - Admin email is verified
+     * - Admin phone is verified
+     */
     const options =
       await createAdminDeviceRegistrationOptions(
         session.email
@@ -61,10 +103,14 @@ export async function POST(
       options,
     });
   } catch (error) {
+    const knownError =
+      error instanceof Error
+        ? error.message
+        : '';
+
     if (
-      error instanceof Error &&
-      error.message ===
-        'TRUSTED_DEVICE_ALREADY_EXISTS'
+      knownError ===
+      'TRUSTED_DEVICE_ALREADY_EXISTS'
     ) {
       return noStoreJson(
         {
@@ -86,7 +132,8 @@ export async function POST(
     return noStoreJson(
       {
         ok: false,
-        code: 'SERVER_ERROR',
+        code:
+          'DEVICE_REGISTRATION_UNAVAILABLE',
         message:
           'Unable to start trusted-device registration.',
       },

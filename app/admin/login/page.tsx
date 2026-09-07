@@ -5,13 +5,133 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 
-import { useAdmin } from '@/lib/admin-context';
+import {
+  useRouter,
+} from 'next/navigation';
+
+import {
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+
+import {
+  toast,
+} from 'sonner';
+
+import {
+  useAdmin,
+} from '@/lib/admin-context';
+
+import {
+  getAdminFirebaseAuth,
+} from '@/lib/admin-firebase-client';
+
+function getFirebaseErrorCode(
+   error: unknown
+): string {
+  if (
+    typeof error !==
+      'object' ||
+    error === null
+  ) {
+    return '';
+  }
+
+  const record =
+    error as Record<
+      string,
+      unknown
+    >;
+
+  return typeof record.code ===
+    'string'
+    ? record.code
+    : '';
+}
+
+async function clearAdminFirebaseSession():
+  Promise<void> {
+  const auth =
+    getAdminFirebaseAuth();
+
+  if (!auth?.currentUser) {
+    return;
+  }
+
+  try {
+    await signOut(auth);
+  } catch {
+    /*
+     * Local Firebase cleanup must not
+     * replace the primary login result.
+     */
+  }
+}
+
+async function preparePhoneEnrollment(
+  email: string,
+  password: string
+): Promise<boolean> {
+  const auth =
+    getAdminFirebaseAuth();
+
+  if (!auth) {
+    return false;
+  }
+
+  try {
+    if (auth.currentUser) {
+      await signOut(auth);
+    }
+
+    const credential =
+      await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+    const firebaseEmail =
+      credential.user.email
+        ?.trim()
+        .toLowerCase() || '';
+
+    if (
+      firebaseEmail !== email ||
+      credential.user
+        .emailVerified !== true
+    ) {
+      await signOut(auth);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    const code =
+      getFirebaseErrorCode(
+        error
+      );
+
+    if (
+      process.env.NODE_ENV ===
+      'development'
+    ) {
+      console.warn(
+        '[PHCL Admin Firebase] enrollment sign-in failed:',
+        code || 'UNKNOWN_ERROR'
+      );
+    }
+
+    await clearAdminFirebaseSession();
+
+    return false;
+  }
+}
 
 export default function AdminLoginPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const {
     login,
@@ -20,25 +140,39 @@ export default function AdminLoginPage() {
     isLoading,
   } = useAdmin();
 
-  const [email, setEmail] = useState(
-    'admin@phclsuper.com'
-  );
+  const [
+    email,
+    setEmail,
+  ] = useState('');
 
-  const [password, setPassword] =
-    useState('');
+  const [
+    password,
+    setPassword,
+  ] = useState('');
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState('');
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState('');
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace('/admin/dashboard');
+    if (
+      !isLoading &&
+      isAuthenticated
+    ) {
+      router.replace(
+        '/admin/dashboard'
+      );
     }
   }, [
     isAuthenticated,
@@ -47,22 +181,32 @@ export default function AdminLoginPage() {
   ]);
 
   const handleSubmit = async (
-    e: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) => {
-    e.preventDefault();
+    event.preventDefault();
 
     setErrorMessage('');
 
-    const cleanEmail = email
-      .trim()
-      .toLowerCase();
+    const cleanEmail =
+      email
+        .trim()
+        .toLowerCase();
 
-    if (!cleanEmail || !password) {
+    if (
+      !cleanEmail ||
+      !password
+    ) {
       const message =
         'Barua pepe na nenosiri vinahitajika.';
 
-      setErrorMessage(message);
-      toast.error(message);
+      setErrorMessage(
+        message
+      );
+
+      toast.error(
+        message
+      );
 
       return;
     }
@@ -70,38 +214,111 @@ export default function AdminLoginPage() {
     setIsSubmitting(true);
 
     try {
-      const result = await login(
-        cleanEmail,
-        password
-      );
+      const result =
+        await login(
+          cleanEmail,
+          password
+        );
 
       if (!result.success) {
+        await clearAdminFirebaseSession();
+
         const message =
           result.message ||
           'Email au password si sahihi. Tafadhali jaribu tena.';
 
-        setErrorMessage(message);
-        toast.error(message);
+        setErrorMessage(
+          message
+        );
+
+        toast.error(
+          message
+        );
 
         return;
       }
 
-      /*
-       * Thibitisha HttpOnly session cookie
-       * kwa server kabla ya kuingia Dashboard.
-       */
+      if (
+        result.nextStep ===
+          'PHONE_ENROLLMENT'
+      ) {
+        const firebaseReady =
+          await preparePhoneEnrollment(
+            cleanEmail,
+            password
+          );
+
+        setPassword('');
+
+        if (!firebaseReady) {
+          const message =
+            'Firebase haikuweza kuthibitisha taarifa za Admin kwa ajili ya simu. Hakikisha password ya Firebase Admin ni sahihi.';
+
+          setErrorMessage(
+            message
+          );
+
+          toast.error(
+            message
+          );
+
+          return;
+        }
+
+        toast.info(
+          result.message ||
+            'Thibitisha namba ya simu ili kukamilisha Admin login.'
+        );
+
+        router.replace(
+          '/admin/security/verify-phone'
+        );
+
+        return;
+      }
+
+      if (
+        !result.authenticated ||
+        result.nextStep !==
+          'ADMIN_SESSION'
+      ) {
+        await clearAdminFirebaseSession();
+
+        const message =
+          'Jibu la uthibitishaji wa Admin halikuwa sahihi. Tafadhali jaribu tena.';
+
+        setErrorMessage(
+          message
+        );
+
+        toast.error(
+          message
+        );
+
+        return;
+      }
+
       const sessionValid =
         await checkAuth();
 
       if (!sessionValid) {
+        await clearAdminFirebaseSession();
+
         const message =
           'Login imekubaliwa lakini session ya Admin haikuthibitishwa. Tafadhali jaribu tena.';
 
-        setErrorMessage(message);
-        toast.error(message);
+        setErrorMessage(
+          message
+        );
+
+        toast.error(
+          message
+        );
 
         return;
       }
+
+      await clearAdminFirebaseSession();
 
       setPassword('');
 
@@ -109,20 +326,26 @@ export default function AdminLoginPage() {
         'Umeingia kama Admin kikamilifu.'
       );
 
-      router.replace('/admin/dashboard');
-    } catch (error) {
-      console.error(
-        'Admin login error:',
-        error
+      router.replace(
+        '/admin/dashboard'
       );
+    } catch {
+      await clearAdminFirebaseSession();
 
       const message =
         'Imeshindikana kukamilisha Admin login. Tafadhali jaribu tena.';
 
-      setErrorMessage(message);
-      toast.error(message);
+      setErrorMessage(
+        message
+      );
+
+      toast.error(
+        message
+      );
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(
+        false
+      );
     }
   };
 
@@ -149,10 +372,11 @@ export default function AdminLoginPage() {
         </p>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="space-y-4"
         >
-          {/* EMAIL */}
           <div>
             <label
               htmlFor="email"
@@ -163,20 +387,29 @@ export default function AdminLoginPage() {
 
             <input
               id="email"
+              name="email"
               type="email"
+              inputMode="email"
               autoComplete="username"
               required
+              autoFocus
               className="w-full px-3 py-2.5 rounded-lg bg-black/40 border border-white/10 text-white focus:border-amber-400 focus:outline-none"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
+              onChange={(
+                event
+              ) => {
+                setEmail(
+                  event.target.value
+                );
+
                 setErrorMessage('');
               }}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting
+              }
             />
           </div>
 
-          {/* PASSWORD */}
           <div>
             <label
               htmlFor="password"
@@ -188,6 +421,7 @@ export default function AdminLoginPage() {
             <div className="relative">
               <input
                 id="password"
+                name="password"
                 type={
                   showPassword
                     ? 'text'
@@ -196,24 +430,36 @@ export default function AdminLoginPage() {
                 autoComplete="current-password"
                 required
                 className="w-full px-3 py-2.5 pr-20 rounded-lg bg-black/40 border border-white/10 text-white focus:border-amber-400 focus:outline-none"
-                value={password}
-                onChange={(e) => {
+                value={
+                  password
+                }
+                onChange={(
+                  event
+                ) => {
                   setPassword(
-                    e.target.value
+                    event.target.value
                   );
+
                   setErrorMessage('');
                 }}
-                disabled={isSubmitting}
+                disabled={
+                  isSubmitting
+                }
               />
 
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setShowPassword(
-                    (prev) => !prev
-                  )
+                    (
+                      previous
+                    ) =>
+                      !previous
+                  );
+                }}
+                disabled={
+                  isSubmitting
                 }
-                disabled={isSubmitting}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-300 hover:text-amber-200 disabled:opacity-50"
               >
                 {showPassword
@@ -223,20 +469,21 @@ export default function AdminLoginPage() {
             </div>
           </div>
 
-          {/* INLINE ERROR */}
           {errorMessage && (
             <div
               role="alert"
+              aria-live="polite"
               className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"
             >
               {errorMessage}
             </div>
           )}
 
-          {/* LOGIN BUTTON */}
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={
+              isSubmitting
+            }
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-sm transition active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSubmitting

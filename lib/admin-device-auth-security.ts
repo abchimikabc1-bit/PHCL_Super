@@ -39,6 +39,18 @@ const CHALLENGE_TTL_MS =
 const TRUSTED_SESSION_TTL_MS =
   60 * 60 * 1000;
 
+const TRUSTED_SESSION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type AuthenticationChallengeDocument = {
+  challenge: string;
+  adminPrincipalId: string;
+  purpose: 'verify-trusted-device';
+  state: 'pending' | 'reserved';
+  createdAtMs: number;
+  expiresAtMs: number;
+};
+
 function getSecuritySecret(): string {
   const secret =
     process.env.ADMIN_SESSION_SECRET?.trim();
@@ -58,6 +70,17 @@ function normalizeEmail(
   return email
     .trim()
     .toLowerCase();
+}
+
+function isValidTrustedSessionId(
+  trustedSessionId: string
+): boolean {
+  return (
+    trustedSessionId.length <= 64 &&
+    TRUSTED_SESSION_ID_PATTERN.test(
+      trustedSessionId
+    )
+  );
 }
 
 function getRpConfig() {
@@ -186,6 +209,9 @@ export async function createTrustedDeviceAuthenticationOptions(
       purpose:
         'verify-trusted-device',
 
+      state:
+        'pending',
+
       createdAtMs:
         now,
 
@@ -229,56 +255,72 @@ export async function verifyTrustedAdminDevice(
         challengeId
       );
 
-  const challengeSnapshot =
-    await challengeRef.get();
-
-  if (
-    !challengeSnapshot.exists
-  ) {
-    throw new Error(
-      'AUTH_CHALLENGE_NOT_FOUND'
-    );
-  }
-
-  const challengeData =
-    challengeSnapshot.data();
-
-  /*
-   * One-time challenge:
-   * consume before completing verification so
-   * the assertion cannot be replayed.
-   */
-  await challengeRef.delete();
-
-  if (
-    !challengeData ||
-    challengeData.purpose !==
-      'verify-trusted-device' ||
-    typeof challengeData.challenge !==
-      'string' ||
-    typeof challengeData.expiresAtMs !==
-      'number' ||
-    challengeData.expiresAtMs <=
-      Date.now()
-  ) {
-    throw new Error(
-      'AUTH_CHALLENGE_EXPIRED'
-    );
-  }
-
   const expectedPrincipal =
     createPrincipalId(
       normalizedEmail
     );
 
-  if (
-    challengeData.adminPrincipalId !==
-    expectedPrincipal
-  ) {
-    throw new Error(
-      'AUTH_PRINCIPAL_MISMATCH'
+  /*
+   * Reserve the one-time challenge atomically.
+   * Only one concurrent request can move it from
+   * pending to reserved.
+   */
+  const challengeData =
+    await adminDb.runTransaction(
+      async (transaction) => {
+        const snapshot =
+          await transaction.get(
+            challengeRef
+          );
+
+        if (!snapshot.exists) {
+          throw new Error(
+            'AUTH_CHALLENGE_NOT_FOUND'
+          );
+        }
+
+        const data =
+          snapshot.data() as
+            | Partial<AuthenticationChallengeDocument>
+            | undefined;
+
+        if (
+          !data ||
+          data.purpose !==
+            'verify-trusted-device' ||
+          data.state !==
+            'pending' ||
+          typeof data.challenge !==
+            'string' ||
+          !data.challenge ||
+          data.adminPrincipalId !==
+            expectedPrincipal ||
+          typeof data.expiresAtMs !==
+            'number' ||
+          data.expiresAtMs <=
+            Date.now()
+        ) {
+          throw new Error(
+            'AUTH_CHALLENGE_INVALID'
+          );
+        }
+
+        transaction.update(
+          challengeRef,
+          {
+            state:
+              'reserved',
+            reservedAtMs:
+              Date.now(),
+            reservedAt:
+              FieldValue.serverTimestamp(),
+          }
+        );
+
+        return data as
+          AuthenticationChallengeDocument;
+      }
     );
-  }
 
   const devices =
     await getActiveTrustedDevices(
@@ -530,7 +572,9 @@ export async function verifyTrustedDeviceSession(
   trustedSessionId: string
 ): Promise<boolean> {
   if (
-    !trustedSessionId
+    !isValidTrustedSessionId(
+      trustedSessionId
+    )
   ) {
     return false;
   }
@@ -588,7 +632,9 @@ export async function revokeTrustedDeviceSession(
   trustedSessionId: string
 ): Promise<boolean> {
   if (
-    !trustedSessionId
+    !isValidTrustedSessionId(
+      trustedSessionId
+    )
   ) {
     return false;
   }

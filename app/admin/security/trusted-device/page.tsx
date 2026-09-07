@@ -1,22 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import {
+  useState,
+} from 'react';
+
 import {
   startRegistration,
 } from '@simplewebauthn/browser';
 
-type OptionsResponse = {
-  ok: boolean;
-  options?: Parameters<
+type RegistrationOptions =
+  Parameters<
     typeof startRegistration
   >[0]['optionsJSON'];
+
+type OptionsResponse = {
+  ok?: boolean;
+  options?:
+    RegistrationOptions;
   code?: string;
   message?: string;
 };
 
 type VerifyResponse = {
-  ok: boolean;
+  ok?: boolean;
   verified?: boolean;
   deviceId?: string;
   deviceType?: string;
@@ -25,96 +31,285 @@ type VerifyResponse = {
   message?: string;
 };
 
+const GENERIC_ERROR_MESSAGE =
+  'Usajili wa kifaa salama umeshindikana. Tafadhali jaribu tena.';
+
+function isRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+async function readJsonResponse<T>(
+  response: Response
+): Promise<T | null> {
+  const contentType =
+    response.headers.get(
+      'content-type'
+    ) || '';
+
+  if (
+    !contentType
+      .toLowerCase()
+      .includes(
+        'application/json'
+      )
+  ) {
+    return null;
+  }
+
+  try {
+    const value: unknown =
+      await response.json();
+
+    return isRecord(value)
+      ? (value as T)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getRegistrationErrorMessage(
+  error: unknown
+): string {
+  if (
+    error instanceof DOMException
+  ) {
+    if (
+      error.name ===
+      'NotAllowedError'
+    ) {
+      return (
+        'Windows Hello haikukamilishwa, ' +
+        'ilikataliwa au muda uliisha. ' +
+        'Jaribu tena na ukamilishe ombi linapoonekana.'
+      );
+    }
+
+    if (
+      error.name ===
+      'InvalidStateError'
+    ) {
+      return (
+        'Authenticator hii tayari ina taarifa zinazohusiana na usajili huu. ' +
+        'Tumia recovery ikiwa kifaa cha zamani kinahitaji kubadilishwa.'
+      );
+    }
+
+    if (
+      error.name ===
+      'SecurityError'
+    ) {
+      return (
+        'Browser imezuia usajili kwa sababu ya domain au usanidi wa WebAuthn.'
+      );
+    }
+
+    if (
+      error.name ===
+      'AbortError'
+    ) {
+      return (
+        'Usajili wa kifaa umesitishwa. Tafadhali jaribu tena.'
+      );
+    }
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return GENERIC_ERROR_MESSAGE;
+}
+
 export default function TrustedDeviceEnrollmentPage() {
-  const router = useRouter();
+  const [
+    isRegistering,
+    setIsRegistering,
+  ] = useState(false);
 
-  const [isRegistering, setIsRegistering] =
-    useState(false);
+  const [
+    message,
+    setMessage,
+  ] = useState('');
 
-  const [message, setMessage] =
-    useState('');
+  const [
+    registered,
+    setRegistered,
+  ] = useState(false);
 
-  const [registered, setRegistered] =
-    useState(false);
-
-  async function registerDevice() {
+  async function registerDevice():
+    Promise<void> {
     if (isRegistering) {
       return;
     }
 
     setIsRegistering(true);
+    setRegistered(false);
     setMessage('');
 
     try {
-      const optionsResponse = await fetch(
-        '/api/admin/device/register/options',
-        {
-          method: 'POST',
-          credentials: 'include',
-          cache: 'no-store',
-        }
-      );
+      const optionsResponse =
+        await fetch(
+          '/api/admin/device/register/options',
+          {
+            method: 'POST',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: {
+              Accept:
+                'application/json',
+            },
+          }
+        );
 
       const optionsData =
-        (await optionsResponse.json()) as OptionsResponse;
+        await readJsonResponse<
+          OptionsResponse
+        >(
+          optionsResponse
+        );
 
       if (
         !optionsResponse.ok ||
-        !optionsData.ok ||
+        optionsData?.ok !== true ||
         !optionsData.options
       ) {
+        if (
+          optionsResponse.status ===
+          401
+        ) {
+          throw new Error(
+            'Admin session haijathibitishwa. Ingia upya kwanza.'
+          );
+        }
+
+        if (
+          optionsResponse.status ===
+          409 ||
+          optionsData?.code ===
+            'TRUSTED_DEVICE_ALREADY_EXISTS'
+        ) {
+          throw new Error(
+            'Kifaa cha Admin tayari kimesajiliwa. Endelea kwenye uthibitishaji wa kifaa.'
+          );
+        }
+
+        if (
+          optionsResponse.status ===
+          429
+        ) {
+          throw new Error(
+            'Majaribio yamezidi. Subiri kidogo kabla ya kujaribu tena.'
+          );
+        }
+
         throw new Error(
-          optionsData.message ||
-            'Unable to start trusted-device registration.'
+          optionsData?.message ||
+            'Imeshindikana kuanzisha usajili wa kifaa.'
         );
       }
 
       const registrationResponse =
         await startRegistration({
-          optionsJSON: optionsData.options,
+          optionsJSON:
+            optionsData.options,
         });
 
-      const verifyResponse = await fetch(
-        '/api/admin/device/register/verify',
-        {
-          method: 'POST',
-          credentials: 'include',
-          cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            response: registrationResponse,
-            label: 'Primary Admin Device',
-          }),
-        }
-      );
+      const verifyResponse =
+        await fetch(
+          '/api/admin/device/register/verify',
+          {
+            method: 'POST',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: {
+              Accept:
+                'application/json',
+              'Content-Type':
+                'application/json',
+            },
+            body: JSON.stringify({
+              response:
+                registrationResponse,
+              label:
+                'Primary Admin Device',
+            }),
+          }
+        );
 
       const verifyData =
-        (await verifyResponse.json()) as VerifyResponse;
+        await readJsonResponse<
+          VerifyResponse
+        >(
+          verifyResponse
+        );
 
       if (
         !verifyResponse.ok ||
-        !verifyData.ok ||
-        !verifyData.verified
+        verifyData?.ok !== true ||
+        verifyData.verified !== true
       ) {
+        if (
+          verifyResponse.status ===
+          401
+        ) {
+          throw new Error(
+            'Admin session imekwisha au haijathibitishwa. Ingia upya.'
+          );
+        }
+
+        if (
+          verifyResponse.status ===
+          409 ||
+          verifyData?.code ===
+            'TRUSTED_DEVICE_ALREADY_EXISTS'
+        ) {
+          throw new Error(
+            'Kifaa cha Admin tayari kimesajiliwa. Endelea kwenye uthibitishaji wa kifaa.'
+          );
+        }
+
         throw new Error(
-          verifyData.message ||
-            'Trusted-device verification failed.'
+          verifyData?.message ||
+            'Usajili wa kifaa salama haukukamilika.'
         );
       }
 
       setRegistered(true);
+
       setMessage(
-        'Trusted Admin Device #1 registered successfully.'
+        'Kifaa cha msingi cha Admin kimesajiliwa. Sasa kinaelekezwa kwenye uthibitishaji wa Windows Hello...'
+      );
+
+      /*
+       * Registration stores the public
+       * credential but does not issue a
+       * trusted-device session cookie.
+       *
+       * The newly registered credential
+       * must therefore be authenticated
+       * before Dashboard access.
+       */
+      window.location.replace(
+        '/admin/security/verify-device'
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Trusted-device registration failed.';
+      setRegistered(false);
 
-      setMessage(errorMessage);
+      setMessage(
+        getRegistrationErrorMessage(
+          error
+        )
+      );
     } finally {
       setIsRegistering(false);
     }
@@ -128,32 +323,44 @@ export default function TrustedDeviceEnrollmentPage() {
         </p>
 
         <h1 className="mt-3 text-3xl font-bold text-white">
-          Trusted Admin Device
+          Sajili Kifaa Salama cha Admin
         </h1>
 
         <p className="mt-4 leading-7 text-slate-300">
-          Register this computer as the primary trusted
-          Admin device using WebAuthn / Windows Hello.
-          Your private authentication key remains with
-          your authenticator and is not stored by PHCL.
+          Sajili kompyuta hii kama kifaa
+          cha msingi cha Admin kwa kutumia
+          Windows Hello na WebAuthn.
+          Private key yako inabaki ndani
+          ya authenticator na haihifadhiwi
+          na PHCL.
         </p>
 
         <div className="mt-6 rounded-2xl border border-amber-300/20 bg-slate-950/70 p-5">
           <p className="font-semibold text-white">
-            Trusted Admin Device #1
+            Kifaa cha Admin #1
           </p>
 
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Complete the Windows security prompt when it
-            appears. Do not register a device that is not
-            under your control.
+            Kamilisha ombi la Windows
+            Security linapoonekana.
+            Usisajili kompyuta ambayo
+            haipo chini ya udhibiti wako.
           </p>
         </div>
 
         {message && (
           <div
-            className="mt-5 rounded-xl border border-white/15 bg-slate-950 p-4 text-sm text-white"
-            role="status"
+            className={
+              registered
+                ? 'mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200'
+                : 'mt-5 rounded-xl border border-amber-500/30 bg-slate-950 p-4 text-sm text-white'
+            }
+            role={
+              registered
+                ? 'status'
+                : 'alert'
+            }
+            aria-live="polite"
           >
             {message}
           </div>
@@ -162,30 +369,22 @@ export default function TrustedDeviceEnrollmentPage() {
         {!registered ? (
           <button
             type="button"
-            onClick={registerDevice}
+            onClick={() => {
+              void registerDevice();
+            }}
             disabled={isRegistering}
-            className="mt-6 rounded-xl bg-amber-400 px-6 py-3 font-bold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-busy={isRegistering}
+            className="mt-6 rounded-xl bg-amber-400 px-6 py-3 font-bold text-slate-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isRegistering
-              ? 'Registering...'
-              : 'Register This Admin Device'}
+              ? 'Inasajili...'
+              : 'Sajili Kifaa Hiki'}
           </button>
         ) : (
-          <div className="mt-6">
-            <p className="font-semibold text-emerald-300">
-              ✓ Primary trusted device registered.
-            </p>
-
-            <button
-              type="button"
-              onClick={() =>
-                router.push('/admin/dashboard')
-              }
-              className="mt-4 rounded-xl border border-amber-300 px-6 py-3 font-semibold text-amber-300 transition hover:bg-amber-300/10"
-            >
-              Return to Admin Dashboard
-            </button>
-          </div>
+          <p className="mt-6 font-semibold text-emerald-300">
+            ✓ Kifaa cha msingi
+            kimesajiliwa.
+          </p>
         )}
       </section>
     </main>
