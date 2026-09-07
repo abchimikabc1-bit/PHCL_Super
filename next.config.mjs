@@ -1,14 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * Detect unsafe React behavior
+   * during development.
+   */
   reactStrictMode: true,
-  // Usanidi sahihi unaokubalika na Next.js na Firebase
-  
-  // 👇 HIKI NDICHO KIPANDE CHA USHINDI 👇
+
+  /**
+   * Production builds must fail
+   * whenever TypeScript detects
+   * an error.
+   *
+   * ESLint is executed separately
+   * through the project's lint and
+   * release verification scripts.
+   */
   typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
+    ignoreBuildErrors: false,
   },
 };
 

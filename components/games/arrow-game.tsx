@@ -14,7 +14,12 @@ export function ArrowGame({ darkMode }: ArrowGameProps) {
   const [gameActive, setGameActive] = useState(false);
   const [level, setLevel] = useState(1);
   const obstacleIdRef = useRef(0);
-  const gameLoopRef = useRef<NodeJS.Timeout>();
+  const gameLoopRef =
+  useRef<
+    ReturnType<
+      typeof setInterval
+    > | null
+  >(null);
 
   const handleStart = () => {
     setGameActive(true);

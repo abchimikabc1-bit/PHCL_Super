@@ -15,7 +15,12 @@ export function ArrowRunner({ darkMode }: ArrowRunnerProps) {
   const [speed, setSpeed] = useState(5);
   const [highScore, setHighScore] = useState(0);
   const [obstacles, setObstacles] = useState<Array<{ id: number; lane: number; pos: number }>>([]);
-  const gameLoopRef = useRef<NodeJS.Timeout>();
+  const gameLoopRef =
+  useRef<
+    ReturnType<
+      typeof setInterval
+    > | null
+  >(null);
   const obstacleIdRef = useRef(0);
 
   const handleStart = () => {
