@@ -1,24 +1,29 @@
 #!/usr/bin/env node
 
-import process from 'process';
-import path from 'path';
-import fs from 'fs';
-import http from 'http';
-import net from 'net';
-import { spawn } from 'child_process';
+import process from 'node:process';
+import path from 'node:path';
+import fs from 'node:fs';
+import http from 'node:http';
+import net from 'node:net';
+import {
+  spawn,
+} from 'node:child_process';
 
-const root = process.cwd();
+const root =
+  process.cwd();
 
 const requestedPort =
   process.env.SMOKE_PORT
-    ? Number(process.env.SMOKE_PORT)
+    ? Number(
+        process.env.SMOKE_PORT,
+      )
     : null;
 
 const requiredBuildFile =
   path.join(
     root,
     '.next',
-    'BUILD_ID'
+    'BUILD_ID',
   );
 
 const nextBinPath =
@@ -28,7 +33,7 @@ const nextBinPath =
     'next',
     'dist',
     'bin',
-    'next'
+    'next',
   );
 
 const pageChecks = [
@@ -168,37 +173,118 @@ const apiChecks = [
     expectedStatus:
       405,
   },
+  {
+    path:
+      '/api/transfer',
+    method:
+      'GET',
+    expectedStatus:
+      405,
+  },
+  {
+    path:
+      '/api/transfer',
+    method:
+      'POST',
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+      '"message":"Authentication required."',
+    ],
+  },
+  {
+    path:
+      '/api/transfer',
+    method:
+      'POST',
+    headers: {
+      Authorization:
+        'Bearer invalid-smoke-test-token',
+
+      'Content-Type':
+        'application/json',
+    },
+    body:
+      JSON.stringify({
+        recipientEmail:
+          'recipient@example.com',
+
+        asset:
+          'USD',
+
+        amount:
+          '1.00',
+
+        operationId:
+          'smoke-invalid-auth',
+      }),
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+    ],
+  },
 ];
 
-function fail(message) {
+function getErrorMessage(
+  error,
+) {
+  return error instanceof Error
+    ? error.message
+    : String(error);
+}
+
+function fail(
+  message,
+) {
   console.error(
-    `\nSmoke check failed: ${message}`
+    `\nSmoke check failed: ${message}`,
   );
 
   process.exit(1);
+}
+
+function delay(
+  milliseconds,
+) {
+  return new Promise(
+    (resolve) => {
+      setTimeout(
+        resolve,
+        milliseconds,
+      );
+    },
+  );
 }
 
 function getAvailablePort() {
   return new Promise(
     (
       resolve,
-      reject
+      reject,
     ) => {
-      const server =
+      const portServer =
         net.createServer();
 
-      server.unref();
+      portServer.unref();
 
-      server.on(
+      portServer.once(
         'error',
-        reject
+        reject,
       );
 
-      server.listen(
-        requestedPort || 0,
+      portServer.listen(
+        {
+          host:
+            '127.0.0.1',
+
+          port:
+            requestedPort || 0,
+        },
         () => {
           const address =
-            server.address();
+            portServer.address();
 
           const port =
             typeof address ===
@@ -207,11 +293,11 @@ function getAvailablePort() {
               ? address.port
               : null;
 
-          server.close(
+          portServer.close(
             (closeError) => {
               if (closeError) {
                 reject(
-                  closeError
+                  closeError,
                 );
 
                 return;
@@ -220,19 +306,21 @@ function getAvailablePort() {
               if (!port) {
                 reject(
                   new Error(
-                    'Could not determine an available port'
-                  )
+                    'Could not determine an available port.',
+                  ),
                 );
 
                 return;
               }
 
-              resolve(port);
-            }
+              resolve(
+                port,
+              );
+            },
           );
-        }
+        },
       );
-    }
+    },
   );
 }
 
@@ -241,17 +329,18 @@ function requestRoute(
   route,
   method = 'GET',
   body,
-  extraHeaders = {}
+  extraHeaders = {},
+  timeoutMs = 15_000,
 ) {
   return new Promise(
     (
       resolve,
-      reject
+      reject,
     ) => {
       const url =
         new URL(
           route,
-          baseUrl
+          baseUrl,
         );
 
       const payload =
@@ -260,14 +349,30 @@ function requestRoute(
           ? body
           : undefined;
 
-      const request =
+      let settled =
+        false;
+
+      const settleWithError =
+        (error) => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+
+          reject(
+            error,
+          );
+        };
+
+      const clientRequest =
         http.request(
           {
             protocol:
               url.protocol,
 
             hostname:
-              '127.0.0.1',
+              url.hostname,
 
             port:
               url.port,
@@ -280,6 +385,9 @@ function requestRoute(
             family: 4,
 
             headers: {
+              Accept:
+                'application/json, text/plain, */*',
+
               ...(payload
                 ? {
                     'Content-Type':
@@ -287,7 +395,7 @@ function requestRoute(
 
                     'Content-Length':
                       Buffer.byteLength(
-                        payload
+                        payload,
                       ),
                   }
                 : {}),
@@ -300,7 +408,7 @@ function requestRoute(
               '';
 
             response.setEncoding(
-              'utf8'
+              'utf8',
             );
 
             response.on(
@@ -308,14 +416,23 @@ function requestRoute(
               (chunk) => {
                 responseBody +=
                   chunk;
-              }
+              },
             );
 
-            response.resume();
+            response.on(
+              'error',
+              settleWithError,
+            );
 
             response.on(
               'end',
               () => {
+                if (settled) {
+                  return;
+                }
+
+                settled = true;
+
                 resolve({
                   status:
                     response.statusCode ||
@@ -333,56 +450,82 @@ function requestRoute(
 
                   body:
                     responseBody,
+
+                  headers:
+                    response.headers,
                 });
-              }
+              },
             );
-          }
+          },
         );
 
-      request.on(
+      clientRequest.once(
         'error',
-        reject
+        settleWithError,
       );
 
-      request.setTimeout(
-        5000,
+      clientRequest.setTimeout(
+        timeoutMs,
         () => {
-          request.destroy(
+          clientRequest.destroy(
             new Error(
-              `Request timeout for ${route}`
-            )
+              `Request timeout for ${method} ${route}.`,
+            ),
           );
-        }
+        },
       );
 
       if (payload) {
-        request.write(
-          payload
+        clientRequest.write(
+          payload,
         );
       }
 
-      request.end();
-    }
+      clientRequest.end();
+    },
   );
 }
 
 async function waitForServerReady(
   baseUrl,
-  timeoutMs = 60000
+  server,
+  timeoutMs = 120_000,
 ) {
   const startedAt =
     Date.now();
+
+  let lastError =
+    '';
 
   while (
     Date.now() -
       startedAt <
     timeoutMs
   ) {
+    if (
+      server.exitCode !==
+        null ||
+      server.signalCode !==
+        null
+    ) {
+      throw new Error(
+        `Next.js server exited before becoming ready (exitCode=${String(
+          server.exitCode,
+        )}, signal=${String(
+          server.signalCode,
+        )}).`,
+      );
+    }
+
     try {
       const response =
         await requestRoute(
           baseUrl,
-          '/'
+          '/robots.txt',
+          'GET',
+          undefined,
+          {},
+          10_000,
         );
 
       if (
@@ -393,48 +536,397 @@ async function waitForServerReady(
       ) {
         return;
       }
-    } catch {
-      // Retry until server is ready.
+
+      lastError =
+        `Readiness route returned HTTP ${response.status}.`;
+    } catch (error) {
+      lastError =
+        getErrorMessage(
+          error,
+        );
     }
 
-    await new Promise(
-      (resolve) =>
-        setTimeout(
-          resolve,
-          400
-        )
+    await delay(
+      500,
     );
   }
 
   throw new Error(
-    `Server did not become ready at ${baseUrl} within ${timeoutMs}ms`
+    `Server did not become ready at ${baseUrl} within ${timeoutMs}ms.${
+      lastError
+        ? ` Last readiness error: ${lastError}`
+        : ''
+    }`,
   );
+}
+
+function showServerSnapshot(
+  stdout,
+  stderr,
+) {
+  if (
+    stdout.trim()
+  ) {
+    console.error(
+      '\nServer stdout snapshot:',
+    );
+
+    console.error(
+      stdout
+        .split('\n')
+        .slice(-30)
+        .join('\n'),
+    );
+  }
+
+  if (
+    stderr.trim()
+  ) {
+    console.error(
+      '\nServer stderr snapshot:',
+    );
+
+    console.error(
+      stderr
+        .split('\n')
+        .slice(-30)
+        .join('\n'),
+    );
+  }
+}
+
+async function stopServer(
+  server,
+) {
+  if (
+    server.exitCode !==
+      null ||
+    server.signalCode !==
+      null
+  ) {
+    return;
+  }
+
+  const exited =
+    new Promise(
+      (resolve) => {
+        server.once(
+          'exit',
+          resolve,
+        );
+      },
+    );
+
+  server.kill(
+    'SIGTERM',
+  );
+
+  const stoppedGracefully =
+    await Promise.race([
+      exited.then(
+        () => true,
+      ),
+
+      delay(
+        3_000,
+      ).then(
+        () => false,
+      ),
+    ]);
+
+  if (
+    stoppedGracefully ||
+    server.exitCode !==
+      null ||
+    server.signalCode !==
+      null
+  ) {
+    return;
+  }
+
+  server.kill(
+    'SIGKILL',
+  );
+
+  await Promise.race([
+    exited,
+    delay(
+      2_000,
+    ),
+  ]);
+}
+
+async function runPageChecks(
+  baseUrl,
+) {
+  const failures =
+    [];
+
+  for (
+    const check of
+    pageChecks
+  ) {
+    try {
+      const response =
+        await requestRoute(
+          baseUrl,
+          check.path,
+        );
+
+      const expectedStatuses =
+        check.expectedStatuses ||
+        [
+          check.expectedStatus,
+        ];
+
+      if (
+        !expectedStatuses.includes(
+          response.status,
+        )
+      ) {
+        failures.push(
+          `${check.path} returned ${response.status}, expected one of ${expectedStatuses.join(
+            ', ',
+          )}.`,
+        );
+
+        continue;
+      }
+
+      if (
+        check.expectedRedirectTarget
+      ) {
+        const locationMatches =
+          response.status >=
+            300 &&
+          response.status <
+            400 &&
+          response.location.startsWith(
+            check.expectedRedirectTarget,
+          );
+
+        const streamedRedirectMatches =
+          response.status ===
+            200 &&
+          response.body.includes(
+            check.expectedRedirectTarget,
+          );
+
+        if (
+          !locationMatches &&
+          !streamedRedirectMatches
+        ) {
+          failures.push(
+            `${check.path} did not redirect an unauthenticated request to ${check.expectedRedirectTarget}.`,
+          );
+
+          continue;
+        }
+      }
+
+      console.log(
+        `PASS ${check.path} -> ${response.status}`,
+      );
+    } catch (error) {
+      failures.push(
+        `${check.path} request failed: ${getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+  }
+
+  for (
+    const check of
+    redirectChecks
+  ) {
+    try {
+      const response =
+        await requestRoute(
+          baseUrl,
+          check.path,
+          'GET',
+          undefined,
+          {
+            Host:
+              check.host,
+          },
+        );
+
+      if (
+        response.status !==
+        check.expectedStatus
+      ) {
+        failures.push(
+          `[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expectedStatus}.`,
+        );
+
+        continue;
+      }
+
+      if (
+        response.location !==
+        check.expectedLocation
+      ) {
+        failures.push(
+          `[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}.`,
+        );
+
+        continue;
+      }
+
+      console.log(
+        `PASS [host:${check.host}] ${check.path} -> ${response.status} ${response.location}`,
+      );
+    } catch (error) {
+      failures.push(
+        `[host:${check.host}] ${check.path} request failed: ${getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+  }
+
+  for (
+    const check of
+    hostedDomainChecks
+  ) {
+    try {
+      const response =
+        await requestRoute(
+          baseUrl,
+          check.path,
+          'GET',
+          undefined,
+          {
+            Host:
+              check.host,
+          },
+        );
+
+      if (
+        response.status !==
+        check.expectedStatus
+      ) {
+        failures.push(
+          `[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expectedStatus}.`,
+        );
+
+        continue;
+      }
+
+      console.log(
+        `PASS [host:${check.host}] ${check.path} -> ${response.status}`,
+      );
+    } catch (error) {
+      failures.push(
+        `[host:${check.host}] ${check.path} request failed: ${getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+  }
+
+  return failures;
+}
+
+async function runApiChecks(
+  baseUrl,
+) {
+  const failures =
+    [];
+
+  for (
+    const check of
+    apiChecks
+  ) {
+    try {
+      const response =
+        await requestRoute(
+          baseUrl,
+          check.path,
+          check.method,
+          check.body,
+          check.headers || {},
+        );
+
+      if (
+        response.status !==
+        check.expectedStatus
+      ) {
+        failures.push(
+          `${check.method} ${check.path} returned ${response.status}, expected ${check.expectedStatus}.`,
+        );
+
+        continue;
+      }
+
+      if (
+        check.expectedBodyIncludes
+      ) {
+        const missingFragments =
+          check
+            .expectedBodyIncludes
+            .filter(
+              (fragment) =>
+                !response.body.includes(
+                  fragment,
+                ),
+            );
+
+        if (
+          missingFragments.length >
+          0
+        ) {
+          failures.push(
+            `${check.method} ${check.path} body missing expected fragment(s): ${missingFragments.join(
+              ', ',
+            )}.`,
+          );
+
+          continue;
+        }
+      }
+
+      console.log(
+        `PASS ${check.method} ${check.path} -> ${response.status}`,
+      );
+    } catch (error) {
+      failures.push(
+        `${check.method} ${check.path} request failed: ${getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+  }
+
+  return failures;
 }
 
 async function run() {
   if (
     !fs.existsSync(
-      requiredBuildFile
+      requiredBuildFile,
     )
   ) {
     fail(
       `Missing build artifact: ${path.relative(
         root,
-        requiredBuildFile
-      )}. Run npm run build first.`
+        requiredBuildFile,
+      )}. Run npm run build first.`,
     );
   }
 
   if (
     !fs.existsSync(
-      nextBinPath
+      nextBinPath,
     )
   ) {
     fail(
       `Missing Next.js runtime binary: ${path.relative(
         root,
-        nextBinPath
-      )}`
+        nextBinPath,
+      )}.`,
     );
   }
 
@@ -442,7 +934,7 @@ async function run() {
     await getAvailablePort();
 
   const baseUrl =
-    `http://localhost:${port}`;
+    `http://127.0.0.1:${port}`;
 
   const server =
     spawn(
@@ -450,8 +942,12 @@ async function run() {
       [
         nextBinPath,
         'start',
+        '-H',
+        '127.0.0.1',
         '-p',
-        String(port),
+        String(
+          port,
+        ),
       ],
       {
         cwd:
@@ -465,15 +961,15 @@ async function run() {
               .ADMIN_EMAIL ||
             'admin@phclsuper.com',
 
-          ADMIN_PASSWORD:
-            process.env
-              .ADMIN_PASSWORD ||
-            'PHCL_Admin_2026_Secure!',
-
           ADMIN_SESSION_SECRET:
             process.env
               .ADMIN_SESSION_SECRET ||
             'phcl_admin_session_secret_smoke_test_only',
+
+          TRANSFER_RATE_LIMIT_SECRET:
+            process.env
+              .TRANSFER_RATE_LIMIT_SECRET ||
+            'phcl_transfer_rate_limit_smoke_test_only_secret',
         },
 
         stdio: [
@@ -481,273 +977,70 @@ async function run() {
           'pipe',
           'pipe',
         ],
-      }
+
+        windowsHide:
+          true,
+      },
     );
 
-  let stdout = '';
-  let stderr = '';
-  let sawReadySignal =
-    false;
+  let stdout =
+    '';
+
+  let stderr =
+    '';
 
   server.stdout.on(
     'data',
     (chunk) => {
-      const text =
-        String(chunk);
-
-      stdout += text;
-
-      if (
-        text.includes(
-          'Ready in'
-        )
-      ) {
-        sawReadySignal =
-          true;
-      }
-    }
+      stdout +=
+        String(
+          chunk,
+        );
+    },
   );
 
   server.stderr.on(
     'data',
     (chunk) => {
       stderr +=
-        String(chunk);
-    }
+        String(
+          chunk,
+        );
+    },
   );
 
-  const stopServer =
-    async () => {
-      if (server.killed) {
-        return;
-      }
-
-      server.kill(
-        'SIGTERM'
-      );
-
-      await new Promise(
-        (resolve) =>
-          setTimeout(
-            resolve,
-            500
-          )
-      );
-
-      if (!server.killed) {
-        server.kill(
-          'SIGKILL'
-        );
-      }
-    };
-
   try {
-    const readySignalDeadline =
-      Date.now() +
-      15000;
-
-    while (
-      !sawReadySignal &&
-      Date.now() <
-        readySignalDeadline
-    ) {
-      await new Promise(
-        (resolve) =>
-          setTimeout(
-            resolve,
-            200
-          )
-      );
-    }
-
     await waitForServerReady(
-      baseUrl
+      baseUrl,
+      server,
     );
 
-    const failures = [];
-
-    for (
-      const check of
-      pageChecks
-    ) {
-      try {
-        const response =
-          await requestRoute(
-            baseUrl,
-            check.path
-          );
-
-        const expectedStatuses =
-          check.expectedStatuses ||
-          [
-            check.expectedStatus,
-          ];
-
-        if (
-          !expectedStatuses.includes(
-            response.status
-          )
-        ) {
-          failures.push(
-            `${check.path} returned ${response.status}, expected one of ${expectedStatuses.join(
-              ', '
-            )}`
-          );
-
-          continue;
-        }
-
-        if (
-          check.expectedRedirectTarget
-        ) {
-          const locationMatches =
-            response.status >=
-              300 &&
-            response.status <
-              400 &&
-            response.location.startsWith(
-              check.expectedRedirectTarget
-            );
-
-          const streamedRedirectMatches =
-            response.status ===
-              200 &&
-            response.body.includes(
-              check.expectedRedirectTarget
-            );
-
-          if (
-            !locationMatches &&
-            !streamedRedirectMatches
-          ) {
-            failures.push(
-              `${check.path} did not redirect an unauthenticated request to ${check.expectedRedirectTarget}`
-            );
-
-            continue;
-          }
-        }
-
-        console.log(
-          `PASS ${check.path} -> ${response.status}`
-        );
-      } catch (error) {
-        failures.push(
-          `${check.path} request failed: ${error.message}`
-        );
-      }
-    }
-
-    for (
-      const check of
-      redirectChecks
-    ) {
-      try {
-        const response =
-          await requestRoute(
-            baseUrl,
-            check.path,
-            'GET',
-            undefined,
-            {
-              Host:
-                check.host,
-            }
-          );
-
-        if (
-          response.status !==
-          check.expectedStatus
-        ) {
-          failures.push(
-            `[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expectedStatus}`
-          );
-        } else if (
-          response.location !==
-          check.expectedLocation
-        ) {
-          failures.push(
-            `[host:${check.host}] ${check.path} redirected to ${response.location || '(empty)'}, expected ${check.expectedLocation}`
-          );
-        } else {
-          console.log(
-            `PASS [host:${check.host}] ${check.path} -> ${response.status} ${response.location}`
-          );
-        }
-      } catch (error) {
-        failures.push(
-          `[host:${check.host}] ${check.path} request failed: ${error.message}`
-        );
-      }
-    }
-
-    for (
-      const check of
-      hostedDomainChecks
-    ) {
-      try {
-        const response =
-          await requestRoute(
-            baseUrl,
-            check.path,
-            'GET',
-            undefined,
-            {
-              Host:
-                check.host,
-            }
-          );
-
-        if (
-          response.status !==
-          check.expectedStatus
-        ) {
-          failures.push(
-            `[host:${check.host}] ${check.path} returned ${response.status}, expected ${check.expectedStatus}`
-          );
-        } else {
-          console.log(
-            `PASS [host:${check.host}] ${check.path} -> ${response.status}`
-          );
-        }
-      } catch (error) {
-        failures.push(
-          `[host:${check.host}] ${check.path} request failed: ${error.message}`
-        );
-      }
-    }
+    const routeFailures =
+      await runPageChecks(
+        baseUrl,
+      );
 
     if (
-      failures.length >
+      routeFailures.length >
       0
     ) {
       console.error(
-        '\nRoute smoke failures:'
+        '\nRoute smoke failures:',
       );
 
       for (
         const failure of
-        failures
+        routeFailures
       ) {
         console.error(
-          `- ${failure}`
+          `- ${failure}`,
         );
       }
 
-      if (
-        stderr.trim()
-      ) {
-        console.error(
-          '\nServer stderr snapshot:'
-        );
-
-        console.error(
-          stderr
-            .split('\n')
-            .slice(-20)
-            .join('\n')
-        );
-      }
+      showServerSnapshot(
+        stdout,
+        stderr,
+      );
 
       process.exitCode =
         1;
@@ -756,78 +1049,20 @@ async function run() {
     }
 
     console.log(
-      '\nRoute smoke check passed.'
+      '\nRoute smoke check passed.',
     );
 
     const apiFailures =
-      [];
-
-    for (
-      const check of
-      apiChecks
-    ) {
-      try {
-        const response =
-          await requestRoute(
-            baseUrl,
-            check.path,
-            check.method
-          );
-
-        if (
-          response.status !==
-          check.expectedStatus
-        ) {
-          apiFailures.push(
-            `${check.method} ${check.path} returned ${response.status}, expected ${check.expectedStatus}`
-          );
-
-          continue;
-        }
-
-        if (
-          check.expectedBodyIncludes
-        ) {
-          const missingFragments =
-            check
-              .expectedBodyIncludes
-              .filter(
-                (fragment) =>
-                  !response.body.includes(
-                    fragment
-                  )
-              );
-
-          if (
-            missingFragments.length >
-            0
-          ) {
-            apiFailures.push(
-              `${check.method} ${check.path} body missing expected fragment(s): ${missingFragments.join(
-                ', '
-              )}`
-            );
-
-            continue;
-          }
-        }
-
-        console.log(
-          `PASS ${check.method} ${check.path} -> ${response.status}`
-        );
-      } catch (error) {
-        apiFailures.push(
-          `${check.method} ${check.path} request failed: ${error.message}`
-        );
-      }
-    }
+      await runApiChecks(
+        baseUrl,
+      );
 
     if (
       apiFailures.length >
       0
     ) {
       console.error(
-        '\nAPI smoke failures:'
+        '\nAPI smoke failures:',
       );
 
       for (
@@ -835,24 +1070,14 @@ async function run() {
         apiFailures
       ) {
         console.error(
-          `- ${failure}`
+          `- ${failure}`,
         );
       }
 
-      if (
-        stderr.trim()
-      ) {
-        console.error(
-          '\nServer stderr snapshot:'
-        );
-
-        console.error(
-          stderr
-            .split('\n')
-            .slice(-20)
-            .join('\n')
-        );
-      }
+      showServerSnapshot(
+        stdout,
+        stderr,
+      );
 
       process.exitCode =
         1;
@@ -861,47 +1086,26 @@ async function run() {
     }
 
     console.log(
-      '\nAPI smoke check passed.'
+      '\nAPI smoke check passed.',
     );
   } catch (error) {
     console.error(
-      `\nSmoke check failed before route assertions: ${error.message}`
+      `\nSmoke check failed before assertions: ${getErrorMessage(
+        error,
+      )}`,
     );
 
-    if (
-      stdout.trim()
-    ) {
-      console.error(
-        '\nServer stdout snapshot:'
-      );
-
-      console.error(
-        stdout
-          .split('\n')
-          .slice(-20)
-          .join('\n')
-      );
-    }
-
-    if (
-      stderr.trim()
-    ) {
-      console.error(
-        '\nServer stderr snapshot:'
-      );
-
-      console.error(
-        stderr
-          .split('\n')
-          .slice(-20)
-          .join('\n')
-      );
-    }
+    showServerSnapshot(
+      stdout,
+      stderr,
+    );
 
     process.exitCode =
       1;
   } finally {
-    await stopServer();
+    await stopServer(
+      server,
+    );
   }
 }
 
@@ -909,9 +1113,10 @@ await run();
 
 if (
   process.exitCode &&
-  process.exitCode !== 0
+  process.exitCode !==
+    0
 ) {
   process.exit(
-    process.exitCode
+    process.exitCode,
   );
 }

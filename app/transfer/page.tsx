@@ -1,252 +1,689 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from 'react';
 
-// Usanidi wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+import Link from 'next/link';
+
+import {
+  onAuthStateChanged,
+  type User,
+} from 'firebase/auth';
+
+import {
+  firebaseAuth,
+} from '@/lib/firebase-client';
+
+type TransferAsset =
+  | 'USD'
+  | 'TZS'
+  | 'NTZS'
+  | 'PI';
+
+type TransferApiResponse = {
+  ok?: boolean;
+
+  code?: string;
+
+  message?: string;
+
+  transfer?: {
+    operationId: string;
+
+    asset: TransferAsset;
+
+    amount: string;
+
+    status: 'COMPLETED';
+
+    idempotent: boolean;
+  };
 };
 
-const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
-const app = hasFirebaseConfig
-  ? getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-  : undefined as any;
-const auth = app ? getAuth(app) : null as any;
-const db = app ? getFirestore(app) : null as any;
+const TRANSFER_ASSETS: Array<{
+  value: TransferAsset;
+
+  label: string;
+}> = [
+  {
+    value: 'PI',
+    label: 'Pi Network (PI)',
+  },
+  {
+    value: 'TZS',
+    label: 'Tanzania Shilling (TZS)',
+  },
+  {
+    value: 'NTZS',
+    label: 'Digital Shilling (NTZS)',
+  },
+  {
+    value: 'USD',
+    label: 'US Dollar (USD)',
+  },
+];
+
+function getSafeTransferMessage(
+  code: string | undefined,
+  fallback:
+    string | undefined,
+): string {
+  switch (code) {
+    case 'UNAUTHENTICATED':
+      return 'Tafadhali ingia tena kwenye akaunti yako.';
+
+    case 'INVALID_REQUEST':
+    case 'INVALID_TRANSFER':
+      return 'Taarifa za muamala si sahihi. Kagua mpokeaji, sarafu na kiasi.';
+
+    case 'SELF_TRANSFER_NOT_ALLOWED':
+      return 'Huwezi kujitumia fedha kwenye akaunti hiyo hiyo.';
+
+    case 'RECIPIENT_NOT_AVAILABLE':
+      return 'Akaunti ya mpokeaji haipatikani au hairuhusiwi kupokea fedha.';
+
+    case 'EMAIL_VERIFICATION_REQUIRED':
+      return 'Thibitisha barua pepe yako kabla ya kufanya muamala.';
+
+    case 'PHONE_VERIFICATION_REQUIRED':
+      return 'Thibitisha namba yako ya simu kabla ya kufanya muamala.';
+
+    case 'ACCOUNT_RESTRICTED':
+      return 'Akaunti yako hairuhusiwi kufanya muamala huu kwa sasa.';
+
+    case 'KYC_REQUIRED':
+      return 'Uthibitishaji wa KYC ulioidhinishwa unahitajika.';
+
+    case 'KYS_REQUIRED':
+      return 'Uthibitishaji wa KYS ulioidhinishwa unahitajika.';
+
+    case 'KYB_REQUIRED':
+      return 'Uthibitishaji wa KYB ulioidhinishwa unahitajika.';
+
+    case 'STRONG_AUTHENTICATION_REQUIRED':
+      return 'Uthibitishaji imara wa akaunti unahitajika kabla ya kutuma fedha.';
+
+    case 'INSUFFICIENT_FUNDS':
+      return 'Salio halitoshi kukamilisha muamala huu.';
+
+    case 'TRANSFER_CONFLICT':
+      return 'Muamala huu una mgongano wa kumbukumbu. Anzisha ombi jipya.';
+        case 'TRANSFER_RATE_LIMITED':
+      return 'Majaribio ya kutuma fedha yamezidi. Subiri muda ulioelekezwa kabla ya kujaribu tena.';
+    case 'TRANSFER_SECURITY_UNAVAILABLE':
+      return 'Mfumo wa usalama wa miamala haupatikani kwa muda. Hakuna fedha zilizohamishwa.';
+    case 'TRANSFER_FAILED':
+      return 'Muamala haujakamilika. Hakuna uthibitisho wa fedha kuhamishwa.';
+
+    default:
+      return (
+        fallback ||
+        'Imeshindikana kukamilisha muamala.'
+      );
+  }
+}
+
+function createClientOperationId():
+  string {
+  if (
+    typeof globalThis.crypto
+      ?.randomUUID !==
+    'function'
+  ) {
+    throw new Error(
+      'Kivinjari hiki hakiwezi kutengeneza kitambulisho salama cha muamala.',
+    );
+  }
+
+  return globalThis.crypto
+    .randomUUID();
+}
 
 export default function TransferPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [recipientEmail, setRecipientEmail] = useState('');
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState<'pi' | 'usdt' | 'tzs' | 'btc'>('pi');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const [
+    user,
+    setUser,
+  ] =
+    useState<User | null>(
+      null,
+    );
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    recipientEmail,
+    setRecipientEmail,
+  ] =
+    useState('');
+
+  const [
+    amount,
+    setAmount,
+  ] =
+    useState('');
+
+  const [
+    asset,
+    setAsset,
+  ] =
+    useState<TransferAsset>(
+      'PI',
+    );
+  const [
+    statusMessage,
+    setStatusMessage,
+  ] =
+    useState('');
+
+  const [
+    statusType,
+    setStatusType,
+  ] =
+    useState<
+      'idle' |
+      'success' |
+      'error'
+    >('idle');
+
+  const [
+    processing,
+    setProcessing,
+  ] =
+    useState(false);
+
+  const [
+    pendingOperationId,
+    setPendingOperationId,
+  ] =
+    useState<string | null>(
+      null,
+    );
 
   useEffect(() => {
-    if (!auth) {
+    if (!firebaseAuth) {
       setUser(null);
       setLoading(false);
+
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    const unsubscribe =
+      onAuthStateChanged(
+        firebaseAuth,
+        (
+          currentUser,
+        ) => {
+          setUser(
+            currentUser,
+          );
+
+          setLoading(false);
+        },
+      );
+
+    return unsubscribe;
   }, []);
 
-  const handleTransfer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    if (!recipientEmail || !amount) {
-      setStatusMessage('Tafadhali jaza sehemu zote!');
+  function resetPendingOperation() {
+    setPendingOperationId(
+      null,
+    );
+
+    setStatusMessage('');
+
+    setStatusType(
+      'idle',
+    );
+  }
+
+  async function handleTransfer(
+    event:
+      FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (
+      processing
+    ) {
       return;
     }
 
-    const transferAmount = parseFloat(amount);
-    if (isNaN(transferAmount) || transferAmount <= 0) {
-      setStatusMessage('Tafadhali andika kiasi kilicho sahihi!');
+    if (!user) {
+      setStatusType(
+        'error',
+      );
+
+      setStatusMessage(
+        'Tafadhali ingia kwenye akaunti yako.',
+      );
+
+      return;
+    }
+
+    const cleanRecipientEmail =
+      recipientEmail
+        .trim()
+        .toLowerCase();
+
+    const cleanAmount =
+      amount.trim();
+
+    if (
+      !cleanRecipientEmail ||
+      !cleanAmount
+    ) {
+      setStatusType(
+        'error',
+      );
+
+      setStatusMessage(
+        'Jaza barua pepe ya mpokeaji na kiasi.',
+      );
+
+      return;
+    }
+
+    if (
+      !/^\d+(?:\.\d+)?$/.test(
+        cleanAmount,
+      ) ||
+      Number(
+        cleanAmount,
+      ) <= 0
+    ) {
+      setStatusType(
+        'error',
+      );
+
+      setStatusMessage(
+        'Weka kiasi sahihi kinachozidi sifuri.',
+      );
+
       return;
     }
 
     setProcessing(true);
-    setStatusMessage('Mchakato wa utumaji unaendelea...');
+
+    setStatusType(
+      'idle',
+    );
+
+    setStatusMessage(
+      'Inathibitisha na kuchakata muamala kwa usalama...',
+    );
+
+    let operationId =
+      pendingOperationId;
 
     try {
-      // 1. Kutafuta Recipient kwanza kwa kutumia Email yake
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', recipientEmail.trim().toLowerCase()));
-      const querySnapshot = await getDocs(q);
+      if (!operationId) {
+        operationId =
+          createClientOperationId();
 
-      if (querySnapshot.empty) {
-        setStatusMessage('Mtumiaji mwenye barua pepe hii hajapatikana!');
-        setProcessing(false);
-        return;
+        setPendingOperationId(
+          operationId,
+        );
       }
 
-      const recipientDoc = querySnapshot.docs[0];
-      const recipientId = recipientDoc.id;
+      const idToken =
+        await user.getIdToken(
+          true,
+        );
 
-      if (recipientId === user.uid) {
-        setStatusMessage('Huwezi kujitumia fedha mwenyewe!');
-        setProcessing(false);
-        return;
+      const response =
+        await fetch(
+          '/api/transfer',
+          {
+            method:
+              'POST',
+
+            credentials:
+              'same-origin',
+
+            cache:
+              'no-store',
+
+            headers: {
+              Authorization:
+                `Bearer ${idToken}`,
+
+              'Content-Type':
+                'application/json',
+            },
+
+            body:
+              JSON.stringify({
+                recipientEmail:
+                  cleanRecipientEmail,
+
+                asset,
+
+                amount:
+                  cleanAmount,
+
+                operationId,
+              }),
+          },
+        );
+
+      const data =
+        (
+          await response
+            .json()
+            .catch(
+              () => null,
+            )
+        ) as
+          TransferApiResponse |
+          null;
+
+      if (
+        !response.ok ||
+        !data?.ok ||
+        !data.transfer
+      ) {
+        throw {
+          transferFailure:
+            true,
+
+          code:
+            data?.code,
+
+          message:
+            data?.message,
+        };
       }
 
-      // 2. Kuanzisha Muamala wa Kifedha wa Pamoja (Atomic Transfer)
-      const senderRef = doc(db, 'users', user.uid);
-      const recipientRef = doc(db, 'users', recipientId);
-      const txColRef = collection(db, 'transactions');
+      setStatusType(
+        'success',
+      );
 
-      await runTransaction(db, async (transaction) => {
-        const senderSnap = await transaction.get(senderRef);
-        const recipientSnap = await transaction.get(recipientRef);
+      setStatusMessage(
+        `Muamala umekamilika: ${data.transfer.amount} ${data.transfer.asset}.`,
+      );
 
-        let senderBalances = { pi: 0, tzs: 0, usdt: 0, btc: 0 };
-        let recipientBalances = { pi: 0, tzs: 0, usdt: 0, btc: 0 };
-
-        if (senderSnap.exists()) senderBalances = senderSnap.data().balances || senderBalances;
-        if (recipientSnap.exists()) recipientBalances = recipientSnap.data().balances || recipientBalances;
-
-        // Kuhakiki salio la mtumaji
-        if (senderBalances[currency] < transferAmount) {
-          throw new Error("Salio lako halitoshi kukamilisha muamala huu!");
-        }
-
-        // Hesabu balansi mpya
-        const newSenderBalances = {
-          ...senderBalances,
-          [currency]: senderBalances[currency] - transferAmount
-        };
-
-        const newRecipientBalances = {
-          ...recipientBalances,
-          [currency]: recipientBalances[currency] + transferAmount
-        };
-
-        // 1. Sasisha salio la Mtumaji
-        transaction.set(senderRef, { balances: newSenderBalances }, { merge: true });
-
-        // 2. Sasisha salio la Mpokeaji
-        transaction.set(recipientRef, { balances: newRecipientBalances }, { merge: true });
-
-        // 3. Rekodi muamala wa Mtumaji (Debit)
-        const senderTxRef = doc(txColRef);
-        transaction.set(senderTxRef, {
-          userId: user.uid,
-          type: 'send',
-          amount: transferAmount,
-          currency,
-          status: 'completed',
-          recipientId,
-          timestamp: new Date()
-        });
-
-        // 4. Rekodi muamala wa Mpokeaji (Credit)
-        const recipientTxRef = doc(txColRef);
-        transaction.set(recipientTxRef, {
-          userId: recipientId,
-          type: 'receive',
-          amount: transferAmount,
-          currency,
-          status: 'completed',
-          senderId: user.uid,
-          timestamp: new Date()
-        });
-      });
-
-      setStatusMessage(`Umetuma kwa mafanikio ${transferAmount} ${currency.toUpperCase()} kwenda kwa ${recipientEmail}!`);
       setAmount('');
+
       setRecipientEmail('');
-    } catch (error: any) {
-      console.error("Uhamisho umefeli:", error);
-      setStatusMessage(error.message || "Hitilafu imetokea wakati wa kuhamisha fedha.");
+
+      setPendingOperationId(
+        null,
+      );
+    } catch (
+      error
+    ) {
+      const transferError =
+        (
+          typeof error ===
+            'object' &&
+          error !== null &&
+          'transferFailure' in
+            error
+        )
+          ? (
+              error as {
+                code?:
+                  string;
+
+                message?:
+                  string;
+              }
+            )
+          : null;
+
+      setStatusType(
+        'error',
+      );
+
+      setStatusMessage(
+        transferError
+          ? getSafeTransferMessage(
+              transferError.code,
+              transferError.message,
+            )
+          : 'Mtandao au uthibitishaji umeshindwa. Unaweza kujaribu tena bila kuunda muamala wa pili.',
+      );
     } finally {
-      setProcessing(false);
+      setProcessing(
+        false,
+      );
     }
-  };
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <p className="text-xl font-bold animate-pulse">Inapakia Usalama wa Utumaji... 🔐</p>
-      </div>
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+        <p
+          className="text-lg font-bold text-amber-300"
+          role="status"
+        >
+          Inahakiki akaunti yako...
+        </p>
+      </main>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <h1 className="text-3xl font-black mb-4 text-red-500">Ukurasa Imelindwa (Locked)</h1>
-        <p className="text-gray-400 mb-6 text-center max-w-md">
-          Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kutuma fedha kwa usalama.
+      <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-white">
+        <h1 className="mb-4 text-3xl font-black text-red-400">
+          Uhamisho Umelindwa
+        </h1>
+
+        <p className="mb-6 max-w-md text-center text-slate-400">
+          Ingia kwenye akaunti yako ili
+          kuanzisha muamala salama.
         </p>
-        <Link href="/signup" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
+
+        <Link
+          href="/login"
+          className="rounded-xl bg-amber-300 px-6 py-3 font-bold text-slate-950 hover:bg-amber-200"
+        >
           Ingia kwenye Akaunti
         </Link>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] p-6 text-white relative">
+    <main className="relative min-h-screen bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] p-6 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.05),transparent_22%)]" />
-      
-      <div className="max-w-md mx-auto relative z-10 pt-10">
-        <Link href="/wallet" className="text-sm text-amber-300 hover:text-amber-200 mb-6 inline-block">
+
+      <div className="relative z-10 mx-auto max-w-md pt-10">
+        <Link
+          href="/wallet"
+          className="mb-6 inline-block text-sm text-amber-300 hover:text-amber-200"
+        >
           ← Rudi Kwenye Pochi
         </Link>
-        
-        <h1 className="text-3xl font-black mb-8 bg-gradient-to-r from-red-200 to-white bg-clip-text text-transparent">Tuma Crypto (Send)</h1>
-        
-        <form onSubmit={handleTransfer} className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl space-y-6">
+
+        <h1 className="mb-3 bg-gradient-to-r from-red-200 to-white bg-clip-text text-3xl font-black text-transparent">
+          Tuma Fedha
+        </h1>
+
+        <p className="mb-8 text-sm leading-6 text-slate-400">
+          Muamala unathibitishwa na
+          server, verification policy na
+          authoritative financial ledger.
+        </p>
+
+        <form
+          onSubmit={
+            handleTransfer
+          }
+          className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-md"
+        >
           {statusMessage && (
-            <div className="p-4 rounded-xl bg-white/10 border border-white/20 text-yellow-300 font-semibold text-sm">
+            <div
+              role="status"
+              aria-live="polite"
+              className={
+                statusType ===
+                'success'
+                  ? 'rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-200'
+                  : statusType ===
+                      'error'
+                    ? 'rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm font-semibold text-red-200'
+                    : 'rounded-xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm font-semibold text-amber-200'
+              }
+            >
               {statusMessage}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Barua Pepe ya Mpokeaji (Recipient Email)</label>
-            <input 
-              type="email" 
-              value={recipientEmail} 
-              onChange={(e) => setRecipientEmail(e.target.value)} 
-              placeholder="mfano@phclsuper.com" 
-              disabled={processing}
-              className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-red-500 outline-none text-white transition"
+            <label
+              htmlFor="recipientEmail"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
+            >
+              Barua Pepe ya Mpokeaji
+            </label>
+
+            <input
+              id="recipientEmail"
+              name="recipientEmail"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              required
+              maxLength={320}
+              value={
+                recipientEmail
+              }
+              onChange={(
+                event,
+              ) => {
+                setRecipientEmail(
+                  event.target.value,
+                );
+
+                resetPendingOperation();
+              }}
+              placeholder="mpokeaji@example.com"
+              disabled={
+                processing
+              }
+              className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-white outline-none transition focus:border-red-400 disabled:opacity-60"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Kiasi (Amount)</label>
-              <input 
-                type="number" 
-                step="any"
-                value={amount} 
-                onChange={(e) => setAmount(e.target.value)} 
-                placeholder="0.00" 
-                disabled={processing}
-                className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-red-500 outline-none text-white transition"
+              <label
+                htmlFor="amount"
+                className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
+              >
+                Kiasi
+              </label>
+
+              <input
+                id="amount"
+                name="amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                required
+                maxLength={64}
+                value={
+                  amount
+                }
+                onChange={(
+                  event,
+                ) => {
+                  setAmount(
+                    event.target.value,
+                  );
+
+                  resetPendingOperation();
+                }}
+                placeholder="0.00"
+                disabled={
+                  processing
+                }
+                className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-white outline-none transition focus:border-red-400 disabled:opacity-60"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Sarafu (Currency)</label>
-              <select 
-                value={currency} 
-                onChange={(e) => setCurrency(e.target.value as any)} 
-                disabled={processing}
-                className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-red-500 outline-none text-white transition"
+              <label
+                htmlFor="asset"
+                className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
               >
-                <option value="pi">Pi Network (π)</option>
-                <option value="usdt">USDT (Tether)</option>
-                <option value="tzs">TZS (Shilling)</option>
-                <option value="btc">Bitcoin (₿)</option>
+                Sarafu
+              </label>
+
+              <select
+                id="asset"
+                name="asset"
+                value={
+                  asset
+                }
+                onChange={(
+                  event,
+                ) => {
+                  setAsset(
+                    event.target
+                      .value as
+                        TransferAsset,
+                  );
+
+                  resetPendingOperation();
+                }}
+                disabled={
+                  processing
+                }
+                className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-white outline-none transition focus:border-red-400 disabled:opacity-60"
+              >
+                {TRANSFER_ASSETS.map(
+                  (
+                    transferAsset,
+                  ) => (
+                    <option
+                      key={
+                        transferAsset.value
+                      }
+                      value={
+                        transferAsset.value
+                      }
+                    >
+                      {
+                        transferAsset.label
+                      }
+                    </option>
+                  ),
+                )}
               </select>
             </div>
           </div>
 
-          <button 
-            type="submit" 
-            disabled={processing}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold transition shadow-lg disabled:opacity-50"
+          <div className="rounded-xl border border-amber-300/20 bg-slate-950/60 p-4 text-xs leading-5 text-slate-400">
+            Hakikisha barua pepe,
+            sarafu na kiasi ni sahihi.
+            Muamala uliokamilika
+            utaandikwa kwenye ledger
+            isiyobadilishwa.
+          </div>
+
+          <button
+            type="submit"
+            disabled={
+              processing
+            }
+            className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-700 py-4 font-bold text-white shadow-lg transition hover:from-red-500 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {processing ? 'Inatuma...' : 'Thibitisha na Utume 💸'}
+            {processing
+              ? 'Inachakata...'
+              : 'Thibitisha na Utume'}
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }
