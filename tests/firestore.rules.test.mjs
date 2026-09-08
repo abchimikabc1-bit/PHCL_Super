@@ -320,6 +320,62 @@ async function seedFirestore() {
               'LOGIN_SUCCESS',
           },
         );
+
+        await setDoc(
+          doc(
+            db,
+            'withdrawal_requests',
+            'server-withdrawal-request',
+          ),
+          {
+            requestId:
+              'server-withdrawal-request',
+
+            uid:
+              CUSTOMER_UID,
+
+            asset:
+              'TZS',
+
+            rail:
+              'MOBILE_MONEY',
+
+            providerCode:
+              'MPESA',
+
+            amountAtomic:
+              '100000',
+
+            destinationMasked:
+              '•••3456',
+
+            encryptedDestination: {
+              algorithm:
+                'aes-256-gcm',
+
+              version:
+                1,
+
+              initializationVector:
+                'server-only-test-iv',
+
+              ciphertext:
+                'server-only-test-ciphertext',
+
+              authenticationTag:
+                'server-only-test-tag',
+            },
+
+            status:
+              'PENDING_REVIEW',
+
+            settlementStatus:
+              'NOT_STARTED',
+
+            createdAt:
+              new Date(),
+          },
+        );
       },
     );
 }
@@ -1123,6 +1179,129 @@ describe(
             {
               event:
                 'LOGIN_SUCCESS',
+            },
+          ),
+        );
+      },
+    );
+
+    test(
+      'customer cannot read server-authoritative withdrawal requests',
+      async () => {
+        const db =
+          authenticatedFirestore(
+            CUSTOMER_UID,
+            CUSTOMER_EMAIL,
+          );
+
+        await assertFails(
+          getDoc(
+            doc(
+              db,
+              'withdrawal_requests',
+              'server-withdrawal-request',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'customer cannot create or overwrite withdrawal requests',
+      async () => {
+        const db =
+          authenticatedFirestore(
+            CUSTOMER_UID,
+            CUSTOMER_EMAIL,
+          );
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              'withdrawal_requests',
+              'forged-withdrawal-request',
+            ),
+            {
+              requestId:
+                'forged-withdrawal-request',
+
+              uid:
+                CUSTOMER_UID,
+
+              asset:
+                'TZS',
+
+              rail:
+                'MOBILE_MONEY',
+
+              providerCode:
+                'MPESA',
+
+              amountAtomic:
+                '999999999',
+
+              destination:
+                '+255700000000',
+
+              status:
+                'COMPLETED',
+
+              settlementStatus:
+                'PAID',
+
+              createdAt:
+                serverTimestamp(),
+            },
+          ),
+        );
+      },
+    );
+
+    test(
+      'unauthenticated visitor cannot read withdrawal requests',
+      async () => {
+        const db =
+          testEnv
+            .unauthenticatedContext()
+            .firestore();
+
+        await assertFails(
+          getDoc(
+            doc(
+              db,
+              'withdrawal_requests',
+              'server-withdrawal-request',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'unauthenticated visitor cannot create withdrawal requests',
+      async () => {
+        const db =
+          testEnv
+            .unauthenticatedContext()
+            .firestore();
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              'withdrawal_requests',
+              'anonymous-forged-withdrawal',
+            ),
+            {
+              uid:
+                CUSTOMER_UID,
+
+              amountAtomic:
+                '999999999',
+
+              status:
+                'COMPLETED',
             },
           ),
         );

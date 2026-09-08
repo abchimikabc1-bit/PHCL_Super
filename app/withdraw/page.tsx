@@ -1,234 +1,1021 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, runTransaction, collection } from 'firebase/firestore';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 
-// Usanidi wa mradi wako wa Firebase
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+import Link from 'next/link';
+
+import {
+  onAuthStateChanged,
+  type User,
+} from 'firebase/auth';
+
+import {
+  firebaseAuth,
+} from '@/lib/firebase-client';
+
+type WithdrawalAsset =
+  | 'USD'
+  | 'TZS'
+  | 'PI';
+
+type WithdrawalRail =
+  | 'BANK'
+  | 'MOBILE_MONEY'
+  | 'BLOCKCHAIN';
+
+type MessageType =
+  | 'info'
+  | 'success'
+  | 'error';
+
+type WithdrawalApiResponse = {
+  ok?: boolean;
+
+  code?: string;
+
+  message?: string;
+
+  withdrawal?: {
+    requestId?: string;
+
+    operationId?: string;
+
+    asset?: WithdrawalAsset;
+
+    rail?: WithdrawalRail;
+
+    providerCode?: string;
+
+    amount?: string;
+
+    destination?: string;
+
+    status?: string;
+
+    idempotent?: boolean;
+
+    expiresAt?: string;
+  };
 };
 
-const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
-const app = hasFirebaseConfig
-  ? getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-  : undefined as any;
-const auth = app ? getAuth(app) : null as any;
-const db = app ? getFirestore(app) : null as any;
+type ProviderOption = {
+  value: string;
+
+  label: string;
+};
+
+const BANK_PROVIDERS:
+  ProviderOption[] = [
+  {
+    value: 'CRDB',
+    label: 'CRDB Bank',
+  },
+  {
+    value: 'NMB',
+    label: 'NMB Bank',
+  },
+  {
+    value: 'NBC',
+    label: 'NBC Bank',
+  },
+  {
+    value: 'EXIM',
+    label: 'Exim Bank',
+  },
+  {
+    value: 'OTHER_BANK',
+    label: 'Benki nyingine',
+  },
+];
+
+const MOBILE_MONEY_PROVIDERS:
+  ProviderOption[] = [
+  {
+    value: 'MPESA',
+    label: 'M-Pesa',
+  },
+  {
+    value: 'AIRTEL_MONEY',
+    label: 'Airtel Money',
+  },
+  {
+    value: 'MIXX_BY_YAS',
+    label: 'Mixx by Yas',
+  },
+  {
+    value: 'HALOPESA',
+    label: 'HaloPesa',
+  },
+];
+
+const BLOCKCHAIN_PROVIDERS:
+  ProviderOption[] = [
+  {
+    value: 'PI_NETWORK',
+    label: 'Pi Network',
+  },
+];
+
+function getDefaultRail(
+  asset: WithdrawalAsset,
+): WithdrawalRail {
+  switch (asset) {
+    case 'TZS':
+      return 'MOBILE_MONEY';
+
+    case 'USD':
+      return 'BANK';
+
+    case 'PI':
+      return 'BLOCKCHAIN';
+  }
+}
+
+function getProviderOptions(
+  rail: WithdrawalRail,
+): ProviderOption[] {
+  switch (rail) {
+    case 'BANK':
+      return BANK_PROVIDERS;
+
+    case 'MOBILE_MONEY':
+      return MOBILE_MONEY_PROVIDERS;
+
+    case 'BLOCKCHAIN':
+      return BLOCKCHAIN_PROVIDERS;
+  }
+}
+
+function createOperationId():
+  string {
+  if (
+    typeof crypto !==
+      'undefined' &&
+    typeof crypto.randomUUID ===
+      'function'
+  ) {
+    return `withdraw:${crypto.randomUUID()}`;
+  }
+
+  const bytes =
+    new Uint8Array(
+      24,
+    );
+
+  crypto.getRandomValues(
+    bytes,
+  );
+
+  const randomValue =
+    Array.from(
+      bytes,
+      (value) =>
+        value
+          .toString(16)
+          .padStart(
+            2,
+            '0',
+          ),
+    ).join('');
+
+  return `withdraw:${randomValue}`;
+}
+
+function isPlainObject(
+  value: unknown,
+): value is Record<
+  string,
+  unknown
+> {
+  return (
+    typeof value ===
+      'object' &&
+    value !== null &&
+    !Array.isArray(
+      value,
+    )
+  );
+}
+
+async function readJsonResponse(
+  response: Response,
+): Promise<WithdrawalApiResponse> {
+  try {
+    const value:
+      unknown =
+      await response.json();
+
+    return isPlainObject(
+      value,
+    )
+      ? (
+          value as
+            WithdrawalApiResponse
+        )
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function getSafeErrorMessage(
+  code:
+    | string
+    | undefined,
+): string {
+  switch (code) {
+    case 'UNAUTHENTICATED':
+      return 'Muda wa kuingia umeisha. Tafadhali ingia tena.';
+
+    case 'EMAIL_VERIFICATION_REQUIRED':
+      return 'Thibitisha barua pepe yako kabla ya kuomba kutoa fedha.';
+
+    case 'PHONE_VERIFICATION_REQUIRED':
+      return 'Thibitisha namba yako ya simu kabla ya kuomba kutoa fedha.';
+
+    case 'ACCOUNT_RESTRICTED':
+      return 'Akaunti yako hairuhusiwi kufanya withdrawal kwa sasa.';
+
+    case 'KYC_REQUIRED':
+      return 'Uthibitishaji wa KYC uliokubaliwa unahitajika.';
+
+    case 'KYS_REQUIRED':
+      return 'Uthibitishaji wa KYS uliokubaliwa unahitajika.';
+
+    case 'KYB_REQUIRED':
+      return 'Uthibitishaji wa KYB uliokubaliwa unahitajika.';
+
+    case 'STRONG_AUTHENTICATION_REQUIRED':
+      return 'Washa uthibitishaji imara wa 2FA/passkey kabla ya withdrawal.';
+
+    case 'INSUFFICIENT_FUNDS':
+      return 'Salio lako halitoshi kwa ombi hili.';
+
+    case 'WITHDRAWAL_RATE_LIMITED':
+      return 'Majaribio ya withdrawal yamezidi. Subiri kabla ya kujaribu tena.';
+
+    case 'WITHDRAWAL_SECURITY_UNAVAILABLE':
+      return 'Mfumo wa usalama wa withdrawal haupatikani kwa muda. Hakuna fedha zilizotolewa.';
+
+    case 'WITHDRAWAL_ROUTE_NOT_SUPPORTED':
+      return 'Njia hii ya kutoa fedha bado haijawezeshwa.';
+
+    case 'INVALID_REQUEST':
+    case 'INVALID_WITHDRAWAL':
+      return 'Taarifa za withdrawal si sahihi. Zikague kisha ujaribu tena.';
+
+    case 'WITHDRAWAL_CONFLICT':
+      return 'Namba hii ya operesheni imetumika kwa ombi tofauti.';
+
+    default:
+      return 'Ombi la withdrawal halikuweza kuwasilishwa. Hakuna fedha zilizotolewa.';
+  }
+}
+
+function getDestinationLabel(
+  rail: WithdrawalRail,
+): string {
+  switch (rail) {
+    case 'BANK':
+      return 'Namba ya Akaunti ya Benki';
+
+    case 'MOBILE_MONEY':
+      return 'Namba ya Simu ya Mobile Money';
+
+    case 'BLOCKCHAIN':
+      return 'Anwani ya Wallet ya Pi Network';
+  }
+}
+
+function getDestinationPlaceholder(
+  rail: WithdrawalRail,
+): string {
+  switch (rail) {
+    case 'BANK':
+      return 'Weka namba ya akaunti';
+
+    case 'MOBILE_MONEY':
+      return 'Mfano: +2557XXXXXXXX';
+
+    case 'BLOCKCHAIN':
+      return 'Weka anwani ya wallet';
+  }
+}
 
 export default function WithdrawPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState<'pi' | 'usdt' | 'tzs' | 'btc'>('pi');
-  const [destination, setDestination] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const [
+    user,
+    setUser,
+  ] =
+    useState<User | null>(
+      null,
+    );
 
-  useEffect(() => {
-    if (!auth) {
-      setUser(null);
-      setLoading(false);
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(
+      true,
+    );
+
+  const [
+    amount,
+    setAmount,
+  ] =
+    useState(
+      '',
+    );
+
+  const [
+    asset,
+    setAsset,
+  ] =
+    useState<WithdrawalAsset>(
+      'TZS',
+    );
+
+  const [
+    rail,
+    setRail,
+  ] =
+    useState<WithdrawalRail>(
+      'MOBILE_MONEY',
+    );
+
+  const [
+    providerCode,
+    setProviderCode,
+  ] =
+    useState(
+      'MPESA',
+    );
+
+  const [
+    destination,
+    setDestination,
+  ] =
+    useState(
+      '',
+    );
+
+  const [
+    statusMessage,
+    setStatusMessage,
+  ] =
+    useState(
+      '',
+    );
+
+  const [
+    messageType,
+    setMessageType,
+  ] =
+    useState<MessageType>(
+      'info',
+    );
+
+  const [
+    processing,
+    setProcessing,
+  ] =
+    useState(
+      false,
+    );
+
+  const operationIdRef =
+    useRef<string | null>(
+      null,
+    );
+
+  useEffect(
+    () => {
+      if (!firebaseAuth) {
+        setUser(
+          null,
+        );
+
+        setLoading(
+          false,
+        );
+
+        return;
+      }
+
+      const unsubscribe =
+        onAuthStateChanged(
+          firebaseAuth,
+          (
+            currentUser,
+          ) => {
+            setUser(
+              currentUser,
+            );
+
+            setLoading(
+              false,
+            );
+          },
+        );
+
+      return () => {
+        unsubscribe();
+      };
+    },
+    [],
+  );
+
+  function resetOperationId() {
+    operationIdRef.current =
+      null;
+
+    if (
+      messageType !==
+      'success'
+    ) {
+      setStatusMessage(
+        '',
+      );
+    }
+  }
+
+  function handleAssetChange(
+    nextAsset:
+      WithdrawalAsset,
+  ) {
+    const nextRail =
+      getDefaultRail(
+        nextAsset,
+      );
+
+    const providers =
+      getProviderOptions(
+        nextRail,
+      );
+
+    setAsset(
+      nextAsset,
+    );
+
+    setRail(
+      nextRail,
+    );
+
+    setProviderCode(
+      providers[0]?.value ??
+        '',
+    );
+
+    setDestination(
+      '',
+    );
+
+    resetOperationId();
+  }
+
+  function handleRailChange(
+    nextRail:
+      WithdrawalRail,
+  ) {
+    const providers =
+      getProviderOptions(
+        nextRail,
+      );
+
+    setRail(
+      nextRail,
+    );
+
+    setProviderCode(
+      providers[0]?.value ??
+        '',
+    );
+
+    setDestination(
+      '',
+    );
+
+    resetOperationId();
+  }
+
+  async function handleWithdraw(
+    event:
+      FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (
+      !user ||
+      processing
+    ) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    const cleanAmount =
+      amount.trim();
 
-  const handleWithdraw = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    if (!amount || !destination) {
-      setStatusMessage('Tafadhali jaza sehemu zote!');
+    const cleanDestination =
+      destination.trim();
+
+    if (
+      !/^\d+(?:\.\d+)?$/.test(
+        cleanAmount,
+      ) ||
+      !/[1-9]/.test(
+        cleanAmount,
+      )
+    ) {
+      setMessageType(
+        'error',
+      );
+
+      setStatusMessage(
+        'Andika kiasi sahihi kikubwa kuliko sifuri.',
+      );
+
       return;
     }
 
-    const withdrawAmount = parseFloat(amount);
-    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
-      setStatusMessage('Tafadhali andika kiasi kilicho sahihi!');
+    if (
+      cleanDestination.length <
+      4
+    ) {
+      setMessageType(
+        'error',
+      );
+
+      setStatusMessage(
+        'Weka taarifa sahihi za sehemu fedha zitakapotumwa.',
+      );
+
       return;
     }
 
-    if (currency === 'tzs' && !bankName) {
-      setStatusMessage('Tafadhali chagua au andika Jina la Benki!');
+    if (!providerCode) {
+      setMessageType(
+        'error',
+      );
+
+      setStatusMessage(
+        'Chagua mtoa huduma wa withdrawal.',
+      );
+
       return;
     }
 
-    setProcessing(true);
-    setStatusMessage('Mchakato wa utoaji fedha unaendelea...');
+    setProcessing(
+      true,
+    );
+
+    setMessageType(
+      'info',
+    );
+
+    setStatusMessage(
+      'Ombi linahakikiwa kwa usalama...',
+    );
 
     try {
-      const senderRef = doc(db, 'users', user.uid);
-      const txColRef = collection(db, 'transactions');
+      const idToken =
+        await user.getIdToken();
 
-      await runTransaction(db, async (transaction) => {
-        const senderSnap = await transaction.get(senderRef);
+      const operationId =
+        operationIdRef.current ??
+        createOperationId();
 
-        let senderBalances = { pi: 0, tzs: 0, usdt: 0, btc: 0 };
-        if (senderSnap.exists()) {
-          senderBalances = senderSnap.data().balances || senderBalances;
-        }
+      operationIdRef.current =
+        operationId;
 
-        // Kuhakiki salio
-        if (senderBalances[currency] < withdrawAmount) {
-          throw new Error("Salio lako halitoshi kukamilisha utoaji huu wa fedha!");
-        }
+      const response =
+        await fetch(
+          '/api/withdraw',
+          {
+            method:
+              'POST',
 
-        // Hesabu balansi mpya
-        const newSenderBalances = {
-          ...senderBalances,
-          [currency]: senderBalances[currency] - withdrawAmount
+            credentials:
+              'include',
+
+            cache:
+              'no-store',
+
+            headers: {
+              Authorization:
+                `Bearer ${idToken}`,
+
+              'Content-Type':
+                'application/json',
+            },
+
+            body:
+              JSON.stringify({
+                asset,
+
+                rail,
+
+                providerCode,
+
+                destination:
+                  cleanDestination,
+
+                amount:
+                  cleanAmount,
+
+                operationId,
+              }),
+          },
+        );
+
+      const data =
+        await readJsonResponse(
+          response,
+        );
+
+      if (
+        !response.ok ||
+        !data.ok ||
+        !data.withdrawal
+      ) {
+        throw {
+          code:
+            data.code,
         };
+      }
 
-        // 1. Sasisha salio la Mtumiaji
-        transaction.set(senderRef, { balances: newSenderBalances }, { merge: true });
+      const maskedDestination =
+        data.withdrawal
+          .destination ??
+        '••••';
 
-        // 2. Rekodi muamala wa utoaji (Withdraw Debit)
-        const txRef = doc(txColRef);
-        transaction.set(txRef, {
-          userId: user.uid,
-          type: 'withdraw',
-          amount: withdrawAmount,
-          currency,
-          status: 'completed', // 'completed' au unaweza kuweka 'pending' kama unataka admin aidhinishe kwanza
-          destinationAddress: destination,
-          bankName: currency === 'tzs' ? bankName : null,
-          timestamp: new Date()
-        });
-      });
+      setMessageType(
+        'success',
+      );
 
-      setStatusMessage(`Umetoa kwa mafanikio ${withdrawAmount} ${currency.toUpperCase()} kwenda ${destination}!`);
-      setAmount('');
-      setDestination('');
-      setBankName('');
-    } catch (error: any) {
-      console.error("Utoaji umefeli:", error);
-      setStatusMessage(error.message || "Hitilafu imetokea wakati wa kutoa fedha.");
+      setStatusMessage(
+        `Ombi limepokelewa kwa ukaguzi salama. Kiasi: ${cleanAmount} ${asset}; destination: ${maskedDestination}. Hii si taarifa ya payout kukamilika.`,
+      );
+
+      setAmount(
+        '',
+      );
+
+      setDestination(
+        '',
+      );
+
+      operationIdRef.current =
+        null;
+    } catch (error) {
+      const code =
+        isPlainObject(
+          error,
+        ) &&
+        typeof error.code ===
+          'string'
+          ? error.code
+          : undefined;
+
+      setMessageType(
+        'error',
+      );
+
+      setStatusMessage(
+        getSafeErrorMessage(
+          code,
+        ),
+      );
     } finally {
-      setProcessing(false);
+      setProcessing(
+        false,
+      );
     }
-  };
+  }
+
+  const providerOptions =
+    getProviderOptions(
+      rail,
+    );
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <p className="text-xl font-bold animate-pulse">Inapakia Usalama wa Utoaji... 🔐</p>
-      </div>
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-white">
+        <p className="animate-pulse text-xl font-bold">
+          Inapakia usalama wa withdrawal… 🔐
+        </p>
+      </main>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <h1 className="text-3xl font-black mb-4 text-purple-500">Ukurasa Imelindwa (Locked)</h1>
-        <p className="text-gray-400 mb-6 text-center max-w-md">
-          Tafadhali ingia kwenye akaunti yako kwanza ili kuweza kufanya utoaji wa fedha salama.
+      <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-white">
+        <h1 className="mb-4 text-center text-3xl font-black text-purple-400">
+          Ukurasa Umelindwa
+        </h1>
+
+        <p className="mb-6 max-w-md text-center text-slate-400">
+          Tafadhali ingia kwenye akaunti yako ili kuwasilisha ombi la kutoa fedha.
         </p>
-        <Link href="/signup" className="px-6 py-3 bg-amber-300 text-slate-900 font-bold rounded-xl shadow-lg hover:bg-amber-200">
-          Ingia kwenye Akaunti
+
+        <Link
+          href="/login"
+          className="rounded-xl bg-amber-300 px-6 py-3 font-bold text-slate-900 shadow-lg hover:bg-amber-200"
+        >
+          Ingia Kwenye Akaunti
         </Link>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] p-6 text-white relative">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(167,139,250,0.05),transparent_22%)]" />
-      
-      <div className="max-w-md mx-auto relative z-10 pt-10">
-        <Link href="/wallet" className="text-sm text-amber-300 hover:text-amber-200 mb-6 inline-block">
-          ← Rudi Kwenye Pochi
+    <main className="relative min-h-screen bg-gradient-to-br from-slate-950 via-[#101827] to-[#1c1607] p-6 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(167,139,250,0.08),transparent_28%)]" />
+
+      <section className="relative z-10 mx-auto max-w-md pt-10">
+        <Link
+          href="/wallet"
+          className="mb-6 inline-block text-sm text-amber-300 hover:text-amber-200"
+        >
+          ← Rudi Kwenye Wallet
         </Link>
-        
-        <h1 className="text-3xl font-black mb-8 bg-gradient-to-r from-purple-200 to-white bg-clip-text text-transparent">Kutoa Fedha (Withdraw)</h1>
-        
-        <form onSubmit={handleWithdraw} className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl space-y-6">
+
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+          PHCL Financial Security
+        </p>
+
+        <h1 className="mb-3 mt-2 bg-gradient-to-r from-purple-200 to-white bg-clip-text text-3xl font-black text-transparent">
+          Ombi la Kutoa Fedha
+        </h1>
+
+        <p className="mb-7 text-sm leading-6 text-slate-400">
+          Ombi litahakikiwa na server. Kutumwa kwa ombi hakumaanishi kuwa payout imekamilika.
+        </p>
+
+        <form
+          onSubmit={
+            handleWithdraw
+          }
+          className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-md"
+        >
           {statusMessage && (
-            <div className="p-4 rounded-xl bg-white/10 border border-white/20 text-yellow-300 font-semibold text-sm">
+            <div
+              role={
+                messageType ===
+                  'error'
+                  ? 'alert'
+                  : 'status'
+              }
+              className={
+                messageType ===
+                'success'
+                  ? 'rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-200'
+                  : messageType ===
+                      'error'
+                    ? 'rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm font-semibold text-rose-200'
+                    : 'rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm font-semibold text-amber-200'
+              }
+            >
               {statusMessage}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Chagua Sarafu ya Kutoa</label>
-            <select 
-              value={currency} 
-              onChange={(e) => setCurrency(e.target.value as any)} 
-              className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-purple-500 outline-none text-white transition"
+            <label
+              htmlFor="withdrawal-asset"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
             >
-              <option value="pi">Pi Network (π)</option>
-              <option value="usdt">USDT (Tether)</option>
-              <option value="tzs">Tanzanian Shilling (TZS)</option>
-              <option value="btc">Bitcoin (₿)</option>
+              Sarafu
+            </label>
+
+            <select
+              id="withdrawal-asset"
+              value={
+                asset
+              }
+              disabled={
+                processing
+              }
+              onChange={(
+                event,
+              ) => {
+                handleAssetChange(
+                  event.target
+                    .value as
+                    WithdrawalAsset,
+                );
+              }}
+              className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-white outline-none transition focus:border-purple-500"
+            >
+              <option value="TZS">
+                Tanzanian Shilling (TZS)
+              </option>
+
+              <option value="USD">
+                US Dollar (USD)
+              </option>
+
+              <option value="PI">
+                Pi Network (PI)
+              </option>
+            </select>
+
+            <p className="mt-2 text-[11px] text-slate-500">
+              nTZS, USDT na BTC hazijawezeshwa kwa external withdrawal.
+            </p>
+          </div>
+
+          {asset ===
+            'TZS' && (
+            <div>
+              <label
+                htmlFor="withdrawal-rail"
+                className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
+              >
+                Njia ya Kupokea
+              </label>
+
+              <select
+                id="withdrawal-rail"
+                value={
+                  rail
+                }
+                disabled={
+                  processing
+                }
+                onChange={(
+                  event,
+                ) => {
+                  handleRailChange(
+                    event.target
+                      .value as
+                      WithdrawalRail,
+                  );
+                }}
+                className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-white outline-none transition focus:border-purple-500"
+              >
+                <option value="MOBILE_MONEY">
+                  Mobile Money
+                </option>
+
+                <option value="BANK">
+                  Akaunti ya Benki
+                </option>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="withdrawal-provider"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
+            >
+              Mtoa Huduma
+            </label>
+
+            <select
+              id="withdrawal-provider"
+              value={
+                providerCode
+              }
+              disabled={
+                processing
+              }
+              onChange={(
+                event,
+              ) => {
+                setProviderCode(
+                  event.target
+                    .value,
+                );
+
+                resetOperationId();
+              }}
+              className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-white outline-none transition focus:border-purple-500"
+            >
+              {providerOptions.map(
+                (
+                  provider,
+                ) => (
+                  <option
+                    key={
+                      provider.value
+                    }
+                    value={
+                      provider.value
+                    }
+                  >
+                    {provider.label}
+                  </option>
+                ),
+              )}
             </select>
           </div>
 
-          {currency === 'tzs' ? (
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Chagua Benki ya Mpokeaji</label>
-              <select 
-                value={bankName} 
-                onChange={(e) => setBankName(e.target.value)} 
-                className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-purple-500 outline-none text-white transition"
-              >
-                <option value="">-- Chagua Benki --</option>
-                <option value="crdb">CRDB Bank</option>
-                <option value="nmb">NMB Bank</option>
-                <option value="nbc">NBC Bank</option>
-                <option value="exim">Exim Bank</option>
-                <option value="mobile">M-Pesa / TigoPesa / AirtelMoney</option>
-              </select>
-            </div>
-          ) : null}
-
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              {currency === 'tzs' ? 'Namba ya Akaunti ya Benki au Simu' : 'Anwani ya Pochi ya Nje (External Wallet Address)'}
+            <label
+              htmlFor="withdrawal-destination"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
+            >
+              {getDestinationLabel(
+                rail,
+              )}
             </label>
-            <input 
-              type="text" 
-              value={destination} 
-              onChange={(e) => setDestination(e.target.value)} 
-              placeholder={currency === 'tzs' ? 'Namba ya akaunti au simu...' : 'Anwani ya kadi k.m. 0x...'} 
-              disabled={processing}
-              className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-purple-500 outline-none text-white transition"
+
+            <input
+              id="withdrawal-destination"
+              type="text"
+              autoComplete="off"
+              maxLength={
+                200
+              }
+              required
+              value={
+                destination
+              }
+              disabled={
+                processing
+              }
+              onChange={(
+                event,
+              ) => {
+                setDestination(
+                  event.target
+                    .value,
+                );
+
+                resetOperationId();
+              }}
+              placeholder={getDestinationPlaceholder(
+                rail,
+              )}
+              className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
             />
+
+            <p className="mt-2 text-[11px] text-slate-500">
+              Destination ita-encryptiwa kabla ya kuhifadhiwa.
+            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Kiasi cha Kutoa (Amount)</label>
-            <input 
-              type="number" 
-              step="any"
-              value={amount} 
-              onChange={(e) => setAmount(e.target.value)} 
-              placeholder="0.00" 
-              disabled={processing}
-              className="w-full p-3 rounded-xl border border-white/10 bg-white/5 focus:border-purple-500 outline-none text-white transition"
+            <label
+              htmlFor="withdrawal-amount"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400"
+            >
+              Kiasi cha Kutoa
+            </label>
+
+            <input
+              id="withdrawal-amount"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              maxLength={
+                64
+              }
+              required
+              value={
+                amount
+              }
+              disabled={
+                processing
+              }
+              onChange={(
+                event,
+              ) => {
+                setAmount(
+                  event.target
+                    .value,
+                );
+
+                resetOperationId();
+              }}
+              placeholder="0.00"
+              className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-500"
             />
           </div>
 
-          <button 
-            type="submit" 
-            disabled={processing}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold transition shadow-lg disabled:opacity-50"
+          <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-5 text-amber-100/80">
+            Salio halitabadilishwa na browser. Settlement itahitaji uthibitisho wa server na payout provider.
+          </div>
+
+          <button
+            type="submit"
+            disabled={
+              processing
+            }
+            className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 py-4 font-bold text-white shadow-lg transition hover:from-purple-500 hover:to-purple-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {processing ? 'Inafanya kazi...' : 'Thibitisha na Kutoa 💸'}
+            {processing
+              ? 'Inahakiki Ombi…'
+              : 'Wasilisha Ombi la Withdrawal'}
           </button>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
