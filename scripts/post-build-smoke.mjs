@@ -175,6 +175,45 @@ const apiChecks = [
   },
   {
     path:
+      '/api/wallet',
+    method:
+      'GET',
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+      '"message":"Authentication required."',
+    ],
+  },
+  {
+    path:
+      '/api/wallet',
+    method:
+      'GET',
+    headers: {
+      Authorization:
+        'Bearer invalid-smoke-test-token',
+    },
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+    ],
+  },
+  {
+    path:
+      '/api/wallet',
+    method:
+      'POST',
+    expectedStatus:
+      405,
+    expectedBodyIncludes: [
+      '"code":"METHOD_NOT_ALLOWED"',
+      '"message":"Method not allowed."',
+    ],
+  },
+  {
+    path:
       '/api/transfer',
     method:
       'GET',
