@@ -18,16 +18,18 @@
                     "test:firestore-rules":  "firebase emulators:exec --only firestore \"node --test tests/firestore.rules.test.mjs\"",
                     "test:transfer-rate-limit":  "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test tests/transfer-rate-limit.test.ts\"",
                     "test:withdrawal-security":  "firebase emulators:exec --only firestore \"node --conditions=react-server --import tsx --test --test-concurrency=1 tests/withdrawal-security.test.ts\"",
-                    "test:firestore":  "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/transfer-rate-limit.test.ts tests/withdrawal-security.test.ts tests/deposit-security.test.ts tests/provider-settlement.test.ts\"",
+                    "test:firestore":  "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/transfer-rate-limit.test.ts tests/withdrawal-security.test.ts tests/deposit-security.test.ts tests/deposit-provider-initiation.test.ts tests/provider-settlement.test.ts\"",
                     "test:smoke":  "node scripts/post-build-smoke.mjs",
-                    "test":  "npm run typecheck \u0026\u0026 npm run test:firestore",
+                    "test":  "npm run typecheck \u0026\u0026 npm run test:payment-providers \u0026\u0026 npm run test:firestore",
                     "seed:orders":  "start http://localhost:3000/admin/orders?seed=demo",
                     "clear:orders":  "start http://localhost:3000/admin/orders?clear=demo",
                     "release:check":  "node scripts/release-readiness.mjs",
                     "release:compliance":  "node scripts/compliance-readiness.mjs",
                     "release:smoke":  "npm run test:smoke",
                     "release:verify":  "npm run release:check \u0026\u0026 npm run release:compliance \u0026\u0026 npm test \u0026\u0026 npm run build \u0026\u0026 npm run release:smoke",
-                    "test:provider-settlement":  "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/provider-settlement.test.ts\""
+                    "test:provider-settlement":  "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/provider-settlement.test.ts\"",
+                    "test:payment-providers":  "node --conditions=react-server --import tsx --test --test-concurrency=1 tests/payment-provider-registry.test.ts tests/mpesa-sandbox-adapter.test.ts",
+                    "test:deposit-provider-initiation":  "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/deposit-provider-initiation.test.ts\""
                 },
     "dependencies":  {
                          "@ai-sdk/openai":  "^3.0.73",

@@ -34,6 +34,10 @@ import {
   type DepositRail,
 } from '@/lib/server-deposit-security';
 
+import {
+  initiateDepositProvider,
+} from '@/lib/server-deposit-provider-initiation';
+
 export const runtime =
   'nodejs';
 
@@ -748,9 +752,39 @@ export async function POST(
       uid,
     );
 
-    const result =
-      await createPendingDepositRequest(
-        {
+      if (
+      asset ===
+        'TZS' &&
+      rail ===
+        'MOBILE_MONEY' &&
+      providerCode ===
+        'MPESA'
+    ) {
+      const phoneNumber =
+        authentication.user
+          .phoneNumber;
+
+      if (
+        !phoneNumber
+      ) {
+        return noStoreJson(
+          {
+            ok:
+              false,
+
+            code:
+              'PHONE_NUMBER_REQUIRED',
+
+            message:
+              'A verified Firebase phone number is required for M-Pesa deposits.',
+          },
+          403,
+          rateLimitHeaders,
+        );
+      }
+
+      const initiation =
+        await initiateDepositProvider({
           uid,
 
           clientOperationId:
@@ -763,12 +797,105 @@ export async function POST(
           providerCode,
 
           amountAtomic,
+
+          payer: {
+            type:
+              'MSISDN',
+
+            value:
+              phoneNumber,
+          },
+        });
+
+      const result =
+        initiation.deposit;
+
+      return noStoreJson(
+        {
+          ok:
+            true,
+
+          deposit: {
+            requestId:
+              result.requestId,
+
+            operationId:
+              result.clientOperationId,
+
+            asset:
+              result.asset,
+
+            rail:
+              result.rail,
+
+            providerCode:
+              result.providerCode,
+
+            amount,
+
+            status:
+              result.status,
+
+            idempotent:
+              initiation.idempotent,
+
+            expiresAt:
+              new Date(
+                result.expiresAtMs,
+              ).toISOString(),
+          },
+
+          paymentInstructions:
+            initiation.provider
+              .customerAction,
+
+          providerStatus:
+            initiation.provider
+              .status,
+
+          providerExpiresAt:
+            initiation.provider
+              .expiresAtMs ===
+              null
+              ? null
+              : new Date(
+                  initiation.provider
+                    .expiresAtMs,
+                ).toISOString(),
+
+          message:
+            'M-Pesa sandbox deposit request initiated. No balance has been credited.',
         },
+        202,
+        rateLimitHeaders,
       );
+    }
+
+    /*
+     * Providers without an installed adapter retain the
+     * secure pending-request behavior. They issue no payment
+     * instructions and cannot credit a balance.
+     */
+    const result =
+      await createPendingDepositRequest({
+        uid,
+
+        clientOperationId:
+          operationId,
+
+        asset,
+
+        rail,
+
+        providerCode,
+
+        amountAtomic,
+      });
 
     return noStoreJson(
       {
-        ok: true,
+        ok:
+          true,
 
         deposit: {
           requestId:
@@ -809,6 +936,7 @@ export async function POST(
       202,
       rateLimitHeaders,
     );
+
   } catch (error) {
     if (
       error instanceof

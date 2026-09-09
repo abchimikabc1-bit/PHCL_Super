@@ -29,15 +29,19 @@ type DepositRail =
   | 'BLOCKCHAIN';
 
 type ProviderOption = {
-  value: string;
+  value:
+    string;
 
-  label: string;
+  label:
+    string;
 };
 
 type DepositResult = {
-  requestId: string;
+  requestId:
+    string;
 
-  operationId: string;
+  operationId:
+    string;
 
   asset:
     DepositAsset;
@@ -45,122 +49,142 @@ type DepositResult = {
   rail:
     DepositRail;
 
-  providerCode: string;
+  providerCode:
+    string;
 
-  amount: string;
+  amount:
+    string;
 
   status:
     'PENDING_PROVIDER_INITIATION';
 
-  idempotent: boolean;
+  idempotent:
+    boolean;
 
-  expiresAt: string;
+  expiresAt:
+    string;
+};
+
+type PaymentInstruction = {
+  type:
+    'USSD_PROMPT';
+
+  message:
+    string;
+
+  expiresAtMs:
+    number | null;
 };
 
 type DepositApiResponse = {
-  ok?: unknown;
+  ok?:
+    unknown;
 
-  code?: unknown;
+  code?:
+    unknown;
 
-  message?: unknown;
+  message?:
+    unknown;
 
-  deposit?: unknown;
+  deposit?:
+    unknown;
 
-  paymentInstructions?: unknown;
+  paymentInstructions?:
+    unknown;
 };
 
 const MOBILE_MONEY_PROVIDERS:
   ProviderOption[] = [
-  {
-    value:
-      'MPESA',
+    {
+      value:
+        'MPESA',
 
-    label:
-      'M-Pesa',
-  },
-  {
-    value:
-      'AIRTEL_MONEY',
+      label:
+        'M-Pesa',
+    },
+    {
+      value:
+        'AIRTEL_MONEY',
 
-    label:
-      'Airtel Money',
-  },
-  {
-    value:
-      'MIXX_BY_YAS',
+      label:
+        'Airtel Money',
+    },
+    {
+      value:
+        'MIXX_BY_YAS',
 
-    label:
-      'Mixx by Yas',
-  },
-  {
-    value:
-      'HALOPESA',
+      label:
+        'Mixx by Yas',
+    },
+    {
+      value:
+        'HALOPESA',
 
-    label:
-      'HaloPesa',
-  },
-];
+      label:
+        'HaloPesa',
+    },
+  ];
 
 const BANK_PROVIDERS:
   ProviderOption[] = [
-  {
-    value:
-      'CRDB',
+    {
+      value:
+        'CRDB',
 
-    label:
-      'CRDB Bank',
-  },
-  {
-    value:
-      'NMB',
+      label:
+        'CRDB Bank',
+    },
+    {
+      value:
+        'NMB',
 
-    label:
-      'NMB Bank',
-  },
-  {
-    value:
-      'NBC',
+      label:
+        'NMB Bank',
+    },
+    {
+      value:
+        'NBC',
 
-    label:
-      'NBC Bank',
-  },
-  {
-    value:
-      'EXIM',
+      label:
+        'NBC Bank',
+    },
+    {
+      value:
+        'EXIM',
 
-    label:
-      'Exim Bank',
-  },
-  {
-    value:
-      'OTHER_BANK',
+      label:
+        'Exim Bank',
+    },
+    {
+      value:
+        'OTHER_BANK',
 
-    label:
-      'Benki nyingine',
-  },
-];
+      label:
+        'Benki nyingine',
+    },
+  ];
 
 const USD_BANK_PROVIDERS:
   ProviderOption[] = [
-  {
-    value:
-      'OTHER_BANK',
+    {
+      value:
+        'OTHER_BANK',
 
-    label:
-      'International/approved bank',
-  },
-];
+      label:
+        'International/approved bank',
+    },
+  ];
 
 const PI_PROVIDERS:
   ProviderOption[] = [
-  {
-    value:
-      'PI_NETWORK',
+    {
+      value:
+        'PI_NETWORK',
 
-    label:
-      'Pi Network',
-  },
-];
+      label:
+        'Pi Network',
+    },
+  ];
 
 function createOperationId():
   string {
@@ -175,15 +199,25 @@ function createOperationId():
 
   return [
     'deposit',
-    Date.now().toString(36),
+    Date.now()
+      .toString(
+        36,
+      ),
     Math.random()
-      .toString(36)
-      .slice(2),
-  ].join('-');
+      .toString(
+        36,
+      )
+      .slice(
+        2,
+      ),
+  ].join(
+    '-',
+  );
 }
 
 function isPlainObject(
-  value: unknown,
+  value:
+    unknown,
 ): value is Record<
   string,
   unknown
@@ -199,7 +233,8 @@ function isPlainObject(
 }
 
 function parseDepositResult(
-  value: unknown,
+  value:
+    unknown,
 ): DepositResult | null {
   if (
     !isPlainObject(
@@ -274,24 +309,87 @@ function parseDepositResult(
   };
 }
 
+function parsePaymentInstruction(
+  value:
+    unknown,
+): PaymentInstruction | null {
+  if (
+    !isPlainObject(
+      value,
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    value.type !==
+      'USSD_PROMPT' ||
+    typeof value.message !==
+      'string' ||
+    !value.message.trim()
+  ) {
+    return null;
+  }
+
+  let expiresAtMs:
+    number | null;
+
+  if (
+    value.expiresAtMs ===
+      null
+  ) {
+    expiresAtMs =
+      null;
+  } else if (
+    typeof value.expiresAtMs ===
+      'number' &&
+    Number.isSafeInteger(
+      value.expiresAtMs,
+    ) &&
+    value.expiresAtMs > 0
+  ) {
+    expiresAtMs =
+      value.expiresAtMs;
+  } else {
+    return null;
+  }
+
+  return {
+    type:
+      'USSD_PROMPT',
+
+    message:
+      value.message.trim(),
+
+    expiresAtMs,
+  };
+}
+
 function getApiMessage(
   response:
     DepositApiResponse,
-  fallback: string,
+
+  fallback:
+    string,
 ): string {
-  return typeof response.message ===
-    'string' &&
+  return (
+    typeof response.message ===
+      'string' &&
     response.message.trim()
-    ? response.message
-    : fallback;
+      ? response.message
+      : fallback
+  );
 }
 
 function getRailOptions(
-  asset: DepositAsset,
+  asset:
+    DepositAsset,
 ): Array<{
-  value: DepositRail;
+  value:
+    DepositRail;
 
-  label: string;
+  label:
+    string;
 }> {
   if (
     asset ===
@@ -342,8 +440,11 @@ function getRailOptions(
 }
 
 function getProviderOptions(
-  asset: DepositAsset,
-  rail: DepositRail,
+  asset:
+    DepositAsset,
+
+  rail:
+    DepositRail,
 ): ProviderOption[] {
   if (
     asset ===
@@ -374,7 +475,8 @@ function getProviderOptions(
 }
 
 function getInitialRail(
-  asset: DepositAsset,
+  asset:
+    DepositAsset,
 ): DepositRail {
   if (
     asset ===
@@ -394,14 +496,19 @@ function getInitialRail(
 }
 
 function getInitialProvider(
-  asset: DepositAsset,
-  rail: DepositRail,
+  asset:
+    DepositAsset,
+
+  rail:
+    DepositRail,
 ): string {
-  return getProviderOptions(
-    asset,
-    rail,
-  )[0]?.value ??
-    '';
+  return (
+    getProviderOptions(
+      asset,
+      rail,
+    )[0]?.value ??
+    ''
+  );
 }
 
 export default function DepositPage() {
@@ -473,7 +580,19 @@ export default function DepositPage() {
     depositResult,
     setDepositResult,
   ] =
-    useState<DepositResult | null>(
+    useState<
+      DepositResult | null
+    >(
+      null,
+    );
+
+  const [
+    paymentInstruction,
+    setPaymentInstruction,
+  ] =
+    useState<
+      PaymentInstruction | null
+    >(
       null,
     );
 
@@ -484,7 +603,9 @@ export default function DepositPage() {
 
   useEffect(
     () => {
-      if (!firebaseAuth) {
+      if (
+        !firebaseAuth
+      ) {
         setUser(
           null,
         );
@@ -520,6 +641,10 @@ export default function DepositPage() {
       createOperationId();
 
     setDepositResult(
+      null,
+    );
+
+    setPaymentInstruction(
       null,
     );
 
@@ -625,6 +750,10 @@ export default function DepositPage() {
       null,
     );
 
+    setPaymentInstruction(
+      null,
+    );
+
     setStatusMessage(
       'Inatengeneza ombi salama la deposit...',
     );
@@ -656,8 +785,10 @@ export default function DepositPage() {
                 asset,
                 rail,
                 providerCode,
+
                 amount:
                   normalizedAmount,
+
                 operationId:
                   operationIdRef.current,
               }),
@@ -670,7 +801,7 @@ export default function DepositPage() {
       try {
         const parsed:
           unknown =
-          await response.json();
+            await response.json();
 
         if (
           isPlainObject(
@@ -702,18 +833,30 @@ export default function DepositPage() {
           responseBody.deposit,
         );
 
-      if (!result) {
+      if (
+        !result
+      ) {
         throw new Error(
           'Jibu la deposit kutoka server si sahihi.',
         );
       }
 
+      const instruction =
+        responseBody.paymentInstructions ===
+          null
+          ? null
+          : parsePaymentInstruction(
+              responseBody
+                .paymentInstructions,
+            );
+
       if (
         responseBody.paymentInstructions !==
-          null
+          null &&
+        !instruction
       ) {
         throw new Error(
-          'Maelekezo ya malipo yasiyotarajiwa yamekataliwa.',
+          'Maelekezo ya malipo kutoka server si sahihi.',
         );
       }
 
@@ -721,10 +864,18 @@ export default function DepositPage() {
         result,
       );
 
-      setStatusMessage(
-        'Ombi limepokelewa. Usitume fedha bado; maelekezo rasmi ya provider hayajatolewa.',
+      setPaymentInstruction(
+        instruction,
       );
-    } catch (error) {
+
+      setStatusMessage(
+        instruction
+          ? 'Ombi la M-Pesa limeanzishwa. Fuata maelekezo yaliyoonyeshwa hapa chini.'
+          : 'Ombi limepokelewa. Usitume fedha bado; maelekezo rasmi ya provider hayajatolewa.',
+      );
+    } catch (
+      error
+    ) {
       setStatusMessage(
         error instanceof Error
           ? error.message
@@ -748,7 +899,9 @@ export default function DepositPage() {
       rail,
     );
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
         <p className="animate-pulse text-xl font-bold">
@@ -758,7 +911,9 @@ export default function DepositPage() {
     );
   }
 
-  if (!user) {
+  if (
+    !user
+  ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
         <h1 className="mb-4 text-3xl font-black text-emerald-400">
@@ -800,7 +955,9 @@ export default function DepositPage() {
         </p>
 
         <form
-          onSubmit={handleDeposit}
+          onSubmit={
+            handleDeposit
+          }
           className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-md"
         >
           {statusMessage ? (
@@ -822,8 +979,12 @@ export default function DepositPage() {
 
             <select
               id="deposit-asset"
-              value={asset}
-              disabled={processing}
+              value={
+                asset
+              }
+              disabled={
+                processing
+              }
               onChange={(
                 event,
               ) =>
@@ -858,8 +1019,12 @@ export default function DepositPage() {
 
             <select
               id="deposit-rail"
-              value={rail}
-              disabled={processing}
+              value={
+                rail
+              }
+              disabled={
+                processing
+              }
               onChange={(
                 event,
               ) =>
@@ -875,10 +1040,16 @@ export default function DepositPage() {
                   option,
                 ) => (
                   <option
-                    key={option.value}
-                    value={option.value}
+                    key={
+                      option.value
+                    }
+                    value={
+                      option.value
+                    }
                   >
-                    {option.label}
+                    {
+                      option.label
+                    }
                   </option>
                 ),
               )}
@@ -895,8 +1066,12 @@ export default function DepositPage() {
 
             <select
               id="deposit-provider"
-              value={providerCode}
-              disabled={processing}
+              value={
+                providerCode
+              }
+              disabled={
+                processing
+              }
               onChange={(
                 event,
               ) => {
@@ -913,10 +1088,16 @@ export default function DepositPage() {
                   option,
                 ) => (
                   <option
-                    key={option.value}
-                    value={option.value}
+                    key={
+                      option.value
+                    }
+                    value={
+                      option.value
+                    }
                   >
-                    {option.label}
+                    {
+                      option.label
+                    }
                   </option>
                 ),
               )}
@@ -936,10 +1117,16 @@ export default function DepositPage() {
               type="text"
               inputMode="decimal"
               autoComplete="off"
-              value={amount}
-              disabled={processing}
+              value={
+                amount
+              }
+              disabled={
+                processing
+              }
               placeholder="0.00"
-              maxLength={64}
+              maxLength={
+                64
+              }
               onChange={(
                 event,
               ) => {
@@ -959,12 +1146,16 @@ export default function DepositPage() {
 
           <button
             type="submit"
-            disabled={processing}
+            disabled={
+              processing
+            }
             className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 py-4 font-bold text-white shadow-lg transition hover:from-emerald-500 hover:to-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {processing
-              ? 'Inatengeneza ombi...'
-              : 'Tengeneza Ombi la Deposit'}
+            {
+              processing
+                ? 'Inatengeneza ombi...'
+                : 'Tengeneza Ombi la Deposit'
+            }
           </button>
         </form>
 
@@ -981,7 +1172,10 @@ export default function DepositPage() {
                 </dt>
 
                 <dd className="break-all font-mono text-xs text-white">
-                  {depositResult.requestId}
+                  {
+                    depositResult
+                      .requestId
+                  }
                 </dd>
               </div>
 
@@ -991,8 +1185,14 @@ export default function DepositPage() {
                 </dt>
 
                 <dd className="font-semibold text-white">
-                  {depositResult.amount}{' '}
-                  {depositResult.asset}
+                  {
+                    depositResult
+                      .amount
+                  }{' '}
+                  {
+                    depositResult
+                      .asset
+                  }
                 </dd>
               </div>
 
@@ -1002,7 +1202,10 @@ export default function DepositPage() {
                 </dt>
 
                 <dd className="font-semibold text-white">
-                  {depositResult.providerCode}
+                  {
+                    depositResult
+                      .providerCode
+                  }
                 </dd>
               </div>
 
@@ -1012,14 +1215,37 @@ export default function DepositPage() {
                 </dt>
 
                 <dd className="font-semibold text-amber-200">
-                  Inasubiri kuanzishwa kwa provider
+                  {
+                    paymentInstruction
+                      ? 'Provider ameanzishwa; inasubiri callback'
+                      : 'Inasubiri kuanzishwa kwa provider'
+                  }
                 </dd>
               </div>
             </dl>
 
-            <p className="mt-5 rounded-xl bg-slate-950/50 p-4 text-sm leading-6 text-amber-100">
-              Hakuna maelekezo ya malipo yaliyotolewa bado na hakuna salio lililoongezwa. Subiri integration ya provider iliyoidhinishwa.
-            </p>
+            {paymentInstruction ? (
+              <div className="mt-5 rounded-xl border border-amber-300/30 bg-amber-300/10 p-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">
+                  Maelekezo ya M-Pesa Sandbox
+                </p>
+
+                <p className="text-sm font-semibold leading-6 text-white">
+                  {
+                    paymentInstruction
+                      .message
+                  }
+                </p>
+
+                <p className="mt-3 text-xs leading-5 text-slate-400">
+                  Hili ni jaribio la sandbox. Hakuna fedha halisi zinazohamishwa, na salio halitaongezwa mpaka callback salama ya provider ithibitishwe.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-5 rounded-xl bg-slate-950/50 p-4 text-sm leading-6 text-amber-100">
+                Hakuna maelekezo ya malipo yaliyotolewa bado na hakuna salio lililoongezwa.
+              </p>
+            )}
           </section>
         ) : null}
       </div>

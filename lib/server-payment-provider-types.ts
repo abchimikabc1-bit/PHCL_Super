@@ -45,6 +45,10 @@ export type ProviderCallbackOutcome =
   | 'PENDING'
   | 'FAILED';
 
+export type ProviderSettlementKind =
+  | 'DEPOSIT'
+  | 'WITHDRAWAL';
+
 export type ProviderPayerReference =
   | {
       type:
@@ -53,8 +57,8 @@ export type ProviderPayerReference =
       /**
        * Server-controlled normalized telephone number.
        *
-       * It must never be written to logs, callback audit
-       * metadata or financial ledger metadata.
+       * Never write this value to logs, callback audits
+       * or financial ledger metadata.
        */
       value:
         string;
@@ -65,7 +69,6 @@ export type ProviderPayerReference =
 
       /**
        * Required by providers such as PayPal.
-       *
        * Treat this as private customer data.
        */
       value:
@@ -76,8 +79,8 @@ export type ProviderPayerReference =
         'CUSTOMER_TOKEN';
 
       /**
-       * Opaque token previously issued by the provider.
-       * PHCL must not treat this token as authentication.
+       * Opaque token previously issued by a provider.
+       * It must not be treated as customer authentication.
        */
       value:
         string;
@@ -115,7 +118,7 @@ export type ProviderCustomerAction =
        * Provider-issued QR payload only.
        *
        * Never generate a payment QR code from a Firebase
-       * UID, email address or other PHCL account identity.
+       * UID, email address or PHCL account identity.
        */
       qrPayload:
         string;
@@ -129,8 +132,7 @@ export type ProviderCustomerAction =
 
       /**
        * Safe customer-facing instruction.
-       *
-       * It must not contain provider secrets.
+       * It must never contain provider secrets.
        */
       message:
         string;
@@ -158,8 +160,7 @@ export type InitiateProviderDepositInput = {
 
   /**
    * PHCL server-generated idempotency key.
-   *
-   * Retried requests must reuse this exact value.
+   * Retries must reuse this exact value.
    */
   operationId:
     string;
@@ -177,10 +178,10 @@ export type InitiateProviderDepositInput = {
     FinancialAsset;
 
   /**
-   * Positive amount represented using PHCL atomic units.
+   * Positive amount represented in PHCL atomic units.
    *
-   * Provider adapters are responsible for converting this
-   * value to the provider's required decimal representation.
+   * Each provider adapter converts this to the decimal
+   * representation required by that provider.
    */
   amountAtomic:
     string;
@@ -191,8 +192,8 @@ export type InitiateProviderDepositInput = {
   /**
    * Optional server-controlled URLs.
    *
-   * Adapters must verify that these belong to an approved
-   * PHCL hostname before sending them to a provider.
+   * The adapter must confirm that they use an approved
+   * PHCL HTTPS hostname before sending them externally.
    */
   returnUrl?:
     string | null;
@@ -219,22 +220,218 @@ export type ProviderDepositInitiationResult = {
   environment:
     PaymentProviderEnvironment;
 
-  requestIdId:
-    string stringInput; Wait disastrous typo. Need correct. We must not output erroneous. Need restart final? We are composing final, can fix.
+  requestId:
+    string;
 
-Need continue accurately.
+  operationId:
+    string;
 
-`requestId`, operationId, providerRequestId, providerTransactionId null, status, customerAction, expiresAt, rawResponseFingerprint (no raw response).
-Failure perhaps interface method throws normalized errors; result success true only. Good.
+  /**
+   * Provider-issued request/reference identifier.
+   */
+  providerRequestId:
+    string;
 
-Callback request:
-providerCode trusted adapter selected
-headers maybe Headers? adapters route uses Request. Define `ProviderCallbackInput {providerCode, environment, headers: Readonly<Record<string,string>>, rawBody, receivedAtMs}`.
-Normalized callback with settlement kind.
-Adapter:
-readonly code rails assets, initiateDeposit, verifyAndNormalizeCallback.
-No withdrawal.
-Error class runtime helpful? Types file can include `ProviderAdapterErrorCode` and class. But types file primarily types. Could include helper `isPaymentProviderCode`.
-Let's send complete. Ensure no accidental meta text.
+  /**
+   * May be unavailable until the provider completes
+   * or processes the payment.
+   */
+  providerTransactionId:
+    string | null;
 
-Need redo final from start clean.
+  status:
+    ProviderOperationStatus;
+
+  customerAction:
+    ProviderCustomerAction | null;
+
+  expiresAtMs:
+    number | null;
+
+  /**
+   * SHA-256 fingerprint of the provider response.
+   *
+   * Store the fingerprint instead of raw provider data
+   * that may contain private or sensitive information.
+   */
+  responseFingerprint:
+    string;
+};
+
+export type ProviderCallbackRequest = {
+  /**
+   * Provider identity selected by a trusted server route.
+   * Never obtain this value from callback JSON.
+   */
+  providerCode:
+    PaymentProviderCode;
+
+  environment:
+    PaymentProviderEnvironment;
+
+  /**
+   * Exact raw request body before JSON parsing.
+   */
+  rawBody:
+    string;
+
+  /**
+   * Normalized lower-case HTTP header names.
+   */
+  headers:
+    Readonly<
+      Record<
+        string,
+        string
+      >
+    >;
+
+  receivedAtMs:
+    number;
+};
+
+export type NormalizedProviderCallback = {
+  providerCode:
+    PaymentProviderCode;
+
+  environment:
+    PaymentProviderEnvironment;
+
+  kind:
+    ProviderSettlementKind;
+
+  requestId:
+    string;
+
+  providerEventId:
+    string;
+
+  providerTransactionId:
+    string | null;
+
+  outcome:
+    ProviderCallbackOutcome;
+
+  failureReason:
+    string | null;
+
+  /**
+   * SHA-256 fingerprint of the exact authenticated
+   * provider callback body.
+   */
+  payloadFingerprint:
+    string;
+};
+
+export type PaymentProviderAdapter = {
+  readonly providerCode:
+    PaymentProviderCode;
+
+  readonly environment:
+    PaymentProviderEnvironment;
+
+  readonly supportedRails:
+    readonly PaymentProviderRail[];
+
+  readonly supportedAssets:
+    readonly FinancialAsset[];
+
+  /**
+   * Initiates a provider deposit request.
+   *
+   * This method must not credit a PHCL balance.
+   * Credit occurs only after a verified SUCCESS callback.
+   */
+  initiateDeposit(
+    input:
+      InitiateProviderDepositInput,
+  ):
+    Promise<
+      ProviderDepositInitiationResult
+    >;
+
+  /**
+   * Verifies the provider's native callback security
+   * and converts it to the PHCL canonical callback.
+   *
+   * This method must not mutate financial balances.
+   */
+  verifyAndNormalizeCallback(
+    request:
+      ProviderCallbackRequest,
+  ):
+    Promise<
+      NormalizedProviderCallback
+    >;
+};
+
+export type ProviderAdapterErrorCode =
+  | 'PROVIDER_NOT_SUPPORTED'
+  | 'PROVIDER_NOT_CONFIGURED'
+  | 'PROVIDER_CONFIGURATION_INVALID'
+  | 'PROVIDER_ROUTE_NOT_SUPPORTED'
+  | 'PROVIDER_REQUEST_INVALID'
+  | 'PROVIDER_AUTHENTICATION_FAILED'
+  | 'PROVIDER_REQUEST_FAILED'
+  | 'PROVIDER_RESPONSE_INVALID'
+  | 'PROVIDER_CALLBACK_UNAUTHORIZED'
+  | 'PROVIDER_CALLBACK_INVALID'
+  | 'PROVIDER_CALLBACK_EXPIRED'
+  | 'PROVIDER_OPERATION_CONFLICT'
+  | 'PROVIDER_TEMPORARILY_UNAVAILABLE';
+
+export class ProviderAdapterError
+  extends Error {
+  readonly code:
+    ProviderAdapterErrorCode;
+
+  readonly retryable:
+    boolean;
+
+  constructor(
+    code:
+      ProviderAdapterErrorCode,
+    options?: {
+      retryable?:
+        boolean;
+
+      cause?:
+        unknown;
+    },
+  ) {
+    super(
+      code,
+      options?.cause !==
+        undefined
+        ? {
+            cause:
+              options.cause,
+          }
+        : undefined,
+    );
+
+    this.name =
+      'ProviderAdapterError';
+
+    this.code =
+      code;
+
+    this.retryable =
+      options?.retryable ??
+      false;
+  }
+}
+
+export function isPaymentProviderCode(
+  value:
+    unknown,
+): value is PaymentProviderCode {
+  return (
+    typeof value ===
+      'string' &&
+    PAYMENT_PROVIDER_CODES.includes(
+      value as
+        PaymentProviderCode,
+    )
+  );
+}
