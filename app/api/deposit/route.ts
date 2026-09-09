@@ -38,6 +38,10 @@ import {
   initiateDepositProvider,
 } from '@/lib/server-deposit-provider-initiation';
 
+import type {
+  PaymentProviderCode,
+} from '@/lib/server-payment-provider-types';
+
 export const runtime =
   'nodejs';
 
@@ -63,16 +67,27 @@ const SUPPORTED_DEPOSIT_ASSETS =
     'PI',
   ]);
 
+const ACTIVE_MOBILE_MONEY_ADAPTERS =
+  new Set<PaymentProviderCode>([
+    'MPESA',
+    'AIRTEL_MONEY',
+  ]);
+
 type DepositRequestBody = {
-  asset?: unknown;
+  asset?:
+    unknown;
 
-  rail?: unknown;
+  rail?:
+    unknown;
 
-  providerCode?: unknown;
+  providerCode?:
+    unknown;
 
-  amount?: unknown;
+  amount?:
+    unknown;
 
-  operationId?: unknown;
+  operationId?:
+    unknown;
 };
 
 type DepositEligibilityErrorCode =
@@ -92,7 +107,8 @@ class DepositEligibilityError
   constructor(
     code:
       DepositEligibilityErrorCode,
-    message: string,
+    message:
+      string,
   ) {
     super(
       message,
@@ -107,12 +123,15 @@ class DepositEligibilityError
 }
 
 function noStoreJson(
-  body: unknown,
-  status: number,
-  additionalHeaders?: Record<
-    string,
-    string
-  >,
+  body:
+    unknown,
+  status:
+    number,
+  additionalHeaders?:
+    Record<
+      string,
+      string
+    >,
 ) {
   return NextResponse.json(
     body,
@@ -138,7 +157,10 @@ function noStoreJson(
 function createRateLimitHeaders(
   result:
     TransferRateLimitResult,
-): Record<string, string> {
+): Record<
+  string,
+  string
+> {
   const resetSeconds =
     Math.max(
       0,
@@ -147,27 +169,32 @@ function createRateLimitHeaders(
           result.resetAtMs -
           Date.now()
         ) /
-          1000,
+          1_000,
       ),
     );
 
   const headers:
-    Record<string, string> = {
-    'RateLimit-Remaining':
-      String(
-        result.remaining,
-      ),
+    Record<
+      string,
+      string
+    > = {
+      'RateLimit-Remaining':
+        String(
+          result.remaining,
+        ),
 
-    'RateLimit-Reset':
-      String(
-        resetSeconds,
-      ),
-  };
+      'RateLimit-Reset':
+        String(
+          resetSeconds,
+        ),
+    };
 
   if (
     !result.allowed
   ) {
-    headers['Retry-After'] =
+    headers[
+      'Retry-After'
+    ] =
       String(
         Math.max(
           1,
@@ -180,7 +207,8 @@ function createRateLimitHeaders(
 }
 
 function isPlainObject(
-  value: unknown,
+  value:
+    unknown,
 ): value is Record<
   string,
   unknown
@@ -196,11 +224,16 @@ function isPlainObject(
 }
 
 async function readJsonBody(
-  request: Request,
-): Promise<DepositRequestBody> {
+  request:
+    Request,
+): Promise<
+  DepositRequestBody
+> {
   const contentType =
     request.headers
-      .get('content-type')
+      .get(
+        'content-type',
+      )
       ?.toLowerCase() ??
     '';
 
@@ -219,7 +252,9 @@ async function readJsonBody(
       'content-length',
     );
 
-  if (contentLength) {
+  if (
+    contentLength
+  ) {
     const parsedLength =
       Number(
         contentLength,
@@ -293,7 +328,9 @@ async function readJsonBody(
     Object.keys(
       parsed,
     ).some(
-      (key) =>
+      (
+        key,
+      ) =>
         !allowedKeys.has(
           key,
         ),
@@ -308,7 +345,8 @@ async function readJsonBody(
 }
 
 function normalizeAsset(
-  value: unknown,
+  value:
+    unknown,
 ): FinancialAsset {
   if (
     typeof value !==
@@ -339,7 +377,8 @@ function normalizeAsset(
 }
 
 function normalizeRail(
-  value: unknown,
+  value:
+    unknown,
 ): DepositRail {
   if (
     typeof value !==
@@ -372,7 +411,8 @@ function normalizeRail(
 }
 
 function normalizeProviderCode(
-  value: unknown,
+  value:
+    unknown,
 ): string {
   if (
     typeof value !==
@@ -389,8 +429,7 @@ function normalizeProviderCode(
       .toUpperCase();
 
   if (
-    providerCode.length <
-      2 ||
+    providerCode.length < 2 ||
     providerCode.length >
       MAX_PROVIDER_CODE_LENGTH ||
     !/^[A-Z0-9_-]+$/.test(
@@ -406,7 +445,8 @@ function normalizeProviderCode(
 }
 
 function normalizeDisplayAmount(
-  value: unknown,
+  value:
+    unknown,
 ): string {
   if (
     typeof value !==
@@ -437,7 +477,8 @@ function normalizeDisplayAmount(
 }
 
 function normalizeOperationId(
-  value: unknown,
+  value:
+    unknown,
 ): string {
   if (
     typeof value !==
@@ -465,6 +506,47 @@ function normalizeOperationId(
   }
 
   return operationId;
+}
+
+function isActiveMobileMoneyProvider(
+  asset:
+    FinancialAsset,
+  rail:
+    DepositRail,
+  providerCode:
+    string,
+): providerCode is PaymentProviderCode {
+  return (
+    asset ===
+      'TZS' &&
+    rail ===
+      'MOBILE_MONEY' &&
+    ACTIVE_MOBILE_MONEY_ADAPTERS.has(
+      providerCode as
+        PaymentProviderCode,
+    )
+  );
+}
+
+function getProviderDisplayName(
+  providerCode:
+    PaymentProviderCode,
+): string {
+  if (
+    providerCode ===
+      'MPESA'
+  ) {
+    return 'M-Pesa';
+  }
+
+  if (
+    providerCode ===
+      'AIRTEL_MONEY'
+  ) {
+    return 'Airtel Money';
+  }
+
+  return providerCode;
 }
 
 function requireDepositEligibility(
@@ -546,7 +628,8 @@ function requireDepositEligibility(
 }
 
 async function requireEligibleCustomer(
-  uid: string,
+  uid:
+    string,
 ): Promise<void> {
   const facts =
     await getServerVerificationFacts(
@@ -565,7 +648,8 @@ async function requireEligibleCustomer(
 }
 
 export async function POST(
-  request: Request,
+  request:
+    Request,
 ) {
   const authentication =
     await authenticateFirebaseUser(
@@ -577,7 +661,8 @@ export async function POST(
   ) {
     return noStoreJson(
       {
-        ok: false,
+        ok:
+          false,
 
         code:
           'UNAUTHENTICATED',
@@ -608,7 +693,8 @@ export async function POST(
   } catch {
     return noStoreJson(
       {
-        ok: false,
+        ok:
+          false,
 
         code:
           'DEPOSIT_SECURITY_UNAVAILABLE',
@@ -630,7 +716,8 @@ export async function POST(
   ) {
     return noStoreJson(
       {
-        ok: false,
+        ok:
+          false,
 
         code:
           'DEPOSIT_RATE_LIMITED',
@@ -654,7 +741,8 @@ export async function POST(
   } catch {
     return noStoreJson(
       {
-        ok: false,
+        ok:
+          false,
 
         code:
           'INVALID_REQUEST',
@@ -731,7 +819,8 @@ export async function POST(
   } catch {
     return noStoreJson(
       {
-        ok: false,
+        ok:
+          false,
 
         code:
           'INVALID_DEPOSIT',
@@ -752,17 +841,21 @@ export async function POST(
       uid,
     );
 
-      if (
-      asset ===
-        'TZS' &&
-      rail ===
-        'MOBILE_MONEY' &&
-      providerCode ===
-        'MPESA'
+    if (
+      isActiveMobileMoneyProvider(
+        asset,
+        rail,
+        providerCode,
+      )
     ) {
       const phoneNumber =
         authentication.user
           .phoneNumber;
+
+      const providerDisplayName =
+        getProviderDisplayName(
+          providerCode,
+        );
 
       if (
         !phoneNumber
@@ -776,7 +869,7 @@ export async function POST(
               'PHONE_NUMBER_REQUIRED',
 
             message:
-              'A verified Firebase phone number is required for M-Pesa deposits.',
+              `A verified Firebase phone number is required for ${providerDisplayName} deposits.`,
           },
           403,
           rateLimitHeaders,
@@ -864,7 +957,7 @@ export async function POST(
                 ).toISOString(),
 
           message:
-            'M-Pesa sandbox deposit request initiated. No balance has been credited.',
+            `${providerDisplayName} sandbox deposit request initiated. No balance has been credited.`,
         },
         202,
         rateLimitHeaders,
@@ -936,15 +1029,17 @@ export async function POST(
       202,
       rateLimitHeaders,
     );
-
-  } catch (error) {
+  } catch (
+    error
+  ) {
     if (
       error instanceof
         DepositEligibilityError
     ) {
       return noStoreJson(
         {
-          ok: false,
+          ok:
+            false,
 
           code:
             error.code,
@@ -968,7 +1063,8 @@ export async function POST(
     ) {
       return noStoreJson(
         {
-          ok: false,
+          ok:
+            false,
 
           code:
             'DEPOSIT_CONFLICT',
@@ -983,11 +1079,14 @@ export async function POST(
 
     if (
       message ===
-        'DEPOSIT_ROUTE_NOT_SUPPORTED'
+        'DEPOSIT_ROUTE_NOT_SUPPORTED' ||
+      message ===
+        'PAYMENT_PROVIDER_UNSUPPORTED_ROUTE'
     ) {
       return noStoreJson(
         {
-          ok: false,
+          ok:
+            false,
 
           code:
             'DEPOSIT_ROUTE_NOT_SUPPORTED',
@@ -1006,7 +1105,8 @@ export async function POST(
     ) {
       return noStoreJson(
         {
-          ok: false,
+          ok:
+            false,
 
           code:
             'DEPOSIT_ACCOUNT_NOT_READY',
@@ -1015,6 +1115,26 @@ export async function POST(
             'The financial account is not ready for deposits.',
         },
         409,
+        rateLimitHeaders,
+      );
+    }
+
+    if (
+      message ===
+        'PAYMENT_PROVIDER_NOT_CONFIGURED'
+    ) {
+      return noStoreJson(
+        {
+          ok:
+            false,
+
+          code:
+            'DEPOSIT_PROVIDER_UNAVAILABLE',
+
+          message:
+            'The selected payment provider is not available.',
+        },
+        503,
         rateLimitHeaders,
       );
     }
@@ -1028,7 +1148,8 @@ export async function POST(
 
     return noStoreJson(
       {
-        ok: false,
+        ok:
+          false,
 
         code:
           'DEPOSIT_FAILED',
@@ -1045,7 +1166,8 @@ export async function POST(
 function methodNotAllowed() {
   return noStoreJson(
     {
-      ok: false,
+      ok:
+        false,
 
       code:
         'METHOD_NOT_ALLOWED',

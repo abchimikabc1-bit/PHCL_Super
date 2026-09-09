@@ -16,14 +16,15 @@ import type {
   InitiateDepositProviderInput,
 } from '@/lib/server-deposit-provider-initiation';
 
+import type {
+  PaymentProviderCode,
+} from '@/lib/server-payment-provider-types';
+
 const TEST_UID =
   'deposit-provider-test-user';
 
 const TEST_NOW =
   2_100_000_000_000;
-
-const TEST_PHONE_NUMBER =
-  '+255712345678';
 
 const DEFAULT_BALANCES = {
   usd:
@@ -43,6 +44,73 @@ type DepositProviderModule =
   typeof import(
     '@/lib/server-deposit-provider-initiation'
   );
+
+type ActiveProviderCase = {
+  providerCode:
+    Extract<
+      PaymentProviderCode,
+      | 'MPESA'
+      | 'AIRTEL_MONEY'
+    >;
+
+  displayName:
+    string;
+
+  phoneNumber:
+    string;
+
+  localPhoneNumber:
+    string;
+
+  normalizedPhoneNumber:
+    string;
+
+  requestPrefix:
+    RegExp;
+};
+
+const ACTIVE_PROVIDER_CASES:
+  readonly ActiveProviderCase[] = [
+    {
+      providerCode:
+        'MPESA',
+
+      displayName:
+        'M-Pesa',
+
+      phoneNumber:
+        '+255712345678',
+
+      localPhoneNumber:
+        '0712345678',
+
+      normalizedPhoneNumber:
+        '255712345678',
+
+      requestPrefix:
+        /^mpesa_req_[a-f0-9]{32}$/,
+    },
+
+    {
+      providerCode:
+        'AIRTEL_MONEY',
+
+      displayName:
+        'Airtel Money',
+
+      phoneNumber:
+        '+255682345678',
+
+      localPhoneNumber:
+        '0682345678',
+
+      normalizedPhoneNumber:
+        '255682345678',
+
+      requestPrefix:
+        /^airtel_money_req_[a-f0-9]{32}$/,
+    },
+  ];
 
 let adminDb:
   Firestore;
@@ -154,6 +222,14 @@ async function clearTestData():
     deleteCollection(
       'financial_accounts',
     ),
+
+    deleteCollection(
+      'financial_ledger',
+    ),
+
+    deleteCollection(
+      'financial_operations',
+    ),
   ]);
 }
 
@@ -189,6 +265,10 @@ async function seedFinancialAccount():
 }
 
 function createBaseInput(
+  provider:
+    ActiveProviderCase =
+      ACTIVE_PROVIDER_CASES[0],
+
   overrides:
     Partial<
       InitiateDepositProviderInput
@@ -199,7 +279,7 @@ function createBaseInput(
       TEST_UID,
 
     clientOperationId:
-      'deposit-provider-operation-001',
+      `deposit-provider-${provider.providerCode.toLowerCase()}-001`,
 
     asset:
       'TZS',
@@ -208,7 +288,7 @@ function createBaseInput(
       'MOBILE_MONEY',
 
     providerCode:
-      'MPESA',
+      provider.providerCode,
 
     amountAtomic:
       '100000',
@@ -218,7 +298,7 @@ function createBaseInput(
         'MSISDN',
 
       value:
-        TEST_PHONE_NUMBER,
+        provider.phoneNumber,
     },
 
     ...overrides,
@@ -309,264 +389,358 @@ describe(
       false,
   },
   () => {
-    test(
-      'initiates M-Pesa without crediting the financial account',
-      async () => {
-        const accountReference =
-          adminDb
-            .collection(
-              'financial_accounts',
-            )
-            .doc(
-              TEST_UID,
+    for (
+      const provider
+      of ACTIVE_PROVIDER_CASES
+    ) {
+      test(
+        `initiates ${provider.displayName} without crediting the financial account`,
+        async () => {
+          const accountReference =
+            adminDb
+              .collection(
+                'financial_accounts',
+              )
+              .doc(
+                TEST_UID,
+              );
+
+          const accountBefore =
+            await accountReference.get();
+
+          const balancesBefore =
+            accountBefore.data()
+              ?.balancesAtomic;
+
+          const result =
+            await initiateDepositProvider(
+              createBaseInput(
+                provider,
+              ),
             );
 
-        const accountBefore =
-          await accountReference.get();
-
-        const balancesBefore =
-          accountBefore.data()
-            ?.balancesAtomic;
-
-        const result =
-          await initiateDepositProvider(
-            createBaseInput(),
+          assert.equal(
+            result.success,
+            true,
           );
 
-        assert.equal(
-          result.success,
-          true,
-        );
-
-        assert.equal(
-          result.idempotent,
-          false,
-        );
-
-        assert.equal(
-          result.deposit.providerCode,
-          'MPESA',
-        );
-
-        assert.equal(
-          result.deposit.status,
-          'PENDING_PROVIDER_INITIATION',
-        );
-
-        assert.equal(
-          result.provider.providerCode,
-          'MPESA',
-        );
-
-        assert.equal(
-          result.provider.environment,
-          'SANDBOX',
-        );
-
-        assert.equal(
-          result.provider.status,
-          'REQUIRES_CUSTOMER_ACTION',
-        );
-
-        const accountAfter =
-          await accountReference.get();
-
-        assert.deepEqual(
-          accountAfter.data()
-            ?.balancesAtomic,
-          balancesBefore,
-        );
-      },
-    );
-
-    test(
-      'stores only safe provider initiation fields',
-      async () => {
-        const result =
-          await initiateDepositProvider(
-            createBaseInput(),
+          assert.equal(
+            result.idempotent,
+            false,
           );
 
-        const requestSnapshot =
-          await adminDb
-            .collection(
-              'deposit_requests',
-            )
-            .doc(
-              result.deposit.requestId,
-            )
-            .get();
-
-        assert.equal(
-          requestSnapshot.exists,
-          true,
-        );
-
-        const requestData =
-          requestSnapshot.data();
-
-        assert.equal(
-          requestData
-            ?.providerInitiationStatus,
-          'INITIATED',
-        );
-
-        assert.equal(
-          requestData
-            ?.providerOperationStatus,
-          'REQUIRES_CUSTOMER_ACTION',
-        );
-
-        assert.match(
-          requestData
-            ?.providerRequestId,
-          /^mpesa_req_[a-f0-9]{32}$/,
-        );
-
-        assert.equal(
-          requestData
-            ?.providerTransactionId,
-          null,
-        );
-
-        assert.match(
-          requestData
-            ?.providerResponseFingerprint,
-          /^[a-f0-9]{64}$/,
-        );
-
-        assert.equal(
-          requestData
-            ?.settlementStatus,
-          'NOT_STARTED',
-        );
-
-        assert.equal(
-          requestData
-            ?.credited,
-          false,
-        );
-      },
-    );
-
-    test(
-      'never stores the payer phone number',
-      async () => {
-        const result =
-          await initiateDepositProvider(
-            createBaseInput(),
+          assert.equal(
+            result.deposit
+              .providerCode,
+            provider.providerCode,
           );
 
-        const requestSnapshot =
-          await adminDb
-            .collection(
-              'deposit_requests',
-            )
-            .doc(
-              result.deposit.requestId,
-            )
-            .get();
-
-        const serialized =
-          JSON.stringify(
-            requestSnapshot.data(),
+          assert.equal(
+            result.deposit.status,
+            'PENDING_PROVIDER_INITIATION',
           );
 
-        assert.equal(
-          serialized.includes(
-            TEST_PHONE_NUMBER,
-          ),
-          false,
-        );
-
-        assert.equal(
-          serialized.includes(
-            '255712345678',
-          ),
-          false,
-        );
-
-        assert.equal(
-          serialized.includes(
-            '0712345678',
-          ),
-          false,
-        );
-
-        assert.equal(
-          serialized.includes(
-            '"payer"',
-          ),
-          false,
-        );
-
-        assert.equal(
-          serialized.includes(
-            '"msisdn"',
-          ),
-          false,
-        );
-      },
-    );
-
-    test(
-      'returns the same provider reference for an identical retry',
-      async () => {
-        const input =
-          createBaseInput();
-
-        const first =
-          await initiateDepositProvider(
-            input,
+          assert.equal(
+            result.provider
+              .providerCode,
+            provider.providerCode,
           );
 
-        const second =
-          await initiateDepositProvider(
-            input,
+          assert.equal(
+            result.provider
+              .environment,
+            'SANDBOX',
           );
 
-        assert.equal(
-          first.idempotent,
-          false,
-        );
+          assert.equal(
+            result.provider.status,
+            'REQUIRES_CUSTOMER_ACTION',
+          );
 
-        assert.equal(
-          second.idempotent,
-          true,
-        );
+          assert.equal(
+            result.provider
+              .customerAction
+              ?.type,
+            'USSD_PROMPT',
+          );
 
-        assert.equal(
-          second.deposit.requestId,
-          first.deposit.requestId,
-        );
+          const accountAfter =
+            await accountReference.get();
 
-        assert.equal(
-          second.provider
-            .providerRequestId,
-          first.provider
-            .providerRequestId,
-        );
+          assert.deepEqual(
+            accountAfter.data()
+              ?.balancesAtomic,
+            balancesBefore,
+          );
+        },
+      );
 
-        assert.equal(
-          second.provider
-            .responseFingerprint,
-          first.provider
-            .responseFingerprint,
-        );
+      test(
+        `stores only safe ${provider.displayName} initiation fields`,
+        async () => {
+          const result =
+            await initiateDepositProvider(
+              createBaseInput(
+                provider,
+              ),
+            );
 
-        const requests =
-          await adminDb
-            .collection(
-              'deposit_requests',
-            )
-            .get();
+          const requestSnapshot =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .doc(
+                result.deposit
+                  .requestId,
+              )
+              .get();
 
-        assert.equal(
-          requests.size,
-          1,
-        );
-      },
-    );
+          assert.equal(
+            requestSnapshot.exists,
+            true,
+          );
+
+          const requestData =
+            requestSnapshot.data();
+
+          assert.equal(
+            requestData
+              ?.providerCode,
+            provider.providerCode,
+          );
+
+          assert.equal(
+            requestData
+              ?.providerInitiationStatus,
+            'INITIATED',
+          );
+
+          assert.equal(
+            requestData
+              ?.providerOperationStatus,
+            'REQUIRES_CUSTOMER_ACTION',
+          );
+
+          assert.match(
+            requestData
+              ?.providerRequestId,
+            provider.requestPrefix,
+          );
+
+          assert.equal(
+            requestData
+              ?.providerTransactionId,
+            null,
+          );
+
+          assert.match(
+            requestData
+              ?.providerResponseFingerprint,
+            /^[a-f0-9]{64}$/,
+          );
+
+          assert.equal(
+            requestData
+              ?.settlementStatus,
+            'NOT_STARTED',
+          );
+
+          assert.equal(
+            requestData
+              ?.credited,
+            false,
+          );
+        },
+      );
+
+      test(
+        `never stores the ${provider.displayName} payer phone number`,
+        async () => {
+          const result =
+            await initiateDepositProvider(
+              createBaseInput(
+                provider,
+              ),
+            );
+
+          const requestSnapshot =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .doc(
+                result.deposit
+                  .requestId,
+              )
+              .get();
+
+          const serialized =
+            JSON.stringify(
+              requestSnapshot.data(),
+            );
+
+          assert.equal(
+            serialized.includes(
+              provider.phoneNumber,
+            ),
+            false,
+          );
+
+          assert.equal(
+            serialized.includes(
+              provider
+                .normalizedPhoneNumber,
+            ),
+            false,
+          );
+
+          assert.equal(
+            serialized.includes(
+              provider.localPhoneNumber,
+            ),
+            false,
+          );
+
+          assert.equal(
+            serialized.includes(
+              '"payer"',
+            ),
+            false,
+          );
+
+          assert.equal(
+            serialized.includes(
+              '"msisdn"',
+            ),
+            false,
+          );
+        },
+      );
+
+      test(
+        `returns the same ${provider.displayName} reference for an identical retry`,
+        async () => {
+          const input =
+            createBaseInput(
+              provider,
+            );
+
+          const first =
+            await initiateDepositProvider(
+              input,
+            );
+
+          const second =
+            await initiateDepositProvider(
+              input,
+            );
+
+          assert.equal(
+            first.idempotent,
+            false,
+          );
+
+          assert.equal(
+            second.idempotent,
+            true,
+          );
+
+          assert.equal(
+            second.deposit
+              .requestId,
+            first.deposit
+              .requestId,
+          );
+
+          assert.equal(
+            second.provider
+              .providerRequestId,
+            first.provider
+              .providerRequestId,
+          );
+
+          assert.equal(
+            second.provider
+              .responseFingerprint,
+            first.provider
+              .responseFingerprint,
+          );
+
+          const requests =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .get();
+
+          assert.equal(
+            requests.size,
+            1,
+          );
+        },
+      );
+
+      test(
+        `rejects an unsupported ${provider.displayName} asset`,
+        async () => {
+          await assert.rejects(
+            initiateDepositProvider(
+              createBaseInput(
+                provider,
+                {
+                  asset:
+                    'USD',
+                },
+              ),
+            ),
+            /DEPOSIT_PROVIDER_ROUTE_NOT_SUPPORTED/,
+          );
+
+          const requests =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .get();
+
+          assert.equal(
+            requests.empty,
+            true,
+          );
+        },
+      );
+
+      test(
+        `rejects an unsupported ${provider.displayName} rail`,
+        async () => {
+          await assert.rejects(
+            initiateDepositProvider(
+              createBaseInput(
+                provider,
+                {
+                  rail:
+                    'BANK',
+                },
+              ),
+            ),
+            /DEPOSIT_PROVIDER_ROUTE_NOT_SUPPORTED/,
+          );
+
+          const requests =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .get();
+
+          assert.equal(
+            requests.empty,
+            true,
+          );
+        },
+      );
+    }
 
     test(
       'rejects reuse of an operation ID with a different amount',
@@ -591,70 +765,56 @@ describe(
     );
 
     test(
+      'rejects reuse of an operation ID with a different provider',
+      async () => {
+        const mpesa =
+          ACTIVE_PROVIDER_CASES[0];
+
+        const airtel =
+          ACTIVE_PROVIDER_CASES[1];
+
+        const operationId =
+          'shared-provider-operation-001';
+
+        await initiateDepositProvider(
+          createBaseInput(
+            mpesa,
+            {
+              clientOperationId:
+                operationId,
+            },
+          ),
+        );
+
+        await assert.rejects(
+          initiateDepositProvider(
+            createBaseInput(
+              airtel,
+              {
+                clientOperationId:
+                  operationId,
+              },
+            ),
+          ),
+          /DEPOSIT_OPERATION_CONFLICT/,
+        );
+      },
+    );
+
+    test(
       'rejects an unregistered sandbox provider',
       async () => {
         await assert.rejects(
           initiateDepositProvider(
-            createBaseInput({
-              providerCode:
-                'AIRTEL_MONEY',
-            }),
+            createBaseInput(
+              ACTIVE_PROVIDER_CASES[0],
+              {
+                providerCode:
+                  'HALOPESA',
+              },
+            ),
           ),
           /PAYMENT_PROVIDER_NOT_CONFIGURED/,
-        );
-
-        const requests =
-          await adminDb
-            .collection(
-              'deposit_requests',
-            )
-            .get();
-
-        assert.equal(
-          requests.empty,
-          true,
-        );
-      },
-    );
-
-    test(
-      'rejects an unsupported M-Pesa asset',
-      async () => {
-        await assert.rejects(
-          initiateDepositProvider(
-            createBaseInput({
-              asset:
-                'USD',
-            }),
-          ),
-          /DEPOSIT_PROVIDER_ROUTE_NOT_SUPPORTED/,
-        );
-
-        const requests =
-          await adminDb
-            .collection(
-              'deposit_requests',
-            )
-            .get();
-
-        assert.equal(
-          requests.empty,
-          true,
-        );
-      },
-    );
-
-    test(
-      'rejects an unsupported M-Pesa rail',
-      async () => {
-        await assert.rejects(
-          initiateDepositProvider(
-            createBaseInput({
-              rail:
-                'BANK',
-            }),
-          ),
-          /DEPOSIT_PROVIDER_ROUTE_NOT_SUPPORTED/,
         );
 
         const requests =
@@ -723,74 +883,97 @@ describe(
     );
 
     test(
-      'keeps settlement callback-only after initiation',
+      'keeps settlement callback-only after provider initiation',
       async () => {
-        const result =
-          await initiateDepositProvider(
-            createBaseInput(),
+        for (
+          const provider
+          of ACTIVE_PROVIDER_CASES
+        ) {
+          const result =
+            await initiateDepositProvider(
+              createBaseInput(
+                provider,
+                {
+                  clientOperationId:
+                    `callback-only-${provider.providerCode.toLowerCase()}`,
+                },
+              ),
+            );
+
+          const requestSnapshot =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .doc(
+                result.deposit
+                  .requestId,
+              )
+              .get();
+
+          const requestData =
+            requestSnapshot.data();
+
+          assert.equal(
+            requestData?.status,
+            'PENDING_PROVIDER_INITIATION',
           );
 
-        const requestSnapshot =
-          await adminDb
-            .collection(
-              'deposit_requests',
-            )
-            .doc(
-              result.deposit.requestId,
-            )
-            .get();
+          assert.equal(
+            requestData
+              ?.providerOperationStatus,
+            'REQUIRES_CUSTOMER_ACTION',
+          );
 
-        const requestData =
-          requestSnapshot.data();
+          assert.equal(
+            requestData
+              ?.settlementStatus,
+            'NOT_STARTED',
+          );
 
-        assert.equal(
-          requestData?.status,
-          'PENDING_PROVIDER_INITIATION',
-        );
+          assert.equal(
+            requestData?.credited,
+            false,
+          );
 
-        assert.equal(
-          requestData
-            ?.providerOperationStatus,
-          'REQUIRES_CUSTOMER_ACTION',
-        );
+          assert.equal(
+            'creditedAt'
+              in (requestData ?? {}),
+            false,
+          );
 
-        assert.equal(
-          requestData
-            ?.settlementStatus,
-          'NOT_STARTED',
-        );
+          assert.equal(
+            'financialOperationId'
+              in (requestData ?? {}),
+            false,
+          );
 
-        assert.equal(
-          requestData?.credited,
-          false,
-        );
-
-        assert.equal(
-          'creditedAt'
-            in (requestData ?? {}),
-          false,
-        );
-
-        assert.equal(
-          'financialOperationId'
-            in (requestData ?? {}),
-          false,
-        );
-
-        assert.equal(
-          'ledgerEntryId'
-            in (requestData ?? {}),
-          false,
-        );
+          assert.equal(
+            'ledgerEntryId'
+              in (requestData ?? {}),
+            false,
+          );
+        }
       },
     );
 
     test(
       'does not create a ledger entry during provider initiation',
       async () => {
-        await initiateDepositProvider(
-          createBaseInput(),
-        );
+        for (
+          const provider
+          of ACTIVE_PROVIDER_CASES
+        ) {
+          await initiateDepositProvider(
+            createBaseInput(
+              provider,
+              {
+                clientOperationId:
+                  `no-ledger-${provider.providerCode.toLowerCase()}`,
+              },
+            ),
+          );
+        }
 
         const ledgerSnapshot =
           await adminDb
@@ -809,9 +992,20 @@ describe(
     test(
       'does not create a financial operation during provider initiation',
       async () => {
-        await initiateDepositProvider(
-          createBaseInput(),
-        );
+        for (
+          const provider
+          of ACTIVE_PROVIDER_CASES
+        ) {
+          await initiateDepositProvider(
+            createBaseInput(
+              provider,
+              {
+                clientOperationId:
+                  `no-operation-${provider.providerCode.toLowerCase()}`,
+              },
+            ),
+          );
+        }
 
         const operationsSnapshot =
           await adminDb

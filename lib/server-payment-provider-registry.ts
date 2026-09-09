@@ -6,6 +6,10 @@ import {
 } from '@/lib/server-financial-ledger';
 
 import {
+  airtelMoneySandboxAdapter,
+} from '@/lib/server-payment-provider-adapters/airtel-money-sandbox';
+
+import {
   mpesaSandboxAdapter,
 } from '@/lib/server-payment-provider-adapters/mpesa-sandbox';
 
@@ -77,10 +81,8 @@ function normalizeEnvironment(
     unknown,
 ): PaymentProviderEnvironment {
   if (
-    value !==
-      'SANDBOX' &&
-    value !==
-      'PRODUCTION'
+    value !== 'SANDBOX' &&
+    value !== 'PRODUCTION'
   ) {
     throw new Error(
       'PAYMENT_PROVIDER_ENVIRONMENT_INVALID',
@@ -446,13 +448,17 @@ export const paymentProviderRegistry =
   new PaymentProviderRegistry();
 
 /**
- * M-Pesa sandbox is the first approved test adapter.
+ * Approved mobile-money sandbox adapters.
  *
- * This registration performs no network request and does
- * not move, credit or debit real funds.
+ * Registration performs no network request and does not
+ * credit or debit any real customer funds.
  */
 paymentProviderRegistry.register(
   mpesaSandboxAdapter,
+);
+
+paymentProviderRegistry.register(
+  airtelMoneySandboxAdapter,
 );
 
 export function getConfiguredPaymentProvider(
