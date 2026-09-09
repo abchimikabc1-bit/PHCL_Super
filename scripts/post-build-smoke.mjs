@@ -155,6 +155,89 @@ const hostedDomainChecks = [
 const apiChecks = [
   {
     path:
+      '/api/provider/callback/MPESA',
+    method:
+      'GET',
+    expectedStatus:
+      405,
+    expectedBodyIncludes: [
+      '"code":"METHOD_NOT_ALLOWED"',
+    ],
+  },
+  {
+    path:
+      '/api/provider/callback/MPESA',
+    method:
+      'POST',
+    headers: {
+      'Content-Type':
+        'application/json',
+    },
+    body:
+      JSON.stringify({
+        kind:
+          'DEPOSIT',
+
+        requestId:
+          'smoke-provider-request',
+
+        providerEventId:
+          'smoke-provider-event',
+
+        providerTransactionId:
+          'smoke-provider-transaction',
+
+        outcome:
+          'SUCCESS',
+      }),
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"CALLBACK_UNAUTHORIZED"',
+    ],
+  },
+  {
+    path:
+      '/api/provider/callback/MPESA',
+    method:
+      'POST',
+    headers: {
+      'Content-Type':
+        'application/json',
+
+      'X-PHCL-Timestamp':
+        Math.floor(
+          Date.now() / 1000,
+        ).toString(),
+
+      'X-PHCL-Signature':
+        `sha256=${'0'.repeat(64)}`,
+    },
+    body:
+      JSON.stringify({
+        kind:
+          'DEPOSIT',
+
+        requestId:
+          'smoke-provider-request',
+
+        providerEventId:
+          'smoke-provider-event',
+
+        providerTransactionId:
+          'smoke-provider-transaction',
+
+        outcome:
+          'SUCCESS',
+      }),
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"CALLBACK_UNAUTHORIZED"',
+    ],
+  },
+  {
+    path:
       '/api/deposit',
     method:
       'GET',
@@ -1114,30 +1197,29 @@ async function run() {
           root,
 
         env: {
-          ...process.env,
-
-          ADMIN_EMAIL:
-            process.env
-              .ADMIN_EMAIL ||
-            'admin@phclsuper.com',
-
-          ADMIN_SESSION_SECRET:
-            process.env
-              .ADMIN_SESSION_SECRET ||
-            'phcl_admin_session_secret_smoke_test_only',
-
-          TRANSFER_RATE_LIMIT_SECRET:
-            process.env
-              .TRANSFER_RATE_LIMIT_SECRET ||
-            'phcl_transfer_rate_limit_smoke_test_only_secret',
-        },
-
+        ...process.env,
+        ADMIN_EMAIL:
+          process.env
+            .ADMIN_EMAIL ||
+          'admin@phclsuper.com',
+        ADMIN_SESSION_SECRET:
+          process.env
+            .ADMIN_SESSION_SECRET ||
+          'phcl_admin_session_secret_smoke_test_only',
+        TRANSFER_RATE_LIMIT_SECRET:
+          process.env
+            .TRANSFER_RATE_LIMIT_SECRET ||
+          'phcl_transfer_rate_limit_smoke_test_only_secret',
+        PROVIDER_CALLBACK_SECRET_MPESA:
+          process.env
+            .PROVIDER_CALLBACK_SECRET_MPESA ||
+          'phcl_provider_callback_smoke_test_only_secret',
+      },
         stdio: [
           'ignore',
           'pipe',
           'pipe',
         ],
-
         windowsHide:
           true,
       },

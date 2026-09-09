@@ -376,6 +376,57 @@ async function seedFirestore() {
               new Date(),
           },
         );
+
+        await setDoc(
+          doc(
+            db,
+            'provider_callback_events',
+            'server-callback-event',
+          ),
+          {
+            providerCode:
+              'MPESA',
+
+            providerEventId:
+              'provider-event-001',
+
+            outcome:
+              'SUCCESS',
+          },
+        );
+
+        await setDoc(
+          doc(
+            db,
+            'financial_settlement_audit',
+            'server-settlement-audit',
+          ),
+          {
+            action:
+              'PROVIDER_SETTLEMENT_CALLBACK',
+
+            uid:
+              CUSTOMER_UID,
+          },
+        );
+
+        await setDoc(
+          doc(
+            db,
+            'financial_operations',
+            'server-financial-operation',
+          ),
+          {
+            operationId:
+              'server-financial-operation',
+
+            uid:
+              CUSTOMER_UID,
+
+            status:
+              'COMPLETED',
+          },
+        );
       },
     );
 }
@@ -1440,6 +1491,143 @@ describe(
             },
           ),
         );
+      },
+    );
+
+    test(
+      'customer cannot access callback events, settlement audits or financial operations',
+      async () => {
+        const db =
+          authenticatedFirestore(
+            CUSTOMER_UID,
+            CUSTOMER_EMAIL,
+          );
+
+        const protectedDocuments = [
+          [
+            'provider_callback_events',
+            'server-callback-event',
+          ],
+          [
+            'financial_settlement_audit',
+            'server-settlement-audit',
+          ],
+          [
+            'financial_operations',
+            'server-financial-operation',
+          ],
+        ];
+
+        for (
+          const [
+            collectionName,
+            documentId,
+          ] of protectedDocuments
+        ) {
+          const reference =
+            doc(
+              db,
+              collectionName,
+              documentId,
+            );
+
+          await assertFails(
+            getDoc(reference),
+          );
+
+          await assertFails(
+            updateDoc(
+              reference,
+              {
+                compromised:
+                  true,
+              },
+            ),
+          );
+
+          await assertFails(
+            deleteDoc(reference),
+          );
+
+          await assertFails(
+            setDoc(
+              doc(
+                db,
+                collectionName,
+                `forged-${documentId}`,
+              ),
+              {
+                uid:
+                  CUSTOMER_UID,
+
+                status:
+                  'COMPLETED',
+
+                compromised:
+                  true,
+              },
+            ),
+          );
+        }
+      },
+    );
+
+    test(
+      'unauthenticated visitor cannot access callback events, settlement audits or financial operations',
+      async () => {
+        const db =
+          testEnv
+            .unauthenticatedContext()
+            .firestore();
+
+        const protectedDocuments = [
+          [
+            'provider_callback_events',
+            'server-callback-event',
+          ],
+          [
+            'financial_settlement_audit',
+            'server-settlement-audit',
+          ],
+          [
+            'financial_operations',
+            'server-financial-operation',
+          ],
+        ];
+
+        for (
+          const [
+            collectionName,
+            documentId,
+          ] of protectedDocuments
+        ) {
+          await assertFails(
+            getDoc(
+              doc(
+                db,
+                collectionName,
+                documentId,
+              ),
+            ),
+          );
+
+          await assertFails(
+            setDoc(
+              doc(
+                db,
+                collectionName,
+                `anonymous-${documentId}`,
+              ),
+              {
+                status:
+                  'COMPLETED',
+
+                compromised:
+                  true,
+              },
+            ),
+          );
+        }
       },
     );
   },
