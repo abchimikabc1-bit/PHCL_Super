@@ -71,6 +71,7 @@ const ACTIVE_MOBILE_MONEY_ADAPTERS =
   new Set<PaymentProviderCode>([
     'MPESA',
     'AIRTEL_MONEY',
+    'HALOPESA',
   ]);
 
 type DepositRequestBody = {
@@ -544,6 +545,13 @@ function getProviderDisplayName(
       'AIRTEL_MONEY'
   ) {
     return 'Airtel Money';
+  }
+
+  if (
+    providerCode ===
+      'HALOPESA'
+  ) {
+    return 'HaloPesa';
   }
 
   return providerCode;

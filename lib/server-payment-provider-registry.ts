@@ -10,6 +10,10 @@ import {
 } from '@/lib/server-payment-provider-adapters/airtel-money-sandbox';
 
 import {
+  halopesaSandboxAdapter,
+} from '@/lib/server-payment-provider-adapters/halopesa-sandbox';
+
+import {
   mpesaSandboxAdapter,
 } from '@/lib/server-payment-provider-adapters/mpesa-sandbox';
 
@@ -459,6 +463,10 @@ paymentProviderRegistry.register(
 
 paymentProviderRegistry.register(
   airtelMoneySandboxAdapter,
+);
+
+paymentProviderRegistry.register(
+  halopesaSandboxAdapter,
 );
 
 export function getConfiguredPaymentProvider(
