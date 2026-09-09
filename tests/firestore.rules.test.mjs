@@ -1307,5 +1307,140 @@ describe(
         );
       },
     );
+
+    test(
+      'customer cannot read server-authoritative deposit requests',
+      async () => {
+        const db =
+          authenticatedFirestore(
+            CUSTOMER_UID,
+            CUSTOMER_EMAIL,
+          );
+
+        await assertFails(
+          getDoc(
+            doc(
+              db,
+              'deposit_requests',
+              'server-deposit-request',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'customer cannot create or overwrite deposit requests',
+      async () => {
+        const db =
+          authenticatedFirestore(
+            CUSTOMER_UID,
+            CUSTOMER_EMAIL,
+          );
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              'deposit_requests',
+              'forged-deposit-request',
+            ),
+            {
+              requestId:
+                'forged-deposit-request',
+
+              uid:
+                CUSTOMER_UID,
+
+              asset:
+                'TZS',
+
+              rail:
+                'MOBILE_MONEY',
+
+              providerCode:
+                'MPESA',
+
+              amountAtomic:
+                '999999999',
+
+              status:
+                'COMPLETED',
+
+              providerStatus:
+                'COMPLETED',
+
+              settlementStatus:
+                'SETTLED',
+
+              credited:
+                true,
+
+              createdAt:
+                serverTimestamp(),
+            },
+          ),
+        );
+      },
+    );
+
+    test(
+      'unauthenticated visitor cannot read deposit requests',
+      async () => {
+        const db =
+          testEnv
+            .unauthenticatedContext()
+            .firestore();
+
+        await assertFails(
+          getDoc(
+            doc(
+              db,
+              'deposit_requests',
+              'server-deposit-request',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'unauthenticated visitor cannot create deposit requests',
+      async () => {
+        const db =
+          testEnv
+            .unauthenticatedContext()
+            .firestore();
+
+        await assertFails(
+          setDoc(
+            doc(
+              db,
+              'deposit_requests',
+              'anonymous-forged-deposit',
+            ),
+            {
+              uid:
+                CUSTOMER_UID,
+
+              amountAtomic:
+                '999999999',
+
+              status:
+                'COMPLETED',
+
+              providerStatus:
+                'COMPLETED',
+
+              settlementStatus:
+                'SETTLED',
+
+              credited:
+                true,
+            },
+          ),
+        );
+      },
+    );
   },
 );

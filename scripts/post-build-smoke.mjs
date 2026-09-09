@@ -155,6 +155,65 @@ const hostedDomainChecks = [
 const apiChecks = [
   {
     path:
+      '/api/deposit',
+    method:
+      'GET',
+    expectedStatus:
+      405,
+    expectedBodyIncludes: [
+      '"code":"METHOD_NOT_ALLOWED"',
+      '"message":"Method not allowed."',
+    ],
+  },
+  {
+    path:
+      '/api/deposit',
+    method:
+      'POST',
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+      '"message":"Authentication required."',
+    ],
+  },
+  {
+    path:
+      '/api/deposit',
+    method:
+      'POST',
+    headers: {
+      Authorization:
+        'Bearer invalid-smoke-test-token',
+
+      'Content-Type':
+        'application/json',
+    },
+    body:
+      JSON.stringify({
+        asset:
+          'TZS',
+
+        rail:
+          'MOBILE_MONEY',
+
+        providerCode:
+          'MPESA',
+
+        amount:
+          '1000',
+
+        operationId:
+          'smoke-invalid-deposit-auth',
+      }),
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+    ],
+  },
+  {
+    path:
       '/api/admin/auth',
     method:
       'GET',
