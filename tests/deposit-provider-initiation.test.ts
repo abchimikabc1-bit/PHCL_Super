@@ -52,6 +52,7 @@ type ActiveProviderCase = {
       | 'MPESA'
       | 'AIRTEL_MONEY'
       | 'HALOPESA'
+      | 'MIXX_BY_YAS'
     >;
 
   displayName:
@@ -130,6 +131,26 @@ const ACTIVE_PROVIDER_CASES:
 
       requestPrefix:
         /^halopesa_req_[a-f0-9]{32}$/,
+    },
+
+    {
+      providerCode:
+        'MIXX_BY_YAS',
+
+      displayName:
+        'Mixx by Yas',
+
+      phoneNumber:
+        '+255652345678',
+
+      localPhoneNumber:
+        '0652345678',
+
+      normalizedPhoneNumber:
+        '255652345678',
+
+      requestPrefix:
+        /^mixx_by_yas_req_[a-f0-9]{32}$/,
     },
   ];
 
@@ -831,7 +852,7 @@ describe(
               ACTIVE_PROVIDER_CASES[0],
               {
                 providerCode:
-                  'MIXX_BY_YAS',
+                  'PAYPAL',
               },
             ),
           ),

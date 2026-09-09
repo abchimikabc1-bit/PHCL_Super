@@ -28,7 +28,7 @@
         "release:smoke": "npm run test:smoke",
         "release:verify": "npm run release:check && npm run release:compliance && npm test && npm run build && npm run release:smoke",
         "test:provider-settlement": "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/provider-settlement.test.ts\"",
-        "test:payment-providers": "node --conditions=react-server --import tsx --test --test-concurrency=1 tests/payment-provider-registry.test.ts tests/mpesa-sandbox-adapter.test.ts tests/airtel-money-sandbox-adapter.test.ts tests/halopesa-sandbox-adapter.test.ts",
+        "test:payment-providers": "node --conditions=react-server --import tsx --test --test-concurrency=1 tests/payment-provider-registry.test.ts tests/mpesa-sandbox-adapter.test.ts tests/airtel-money-sandbox-adapter.test.ts tests/halopesa-sandbox-adapter.test.ts tests/mixx-by-yas-sandbox-adapter.test.ts",
         "test:deposit-provider-initiation": "firebase emulators:exec --only firestore \"node --env-file-if-exists=.env.local --conditions=react-server --import tsx --test --test-concurrency=1 tests/deposit-provider-initiation.test.ts\""
     },
     "dependencies": {

@@ -14,6 +14,10 @@ import {
 } from '@/lib/server-payment-provider-adapters/halopesa-sandbox';
 
 import {
+  mixxByYasSandboxAdapter,
+} from '@/lib/server-payment-provider-adapters/mixx-by-yas-sandbox';
+
+import {
   mpesaSandboxAdapter,
 } from '@/lib/server-payment-provider-adapters/mpesa-sandbox';
 
@@ -467,6 +471,10 @@ paymentProviderRegistry.register(
 
 paymentProviderRegistry.register(
   halopesaSandboxAdapter,
+);
+
+paymentProviderRegistry.register(
+  mixxByYasSandboxAdapter,
 );
 
 export function getConfiguredPaymentProvider(

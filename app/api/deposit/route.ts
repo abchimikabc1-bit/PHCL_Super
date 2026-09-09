@@ -72,6 +72,7 @@ const ACTIVE_MOBILE_MONEY_ADAPTERS =
     'MPESA',
     'AIRTEL_MONEY',
     'HALOPESA',
+    'MIXX_BY_YAS',
   ]);
 
 type DepositRequestBody = {
@@ -552,6 +553,13 @@ function getProviderDisplayName(
       'HALOPESA'
   ) {
     return 'HaloPesa';
+  }
+
+  if (
+    providerCode ===
+      'MIXX_BY_YAS'
+  ) {
+    return 'Mixx by Yas';
   }
 
   return providerCode;
