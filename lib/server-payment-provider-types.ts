@@ -79,8 +79,30 @@ export type ProviderPayerReference =
         'CUSTOMER_TOKEN';
 
       /**
-       * Opaque token previously issued by a provider.
-       * It must not be treated as customer authentication.
+       * Opaque customer token previously issued by a
+       * provider.
+       *
+       * It must not be treated as customer authentication
+       * or as a card-payment token.
+       */
+      value:
+        string;
+    }
+  | {
+      type:
+        'PAYMENT_TOKEN';
+
+      /**
+       * Short-lived payment token issued by an approved
+       * provider-hosted payment form.
+       *
+       * The value must never contain:
+       * - a primary account number (PAN)
+       * - CVV or CVC
+       * - a card PIN
+       * - raw magnetic-stripe or chip data
+       *
+       * PHCL treats this only as an opaque provider token.
        */
       value:
         string;
@@ -262,8 +284,10 @@ export type ProviderDepositInitiationResult = {
  * Server-controlled request for capturing a provider order
  * after the customer has completed the required approval.
  *
- * The browser must never choose requestId, providerCode,
- * providerRequestId or the provider environment.
+ * A browser may submit a PHCL requestId as a locator after
+ * authentication. The server must verify its ownership and
+ * load providerCode, providerRequestId and environment from
+ * authoritative server records.
  */
 export type CaptureProviderDepositInput = {
   /**
@@ -286,7 +310,8 @@ export type CaptureProviderDepositInput = {
     PaymentProviderEnvironment;
 
   /**
-   * Provider order/reference created during initiation.
+   * Provider order/reference loaded from an authoritative
+   * PHCL server record, never accepted from browser JSON.
    */
   providerRequestId:
     string;

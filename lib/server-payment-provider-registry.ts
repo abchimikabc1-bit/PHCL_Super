@@ -26,6 +26,10 @@ import {
 } from '@/lib/server-payment-provider-adapters/paypal-sandbox';
 
 import {
+  visaAcceptanceSandboxAdapter,
+} from '@/lib/server-payment-provider-adapters/visa-acceptance-sandbox';
+
+import {
   PAYMENT_PROVIDER_CODES,
   type PaymentProviderAdapter,
   type PaymentProviderCode,
@@ -286,9 +290,6 @@ function secureAdapter(
   /*
    * Preserve optional provider capabilities only when
    * the original adapter explicitly implements them.
-   *
-   * This prevents the registry wrapper from removing
-   * PayPal's server-side order capture operation.
    */
   if (
     adapter.captureDeposit
@@ -520,6 +521,10 @@ paymentProviderRegistry.register(
 
 paymentProviderRegistry.register(
   paypalSandboxAdapter,
+);
+
+paymentProviderRegistry.register(
+  visaAcceptanceSandboxAdapter,
 );
 
 export function getConfiguredPaymentProvider(

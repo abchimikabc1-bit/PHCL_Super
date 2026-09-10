@@ -36,6 +36,7 @@ import {
 
 import {
   initiateDepositProvider,
+  type DepositProviderInitiationResult,
 } from '@/lib/server-deposit-provider-initiation';
 
 import type {
@@ -49,7 +50,7 @@ export const dynamic =
   'force-dynamic';
 
 const MAX_REQUEST_BODY_BYTES =
-  8_192;
+  24_576;
 
 const MAX_OPERATION_ID_LENGTH =
   120;
@@ -59,6 +60,9 @@ const MAX_DISPLAY_AMOUNT_LENGTH =
 
 const MAX_PROVIDER_CODE_LENGTH =
   40;
+
+const MAX_PAYMENT_TOKEN_LENGTH =
+  16_384;
 
 const SUPPORTED_DEPOSIT_ASSETS =
   new Set<FinancialAsset>([
@@ -90,6 +94,15 @@ type DepositRequestBody = {
 
   operationId?:
     unknown;
+
+  /**
+   * Short-lived provider token created by Visa Acceptance
+   * hosted payment fields.
+   *
+   * Never place a PAN, CVV or raw card value here.
+   */
+  paymentToken?:
+    unknown;
 };
 
 type DepositEligibilityErrorCode =
@@ -109,6 +122,7 @@ class DepositEligibilityError
   constructor(
     code:
       DepositEligibilityErrorCode,
+
     message:
       string,
   ) {
@@ -127,8 +141,10 @@ class DepositEligibilityError
 function noStoreJson(
   body:
     unknown,
+
   status:
     number,
+
   additionalHeaders?:
     Record<
       string,
@@ -263,7 +279,7 @@ async function readJsonBody(
       );
 
     if (
-      !Number.isFinite(
+      !Number.isSafeInteger(
         parsedLength,
       ) ||
       parsedLength < 0 ||
@@ -300,7 +316,7 @@ async function readJsonBody(
     parsed =
       JSON.parse(
         raw,
-      );
+      ) as unknown;
   } catch {
     throw new Error(
       'INVALID_DEPOSIT_REQUEST',
@@ -324,6 +340,7 @@ async function readJsonBody(
       'providerCode',
       'amount',
       'operationId',
+      'paymentToken',
     ]);
 
   if (
@@ -402,6 +419,10 @@ function normalizeRail(
     rail !==
       'MOBILE_MONEY' &&
     rail !==
+      'CARD' &&
+    rail !==
+      'DIGITAL_WALLET' &&
+    rail !==
       'BLOCKCHAIN'
   ) {
     throw new Error(
@@ -431,7 +452,8 @@ function normalizeProviderCode(
       .toUpperCase();
 
   if (
-    providerCode.length < 2 ||
+    providerCode.length <
+      2 ||
     providerCode.length >
       MAX_PROVIDER_CODE_LENGTH ||
     !/^[A-Z0-9_-]+$/.test(
@@ -510,11 +532,64 @@ function normalizeOperationId(
   return operationId;
 }
 
+function normalizePaymentToken(
+  value:
+    unknown,
+): string {
+  if (
+    typeof value !==
+      'string'
+  ) {
+    throw new Error(
+      'INVALID_PAYMENT_TOKEN',
+    );
+  }
+
+  const token =
+    value.trim();
+
+  if (
+    !token ||
+    token.length >
+      MAX_PAYMENT_TOKEN_LENGTH
+  ) {
+    throw new Error(
+      'INVALID_PAYMENT_TOKEN',
+    );
+  }
+
+  const parts =
+    token.split(
+      '.',
+    );
+
+  if (
+    parts.length !== 3 ||
+    parts.some(
+      (
+        part,
+      ) =>
+        !part ||
+        !/^[A-Za-z0-9_-]+$/.test(
+          part,
+        ),
+    )
+  ) {
+    throw new Error(
+      'INVALID_PAYMENT_TOKEN',
+    );
+  }
+
+  return token;
+}
+
 function isActiveMobileMoneyProvider(
   asset:
     FinancialAsset,
+
   rail:
     DepositRail,
+
   providerCode:
     string,
 ): providerCode is PaymentProviderCode {
@@ -527,6 +602,54 @@ function isActiveMobileMoneyProvider(
       providerCode as
         PaymentProviderCode,
     )
+  );
+}
+
+function isActivePayPalProvider(
+  asset:
+    FinancialAsset,
+
+  rail:
+    DepositRail,
+
+  providerCode:
+    string,
+): providerCode is
+  Extract<
+    PaymentProviderCode,
+    'PAYPAL'
+  > {
+  return (
+    asset ===
+      'USD' &&
+    rail ===
+      'DIGITAL_WALLET' &&
+    providerCode ===
+      'PAYPAL'
+  );
+}
+
+function isActiveVisaProvider(
+  asset:
+    FinancialAsset,
+
+  rail:
+    DepositRail,
+
+  providerCode:
+    string,
+): providerCode is
+  Extract<
+    PaymentProviderCode,
+    'VISA_ACCEPTANCE'
+  > {
+  return (
+    asset ===
+      'USD' &&
+    rail ===
+      'CARD' &&
+    providerCode ===
+      'VISA_ACCEPTANCE'
   );
 }
 
@@ -562,12 +685,193 @@ function getProviderDisplayName(
     return 'Mixx by Yas';
   }
 
+  if (
+    providerCode ===
+      'PAYPAL'
+  ) {
+    return 'PayPal';
+  }
+
+  if (
+    providerCode ===
+      'VISA_ACCEPTANCE'
+  ) {
+    return 'Visa Acceptance';
+  }
+
   return providerCode;
+}
+
+function getCanonicalSiteUrl():
+  string {
+  const configured =
+    process.env
+      .NEXT_PUBLIC_SITE_URL
+      ?.trim();
+
+  if (
+    !configured
+  ) {
+    throw new Error(
+      'PAYPAL_SITE_URL_NOT_CONFIGURED',
+    );
+  }
+
+  let siteUrl:
+    URL;
+
+  try {
+    siteUrl =
+      new URL(
+        configured,
+      );
+  } catch {
+    throw new Error(
+      'PAYPAL_SITE_URL_NOT_CONFIGURED',
+    );
+  }
+
+  if (
+    siteUrl.protocol !==
+      'https:' ||
+    siteUrl.username ||
+    siteUrl.password ||
+    siteUrl.search ||
+    siteUrl.hash
+  ) {
+    throw new Error(
+      'PAYPAL_SITE_URL_NOT_CONFIGURED',
+    );
+  }
+
+  return siteUrl.origin;
+}
+
+function createPayPalReturnUrls() {
+  const siteOrigin =
+    getCanonicalSiteUrl();
+
+  const returnUrl =
+    new URL(
+      '/deposit',
+      siteOrigin,
+    );
+
+  returnUrl.searchParams.set(
+    'paypal',
+    'approved',
+  );
+
+  const cancelUrl =
+    new URL(
+      '/deposit',
+      siteOrigin,
+    );
+
+  cancelUrl.searchParams.set(
+    'paypal',
+    'cancelled',
+  );
+
+  return {
+    returnUrl:
+      returnUrl.toString(),
+
+    cancelUrl:
+      cancelUrl.toString(),
+  };
+}
+
+function createProviderResponse(
+  initiation:
+    DepositProviderInitiationResult,
+
+  amount:
+    string,
+
+  providerDisplayName:
+    string,
+
+  rateLimitHeaders:
+    Record<
+      string,
+      string
+    >,
+) {
+  const result =
+    initiation.deposit;
+
+  return noStoreJson(
+    {
+      ok:
+        true,
+
+      deposit: {
+        requestId:
+          result.requestId,
+
+        operationId:
+          result.clientOperationId,
+
+        asset:
+          result.asset,
+
+        rail:
+          result.rail,
+
+        providerCode:
+          result.providerCode,
+
+        amount,
+
+        status:
+          result.status,
+
+        idempotent:
+          initiation.idempotent,
+
+        expiresAt:
+          new Date(
+            result.expiresAtMs,
+          ).toISOString(),
+      },
+
+      paymentInstructions:
+        initiation.provider
+          .customerAction,
+
+      providerStatus:
+        initiation.provider
+          .status,
+
+      providerExpiresAt:
+        initiation.provider
+          .expiresAtMs ===
+          null
+          ? null
+          : new Date(
+              initiation.provider
+                .expiresAtMs,
+            ).toISOString(),
+
+      credited:
+        false,
+
+      settlementStatus:
+        'AWAITING_VERIFIED_CALLBACK',
+
+      message:
+        `${providerDisplayName} sandbox deposit request initiated. No balance has been credited.`,
+    },
+    202,
+    rateLimitHeaders,
+  );
 }
 
 function requireDepositEligibility(
   facts:
     VerificationFacts,
+
   assessment:
     VerificationAssessment,
 ): void {
@@ -663,6 +967,234 @@ async function requireEligibleCustomer(
   );
 }
 
+function getErrorCode(
+  error:
+    unknown,
+): string {
+  return error instanceof Error
+    ? error.message
+    : '';
+}
+
+function getDepositErrorResponse(
+  error:
+    unknown,
+
+  rateLimitHeaders:
+    Record<
+      string,
+      string
+    >,
+) {
+  if (
+    error instanceof
+      DepositEligibilityError
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          error.code,
+
+        message:
+          error.message,
+      },
+      403,
+      rateLimitHeaders,
+    );
+  }
+
+  const code =
+    getErrorCode(
+      error,
+    );
+
+  if (
+    code ===
+      'DEPOSIT_OPERATION_CONFLICT' ||
+    code ===
+      'DEPOSIT_PROVIDER_INITIATION_CONFLICT' ||
+    code ===
+      'DEPOSIT_PROVIDER_OPERATION_MISMATCH'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'DEPOSIT_CONFLICT',
+
+        message:
+          'Deposit request conflicts with an existing operation.',
+      },
+      409,
+      rateLimitHeaders,
+    );
+  }
+
+  if (
+    code ===
+      'DEPOSIT_PROVIDER_ROUTE_NOT_SUPPORTED' ||
+    code ===
+      'DEPOSIT_CAPTURE_ROUTE_NOT_SUPPORTED' ||
+    code ===
+      'PROVIDER_ROUTE_NOT_SUPPORTED'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'DEPOSIT_ROUTE_NOT_SUPPORTED',
+
+        message:
+          'Deposit route is not supported.',
+      },
+      400,
+      rateLimitHeaders,
+    );
+  }
+
+  if (
+    code ===
+      'INVALID_PAYMENT_TOKEN' ||
+    code ===
+      'PROVIDER_REQUEST_INVALID'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'INVALID_PAYMENT_TOKEN',
+
+        message:
+          'The provider payment token is invalid or expired.',
+      },
+      400,
+      rateLimitHeaders,
+    );
+  }
+
+  if (
+    code ===
+      'DEPOSIT_ACCOUNT_NOT_FOUND' ||
+    code ===
+      'DEPOSIT_PROVIDER_REQUEST_NOT_FOUND'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'DEPOSIT_ACCOUNT_UNAVAILABLE',
+
+        message:
+          'The deposit account is unavailable.',
+      },
+      409,
+      rateLimitHeaders,
+    );
+  }
+
+  if (
+    code ===
+      'PAYMENT_PROVIDER_NOT_CONFIGURED' ||
+    code ===
+      'PROVIDER_NOT_CONFIGURED' ||
+    code ===
+      'PROVIDER_CONFIGURATION_INVALID' ||
+    code ===
+      'PAYPAL_SITE_URL_NOT_CONFIGURED'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'DEPOSIT_PROVIDER_UNAVAILABLE',
+
+        message:
+          'The payment provider is temporarily unavailable.',
+      },
+      503,
+      rateLimitHeaders,
+    );
+  }
+
+  if (
+    code ===
+      'PROVIDER_TEMPORARILY_UNAVAILABLE'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'DEPOSIT_PROVIDER_UNAVAILABLE',
+
+        message:
+          'The payment provider is temporarily unavailable.',
+      },
+      503,
+      rateLimitHeaders,
+    );
+  }
+
+  if (
+    code ===
+      'PROVIDER_REQUEST_FAILED' ||
+    code ===
+      'PROVIDER_RESPONSE_INVALID' ||
+    code ===
+      'DEPOSIT_PROVIDER_RESULT_INVALID'
+  ) {
+    return noStoreJson(
+      {
+        ok:
+          false,
+
+        code:
+          'DEPOSIT_PROVIDER_FAILED',
+
+        message:
+          'The payment provider could not initiate this deposit safely.',
+      },
+      502,
+      rateLimitHeaders,
+    );
+  }
+
+  console.error(
+    '[PHCL Deposit] request failed:',
+    code ||
+      'UNKNOWN_DEPOSIT_FAILURE',
+  );
+
+  return noStoreJson(
+    {
+      ok:
+        false,
+
+      code:
+        'DEPOSIT_SECURITY_UNAVAILABLE',
+
+      message:
+        'Deposit security is temporarily unavailable.',
+    },
+    503,
+    rateLimitHeaders,
+  );
+}
+
 export async function POST(
   request:
     Request,
@@ -695,9 +1227,8 @@ export async function POST(
 
   try {
     /*
-     * Deposits, transfers and withdrawals deliberately
-     * share one financial-action limiter. Alternating
-     * endpoints cannot bypass account/network controls.
+     * Deposits, transfers, captures and withdrawals share
+     * the same financial-action abuse controls.
      */
     rateLimit =
       await consumeTransferRateLimit(
@@ -789,6 +1320,9 @@ export async function POST(
   let operationId:
     string;
 
+  let paymentToken:
+    string | null;
+
   try {
     asset =
       normalizeAsset(
@@ -832,6 +1366,35 @@ export async function POST(
         'INVALID_DEPOSIT_AMOUNT',
       );
     }
+
+    if (
+      isActiveVisaProvider(
+        asset,
+        rail,
+        providerCode,
+      )
+    ) {
+      paymentToken =
+        normalizePaymentToken(
+          body.paymentToken,
+        );
+    } else {
+      /*
+       * Prevent payment tokens from being attached to routes
+       * that do not explicitly require them.
+       */
+      if (
+        body.paymentToken !==
+          undefined
+      ) {
+        throw new Error(
+          'INVALID_PAYMENT_TOKEN',
+        );
+      }
+
+      paymentToken =
+        null;
+    }
   } catch {
     return noStoreJson(
       {
@@ -868,11 +1431,6 @@ export async function POST(
         authentication.user
           .phoneNumber;
 
-      const providerDisplayName =
-        getProviderDisplayName(
-          providerCode,
-        );
-
       if (
         !phoneNumber
       ) {
@@ -885,7 +1443,7 @@ export async function POST(
               'PHONE_NUMBER_REQUIRED',
 
             message:
-              `A verified Firebase phone number is required for ${providerDisplayName} deposits.`,
+              `A verified Firebase phone number is required for ${getProviderDisplayName(providerCode)} deposits.`,
           },
           403,
           rateLimitHeaders,
@@ -916,74 +1474,158 @@ export async function POST(
           },
         });
 
-      const result =
-        initiation.deposit;
+      return createProviderResponse(
+        initiation,
+        amount,
+        getProviderDisplayName(
+          providerCode,
+        ),
+        rateLimitHeaders,
+      );
+    }
 
-      return noStoreJson(
-        {
-          ok:
-            true,
+    if (
+      isActivePayPalProvider(
+        asset,
+        rail,
+        providerCode,
+      )
+    ) {
+      const email =
+        authentication.user
+          .email
+          ?.trim();
 
-          deposit: {
-            requestId:
-              result.requestId,
+      if (
+        !email
+      ) {
+        return noStoreJson(
+          {
+            ok:
+              false,
 
-            operationId:
-              result.clientOperationId,
+            code:
+              'EMAIL_ADDRESS_REQUIRED',
 
-            asset:
-              result.asset,
+            message:
+              'A verified Firebase email address is required for PayPal deposits.',
+          },
+          403,
+          rateLimitHeaders,
+        );
+      }
 
-            rail:
-              result.rail,
+      const {
+        returnUrl,
+        cancelUrl,
+      } =
+        createPayPalReturnUrls();
 
-            providerCode:
-              result.providerCode,
+      const initiation =
+        await initiateDepositProvider({
+          uid,
 
-            amount,
+          clientOperationId:
+            operationId,
 
-            status:
-              result.status,
+          asset,
 
-            idempotent:
-              initiation.idempotent,
+          rail,
 
-            expiresAt:
-              new Date(
-                result.expiresAtMs,
-              ).toISOString(),
+          providerCode,
+
+          amountAtomic,
+
+          payer: {
+            type:
+              'EMAIL',
+
+            value:
+              email,
           },
 
-          paymentInstructions:
-            initiation.provider
-              .customerAction,
+          returnUrl,
 
-          providerStatus:
-            initiation.provider
-              .status,
+          cancelUrl,
+        });
 
-          providerExpiresAt:
-            initiation.provider
-              .expiresAtMs ===
-              null
-              ? null
-              : new Date(
-                  initiation.provider
-                    .expiresAtMs,
-                ).toISOString(),
+      return createProviderResponse(
+        initiation,
+        amount,
+        'PayPal',
+        rateLimitHeaders,
+      );
+    }
 
-          message:
-            `${providerDisplayName} sandbox deposit request initiated. No balance has been credited.`,
-        },
-        202,
+    if (
+      isActiveVisaProvider(
+        asset,
+        rail,
+        providerCode,
+      )
+    ) {
+      if (
+        !paymentToken
+      ) {
+        return noStoreJson(
+          {
+            ok:
+              false,
+
+            code:
+              'PAYMENT_TOKEN_REQUIRED',
+
+            message:
+              'A valid Visa Acceptance payment token is required.',
+          },
+          400,
+          rateLimitHeaders,
+        );
+      }
+
+      /*
+       * SECURITY:
+       *
+       * paymentToken is passed directly to the provider
+       * adapter. It must never be copied into metadata,
+       * Firestore, logs or an API response.
+       */
+      const initiation =
+        await initiateDepositProvider({
+          uid,
+
+          clientOperationId:
+            operationId,
+
+          asset,
+
+          rail,
+
+          providerCode,
+
+          amountAtomic,
+
+          payer: {
+            type:
+              'PAYMENT_TOKEN',
+
+            value:
+              paymentToken,
+          },
+        });
+
+      return createProviderResponse(
+        initiation,
+        amount,
+        'Visa Acceptance',
         rateLimitHeaders,
       );
     }
 
     /*
-     * Providers without an installed adapter retain the
-     * secure pending-request behavior. They issue no payment
-     * instructions and cannot credit a balance.
+     * Providers without an installed adapter retain secure
+     * pending-request behavior. No provider instructions are
+     * issued and no balance can be credited here.
      */
     const result =
       await createPendingDepositRequest({
@@ -1039,8 +1681,14 @@ export async function POST(
         paymentInstructions:
           null,
 
+        credited:
+          false,
+
+        settlementStatus:
+          'NOT_STARTED',
+
         message:
-          'Deposit request received. No payment instruction has been issued and no balance has been credited.',
+          'Deposit request created. No provider payment has been initiated and no balance has been credited.',
       },
       202,
       rateLimitHeaders,
@@ -1048,132 +1696,8 @@ export async function POST(
   } catch (
     error
   ) {
-    if (
-      error instanceof
-        DepositEligibilityError
-    ) {
-      return noStoreJson(
-        {
-          ok:
-            false,
-
-          code:
-            error.code,
-
-          message:
-            error.message,
-        },
-        403,
-        rateLimitHeaders,
-      );
-    }
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : '';
-
-    if (
-      message ===
-        'DEPOSIT_OPERATION_CONFLICT'
-    ) {
-      return noStoreJson(
-        {
-          ok:
-            false,
-
-          code:
-            'DEPOSIT_CONFLICT',
-
-          message:
-            'Deposit operation conflict.',
-        },
-        409,
-        rateLimitHeaders,
-      );
-    }
-
-    if (
-      message ===
-        'DEPOSIT_ROUTE_NOT_SUPPORTED' ||
-      message ===
-        'PAYMENT_PROVIDER_UNSUPPORTED_ROUTE'
-    ) {
-      return noStoreJson(
-        {
-          ok:
-            false,
-
-          code:
-            'DEPOSIT_ROUTE_NOT_SUPPORTED',
-
-          message:
-            'This deposit route is not available.',
-        },
-        400,
-        rateLimitHeaders,
-      );
-    }
-
-    if (
-      message ===
-        'DEPOSIT_ACCOUNT_NOT_FOUND'
-    ) {
-      return noStoreJson(
-        {
-          ok:
-            false,
-
-          code:
-            'DEPOSIT_ACCOUNT_NOT_READY',
-
-          message:
-            'The financial account is not ready for deposits.',
-        },
-        409,
-        rateLimitHeaders,
-      );
-    }
-
-    if (
-      message ===
-        'PAYMENT_PROVIDER_NOT_CONFIGURED'
-    ) {
-      return noStoreJson(
-        {
-          ok:
-            false,
-
-          code:
-            'DEPOSIT_PROVIDER_UNAVAILABLE',
-
-          message:
-            'The selected payment provider is not available.',
-        },
-        503,
-        rateLimitHeaders,
-      );
-    }
-
-    console.error(
-      'Unable to create secure deposit request:',
-      error instanceof Error
-        ? error.name
-        : 'UnknownError',
-    );
-
-    return noStoreJson(
-      {
-        ok:
-          false,
-
-        code:
-          'DEPOSIT_FAILED',
-
-        message:
-          'Unable to create deposit request.',
-      },
-      500,
+    return getDepositErrorResponse(
+      error,
       rateLimitHeaders,
     );
   }

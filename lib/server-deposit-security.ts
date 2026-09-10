@@ -38,6 +38,7 @@ const MAX_ATOMIC_AMOUNT_LENGTH =
 export type DepositRail =
   | 'BANK'
   | 'MOBILE_MONEY'
+  | 'CARD'
   | 'DIGITAL_WALLET'
   | 'BLOCKCHAIN';
 
@@ -50,68 +51,43 @@ type StoredFinancialAccount = {
 
 type StoredDepositRequest = {
   requestId?: unknown;
-
   fingerprint?: unknown;
-
   uid?: unknown;
-
   asset?: unknown;
-
   rail?: unknown;
-
   providerCode?: unknown;
-
   amountAtomic?: unknown;
-
   status?: unknown;
-
   expiresAtMs?: unknown;
 };
 
 export type CreateDepositRequestInput = {
   uid: string;
-
   clientOperationId: string;
-
-  asset:
-    FinancialAsset;
-
-  rail:
-    DepositRail;
-
+  asset: FinancialAsset;
+  rail: DepositRail;
   providerCode: string;
-
   amountAtomic: string;
 };
 
 export type PendingDepositRequestResult = {
   success: true;
-
   idempotent: boolean;
-
   requestId: string;
-
   clientOperationId: string;
-
-  asset:
-    FinancialAsset;
-
-  rail:
-    DepositRail;
-
+  asset: FinancialAsset;
+  rail: DepositRail;
   providerCode: string;
-
   amountAtomic: string;
-
-  status:
-    DepositRequestStatus;
-
+  status: DepositRequestStatus;
   expiresAtMs: number;
 };
 
 function readPositiveIntegerEnv(
-  name: string,
-  fallback: number,
+  name:
+    string,
+  fallback:
+    number,
 ): number {
   const raw =
     process.env[name];
@@ -127,15 +103,16 @@ function readPositiveIntegerEnv(
       parsed,
     ) ||
     parsed <= 0
-  ) {
+   ) {
     return fallback;
-  }
+   }
 
   return parsed;
 }
 
 function normalizeUid(
-  value: string,
+  value:
+    string,
 ): string {
   const uid =
     value.trim();
@@ -157,7 +134,8 @@ function normalizeUid(
 }
 
 function normalizeOperationId(
-  value: string,
+  value:
+    string,
 ): string {
   const operationId =
     value.trim();
@@ -179,7 +157,8 @@ function normalizeOperationId(
 }
 
 function normalizeAsset(
-  value: FinancialAsset,
+  value:
+    FinancialAsset,
 ): FinancialAsset {
   if (
     !(
@@ -198,13 +177,16 @@ function normalizeAsset(
 }
 
 function normalizeRail(
-  value: DepositRail,
+  value:
+    DepositRail,
 ): DepositRail {
   if (
     value !==
       'BANK' &&
     value !==
       'MOBILE_MONEY' &&
+    value !==
+      'CARD' &&
     value !==
       'DIGITAL_WALLET' &&
     value !==
@@ -219,7 +201,8 @@ function normalizeRail(
 }
 
 function normalizeProviderCode(
-  value: string,
+  value:
+    string,
 ): string {
   const providerCode =
     value
@@ -244,7 +227,8 @@ function normalizeProviderCode(
 }
 
 function normalizeAtomicAmount(
-  value: string,
+  value:
+    string,
 ): string {
   const amountAtomic =
     value.trim();
@@ -265,9 +249,12 @@ function normalizeAtomicAmount(
 }
 
 function requireSupportedRoute(
-  asset: FinancialAsset,
-  rail: DepositRail,
-  providerCode: string,
+  asset:
+    FinancialAsset,
+  rail:
+    DepositRail,
+  providerCode:
+    string,
 ): void {
   const supported =
     (
@@ -311,6 +298,14 @@ function requireSupportedRoute(
       asset ===
         'USD' &&
       rail ===
+        'CARD' &&
+      providerCode ===
+        'VISA_ACCEPTANCE'
+    ) ||
+    (
+      asset ===
+        'USD' &&
+      rail ===
         'DIGITAL_WALLET' &&
       providerCode ===
         'PAYPAL'
@@ -324,7 +319,9 @@ function requireSupportedRoute(
         'PI_NETWORK'
     );
 
-  if (!supported) {
+  if (
+    !supported
+  ) {
     throw new Error(
       'DEPOSIT_ROUTE_NOT_SUPPORTED',
     );
@@ -332,8 +329,10 @@ function requireSupportedRoute(
 }
 
 function createRequestId(
-  uid: string,
-  clientOperationId: string,
+  uid:
+    string,
+  clientOperationId:
+    string,
 ): string {
   const digest =
     createHash(
@@ -344,7 +343,9 @@ function createRequestId(
           'phcl_deposit_request_v1',
           uid,
           clientOperationId,
-        ].join('|'),
+        ].join(
+          '|',
+        ),
         'utf8',
       )
       .digest(
@@ -357,21 +358,11 @@ function createRequestId(
 function createRequestFingerprint(
   input: {
     uid: string;
-
-    clientOperationId:
-      string;
-
-    asset:
-      FinancialAsset;
-
-    rail:
-      DepositRail;
-
-    providerCode:
-      string;
-
-    amountAtomic:
-      string;
+    clientOperationId: string;
+    asset: FinancialAsset;
+    rail: DepositRail;
+    providerCode: string;
+    amountAtomic: string;
   },
 ): string {
   return createHash(
@@ -386,7 +377,9 @@ function createRequestFingerprint(
         input.rail,
         input.providerCode,
         input.amountAtomic,
-      ].join('|'),
+      ].join(
+        '|',
+      ),
       'utf8',
     )
     .digest(
@@ -437,6 +430,8 @@ function readExistingResult(
       existing.rail !==
         'MOBILE_MONEY' &&
       existing.rail !==
+        'CARD' &&
+      existing.rail !==
         'DIGITAL_WALLET' &&
       existing.rail !==
         'BLOCKCHAIN'
@@ -450,9 +445,11 @@ function readExistingResult(
   }
 
   return {
-    success: true,
+    success:
+      true,
 
-    idempotent: true,
+    idempotent:
+      true,
 
     requestId:
       existing.requestId,
@@ -490,6 +487,7 @@ function readExistingResult(
  * - It does not create a wallet address from a Firebase UID.
  * - It does not accept payment destination details from a client.
  * - It stores no provider secret or callback credential.
+ * - It stores no payment token, PAN or CVV.
  *
  * A provider adapter must later initiate payment and return only
  * provider-authorized instructions. An authenticated callback must
@@ -498,8 +496,11 @@ function readExistingResult(
 export async function createPendingDepositRequest(
   rawInput:
     CreateDepositRequestInput,
-  now = Date.now(),
-): Promise<PendingDepositRequestResult> {
+  now =
+    Date.now(),
+): Promise<
+  PendingDepositRequestResult
+> {
   const uid =
     normalizeUid(
       rawInput.uid,
@@ -561,21 +562,25 @@ export async function createPendingDepositRequest(
   const expiresAtMs =
     now +
     expirySeconds *
-      1000;
+      1_000;
 
   const accountReference =
     adminDb
       .collection(
         FINANCIAL_ACCOUNT_COLLECTION,
       )
-      .doc(uid);
+      .doc(
+        uid,
+      );
 
   const requestReference =
     adminDb
       .collection(
         DEPOSIT_REQUEST_COLLECTION,
       )
-      .doc(requestId);
+      .doc(
+        requestId,
+      );
 
   return adminDb.runTransaction(
     async (
@@ -631,9 +636,11 @@ export async function createPendingDepositRequest(
 
       const result:
         PendingDepositRequestResult = {
-        success: true,
+        success:
+          true,
 
-        idempotent: false,
+        idempotent:
+          false,
 
         requestId,
 
@@ -686,10 +693,12 @@ export async function createPendingDepositRequest(
             false,
 
           createdAt:
-            FieldValue.serverTimestamp(),
+            FieldValue
+              .serverTimestamp(),
 
           updatedAt:
-            FieldValue.serverTimestamp(),
+            FieldValue
+              .serverTimestamp(),
 
           expiresAt:
             new Date(

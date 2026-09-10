@@ -1330,8 +1330,14 @@ describe(
             createBaseInput(
               ACTIVE_PROVIDER_CASES[0],
               {
+                asset:
+                  'PI',
+
+                rail:
+                  'BLOCKCHAIN',
+
                 providerCode:
-                  'VISA_ACCEPTANCE',
+                  'PI_NETWORK',
               },
             ),
           ),

@@ -653,7 +653,243 @@ describe(
       },
     );
 
+
         test(
+      'accepts supported USD Visa Acceptance card deposit route',
+      async () => {
+        const accountBefore =
+          await adminDb
+            .collection(
+              'financial_accounts',
+            )
+            .doc(
+              TEST_UID,
+            )
+            .get();
+
+        const balancesBefore =
+          accountBefore.data()
+            ?.balancesAtomic;
+
+        const result =
+          await createPendingDepositRequest(
+            {
+              ...createBaseRequest(),
+
+              clientOperationId:
+                'deposit-usd-visa-card',
+
+              asset:
+                'USD',
+
+              rail:
+                'CARD',
+
+              providerCode:
+                'VISA_ACCEPTANCE',
+
+              amountAtomic:
+                '2599',
+            },
+            TEST_NOW,
+          );
+
+        assert.equal(
+          result.asset,
+          'USD',
+        );
+
+        assert.equal(
+          result.rail,
+          'CARD',
+        );
+
+        assert.equal(
+          result.providerCode,
+          'VISA_ACCEPTANCE',
+        );
+
+        assert.equal(
+          result.amountAtomic,
+          '2599',
+        );
+
+        assert.equal(
+          result.status,
+          'PENDING_PROVIDER_INITIATION',
+        );
+
+        assert.equal(
+          result.idempotent,
+          false,
+        );
+
+        const requestSnapshot =
+          await adminDb
+            .collection(
+              'deposit_requests',
+            )
+            .doc(
+              result.requestId,
+            )
+            .get();
+
+        const requestData =
+          requestSnapshot.data();
+
+        assert.equal(
+          requestData?.credited,
+          false,
+        );
+
+        assert.equal(
+          requestData
+            ?.providerStatus,
+          'NOT_STARTED',
+        );
+
+        assert.equal(
+          requestData
+            ?.settlementStatus,
+          'NOT_STARTED',
+        );
+
+        /*
+         * Card data and the transient payment token must
+         * never be stored by the deposit security layer.
+         */
+        const serializedRequest =
+          JSON.stringify(
+            requestData,
+          );
+
+        assert.equal(
+          /paymentToken|transientTokenJwt|cardNumber|securityCode|cvv|pan/i.test(
+            serializedRequest,
+          ),
+          false,
+        );
+
+        const accountAfter =
+          await adminDb
+            .collection(
+              'financial_accounts',
+            )
+            .doc(
+              TEST_UID,
+            )
+            .get();
+
+        assert.deepEqual(
+          accountAfter.data()
+            ?.balancesAtomic,
+          balancesBefore,
+        );
+      },
+    );
+
+    test(
+      'rejects unsupported Visa Acceptance asset and rail combinations',
+      async () => {
+        const unsupportedRequests = [
+          {
+            clientOperationId:
+              'deposit-visa-tzs-card',
+
+            asset:
+              'TZS' as const,
+
+            rail:
+              'CARD' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-visa-pi-card',
+
+            asset:
+              'PI' as const,
+
+            rail:
+              'CARD' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-visa-usd-mobile',
+
+            asset:
+              'USD' as const,
+
+            rail:
+              'MOBILE_MONEY' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-visa-usd-wallet',
+
+            asset:
+              'USD' as const,
+
+            rail:
+              'DIGITAL_WALLET' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-visa-usd-bank',
+
+            asset:
+              'USD' as const,
+
+            rail:
+              'BANK' as const,
+          },
+        ];
+
+        for (
+          const unsupported
+          of unsupportedRequests
+        ) {
+          await assert.rejects(
+            createPendingDepositRequest(
+              {
+                ...createBaseRequest(),
+
+                ...unsupported,
+
+                providerCode:
+                  'VISA_ACCEPTANCE',
+
+                amountAtomic:
+                  '2599',
+              },
+              TEST_NOW,
+            ),
+            {
+              message:
+                'DEPOSIT_ROUTE_NOT_SUPPORTED',
+            },
+          );
+        }
+
+        const rejectedRequests =
+          await adminDb
+            .collection(
+              'deposit_requests',
+            )
+            .where(
+              'providerCode',
+              '==',
+              'VISA_ACCEPTANCE',
+            )
+            .get();
+
+        assert.equal(
+          rejectedRequests.empty,
+          true,
+        );
+      },
+    );
+
+    test(
       'accepts supported USD PayPal digital-wallet deposit route',
       async () => {
         const accountBefore =
