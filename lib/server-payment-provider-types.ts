@@ -258,6 +258,86 @@ export type ProviderDepositInitiationResult = {
     string;
 };
 
+/**
+ * Server-controlled request for capturing a provider order
+ * after the customer has completed the required approval.
+ *
+ * The browser must never choose requestId, providerCode,
+ * providerRequestId or the provider environment.
+ */
+export type CaptureProviderDepositInput = {
+  /**
+   * Original PHCL deposit request ID.
+   */
+  requestId:
+    string;
+
+  /**
+   * Server-generated capture idempotency key.
+   * Every retry must reuse this exact value.
+   */
+  operationId:
+    string;
+
+  providerCode:
+    PaymentProviderCode;
+
+  environment:
+    PaymentProviderEnvironment;
+
+  /**
+   * Provider order/reference created during initiation.
+   */
+  providerRequestId:
+    string;
+};
+
+/**
+ * Result of asking the provider to capture an approved order.
+ *
+ * SECURITY:
+ *
+ * This result must not directly credit a PHCL balance.
+ * Financial settlement remains callback-only after an
+ * authenticated provider SUCCESS event.
+ */
+export type ProviderDepositCaptureResult = {
+  success:
+    true;
+
+  providerCode:
+    PaymentProviderCode;
+
+  environment:
+    PaymentProviderEnvironment;
+
+  requestId:
+    string;
+
+  operationId:
+    string;
+
+  providerRequestId:
+    string;
+
+  /**
+   * Provider-issued capture or transaction identifier.
+   * It may be unavailable while capture is pending.
+   */
+  providerTransactionId:
+    string | null;
+
+  status:
+    ProviderOperationStatus;
+
+  /**
+   * SHA-256 fingerprint of the provider capture response.
+   * Never store the raw provider response.
+   */
+  responseFingerprint:
+    string;
+};
+
 export type ProviderCallbackRequest = {
   /**
    * Provider identity selected by a trusted server route.
@@ -348,6 +428,22 @@ export type PaymentProviderAdapter = {
   ):
     Promise<
       ProviderDepositInitiationResult
+    >;
+
+  /**
+   * Optionally captures an approved provider order.
+   *
+   * Mobile-money adapters that do not use a separate capture
+   * step may omit this method.
+   *
+   * This method must never mutate a PHCL balance or ledger.
+   */
+  captureDeposit?(
+    input:
+      CaptureProviderDepositInput,
+  ):
+    Promise<
+      ProviderDepositCaptureResult
     >;
 
   /**

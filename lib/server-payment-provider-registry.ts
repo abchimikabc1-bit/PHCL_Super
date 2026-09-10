@@ -22,6 +22,10 @@ import {
 } from '@/lib/server-payment-provider-adapters/mpesa-sandbox';
 
 import {
+  paypalSandboxAdapter,
+} from '@/lib/server-payment-provider-adapters/paypal-sandbox';
+
+import {
   PAYMENT_PROVIDER_CODES,
   type PaymentProviderAdapter,
   type PaymentProviderCode,
@@ -89,8 +93,10 @@ function normalizeEnvironment(
     unknown,
 ): PaymentProviderEnvironment {
   if (
-    value !== 'SANDBOX' &&
-    value !== 'PRODUCTION'
+    value !==
+      'SANDBOX' &&
+    value !==
+      'PRODUCTION'
   ) {
     throw new Error(
       'PAYMENT_PROVIDER_ENVIRONMENT_INVALID',
@@ -225,6 +231,18 @@ function secureAdapter(
   }
 
   if (
+    adapter.captureDeposit !==
+      undefined &&
+    typeof adapter
+      .captureDeposit !==
+      'function'
+  ) {
+    throw new Error(
+      'PAYMENT_PROVIDER_CAPTURE_HANDLER_INVALID',
+    );
+  }
+
+  if (
     typeof adapter
       .verifyAndNormalizeCallback !==
       'function'
@@ -234,35 +252,58 @@ function secureAdapter(
     );
   }
 
-  return Object.freeze({
-    providerCode,
+  const securedAdapter:
+    PaymentProviderAdapter = {
+      providerCode,
 
-    environment,
+      environment,
 
-    supportedRails:
-      normalizeRails(
-        adapter.supportedRails,
-      ),
-
-    supportedAssets:
-      normalizeAssets(
-        adapter.supportedAssets,
-      ),
-
-    initiateDeposit:
-      adapter
-        .initiateDeposit
-        .bind(
-          adapter,
+      supportedRails:
+        normalizeRails(
+          adapter.supportedRails,
         ),
 
-    verifyAndNormalizeCallback:
+      supportedAssets:
+        normalizeAssets(
+          adapter.supportedAssets,
+        ),
+
+      initiateDeposit:
+        adapter
+          .initiateDeposit
+          .bind(
+            adapter,
+          ),
+
+      verifyAndNormalizeCallback:
+        adapter
+          .verifyAndNormalizeCallback
+          .bind(
+            adapter,
+          ),
+    };
+
+  /*
+   * Preserve optional provider capabilities only when
+   * the original adapter explicitly implements them.
+   *
+   * This prevents the registry wrapper from removing
+   * PayPal's server-side order capture operation.
+   */
+  if (
+    adapter.captureDeposit
+  ) {
+    securedAdapter.captureDeposit =
       adapter
-        .verifyAndNormalizeCallback
+        .captureDeposit
         .bind(
           adapter,
-        ),
-  });
+        );
+  }
+
+  return Object.freeze(
+    securedAdapter,
+  );
 }
 
 export class PaymentProviderRegistry {
@@ -456,9 +497,9 @@ export const paymentProviderRegistry =
   new PaymentProviderRegistry();
 
 /**
- * Approved mobile-money sandbox adapters.
+ * Approved sandbox payment-provider adapters.
  *
- * Registration performs no network request and does not
+ * Registration performs no provider request and does not
  * credit or debit any real customer funds.
  */
 paymentProviderRegistry.register(
@@ -475,6 +516,10 @@ paymentProviderRegistry.register(
 
 paymentProviderRegistry.register(
   mixxByYasSandboxAdapter,
+);
+
+paymentProviderRegistry.register(
+  paypalSandboxAdapter,
 );
 
 export function getConfiguredPaymentProvider(

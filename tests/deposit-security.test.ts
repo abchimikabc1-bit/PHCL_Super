@@ -653,6 +653,209 @@ describe(
       },
     );
 
+        test(
+      'accepts supported USD PayPal digital-wallet deposit route',
+      async () => {
+        const accountBefore =
+          await adminDb
+            .collection(
+              'financial_accounts',
+            )
+            .doc(
+              TEST_UID,
+            )
+            .get();
+
+        const balancesBefore =
+          accountBefore.data()
+            ?.balancesAtomic;
+
+        const result =
+          await createPendingDepositRequest(
+            {
+              ...createBaseRequest(),
+
+              clientOperationId:
+                'deposit-usd-paypal-digital-wallet',
+
+              asset:
+                'USD',
+
+              rail:
+                'DIGITAL_WALLET',
+
+              providerCode:
+                'PAYPAL',
+
+              amountAtomic:
+                '1025',
+            },
+            TEST_NOW,
+          );
+
+        assert.equal(
+          result.asset,
+          'USD',
+        );
+
+        assert.equal(
+          result.rail,
+          'DIGITAL_WALLET',
+        );
+
+        assert.equal(
+          result.providerCode,
+          'PAYPAL',
+        );
+
+        assert.equal(
+          result.amountAtomic,
+          '1025',
+        );
+
+        assert.equal(
+          result.status,
+          'PENDING_PROVIDER_INITIATION',
+        );
+
+        assert.equal(
+          result.idempotent,
+          false,
+        );
+
+        const requestSnapshot =
+          await adminDb
+            .collection(
+              'deposit_requests',
+            )
+            .doc(
+              result.requestId,
+            )
+            .get();
+
+        const requestData =
+          requestSnapshot.data();
+
+        assert.equal(
+          requestData?.credited,
+          false,
+        );
+
+        assert.equal(
+          requestData
+            ?.settlementStatus,
+          'NOT_STARTED',
+        );
+
+        const accountAfter =
+          await adminDb
+            .collection(
+              'financial_accounts',
+            )
+            .doc(
+              TEST_UID,
+            )
+            .get();
+
+        assert.deepEqual(
+          accountAfter.data()
+            ?.balancesAtomic,
+          balancesBefore,
+        );
+      },
+    );
+
+    test(
+      'rejects unsupported PayPal asset and rail combinations',
+      async () => {
+        const unsupportedRequests = [
+          {
+            clientOperationId:
+              'deposit-paypal-tzs-wallet',
+
+            asset:
+              'TZS' as const,
+
+            rail:
+              'DIGITAL_WALLET' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-paypal-pi-wallet',
+
+            asset:
+              'PI' as const,
+
+            rail:
+              'DIGITAL_WALLET' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-paypal-usd-mobile',
+
+            asset:
+              'USD' as const,
+
+            rail:
+              'MOBILE_MONEY' as const,
+          },
+          {
+            clientOperationId:
+              'deposit-paypal-usd-bank',
+
+            asset:
+              'USD' as const,
+
+            rail:
+              'BANK' as const,
+          },
+        ];
+
+        for (
+          const unsupported
+          of unsupportedRequests
+        ) {
+          await assert.rejects(
+            createPendingDepositRequest(
+              {
+                ...createBaseRequest(),
+
+                ...unsupported,
+
+                providerCode:
+                  'PAYPAL',
+
+                amountAtomic:
+                  '1000',
+              },
+              TEST_NOW,
+            ),
+            {
+              message:
+                'DEPOSIT_ROUTE_NOT_SUPPORTED',
+            },
+          );
+        }
+
+        const rejectedRequests =
+          await adminDb
+            .collection(
+              'deposit_requests',
+            )
+            .where(
+              'providerCode',
+              '==',
+              'PAYPAL',
+            )
+            .get();
+
+        assert.equal(
+          rejectedRequests.empty,
+          true,
+        );
+      },
+    );
+
     test(
       'rejects unsupported asset, rail and provider combinations',
       async () => {

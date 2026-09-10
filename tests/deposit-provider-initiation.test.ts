@@ -785,6 +785,485 @@ describe(
     }
 
     test(
+      'initiates PayPal safely without crediting the financial account',
+      async () => {
+        const originalFetch =
+          globalThis.fetch;
+
+        const originalClientId =
+          process.env
+            .PAYPAL_SANDBOX_CLIENT_ID;
+
+        const originalClientSecret =
+          process.env
+            .PAYPAL_SANDBOX_CLIENT_SECRET;
+
+        const originalWebhookId =
+          process.env
+            .PAYPAL_SANDBOX_WEBHOOK_ID;
+
+        const originalSiteUrl =
+          process.env
+            .NEXT_PUBLIC_SITE_URL;
+
+        const payerEmail =
+          'verified.customer@example.com';
+
+        const providerOrderId =
+          'PAYPAL-ORDER-INITIATION-001';
+
+        const approvalUrl =
+          `https://www.sandbox.paypal.com/checkoutnow?token=${providerOrderId}`;
+
+        const fetchedUrls:
+          string[] = [];
+
+        const restoreVariable = (
+          name:
+            string,
+
+          value:
+            string | undefined,
+        ): void => {
+          if (
+            value === undefined
+          ) {
+            delete mutableProcessEnvironment[
+              name
+            ];
+
+            return;
+          }
+
+          mutableProcessEnvironment[
+            name
+          ] =
+            value;
+        };
+
+        mutableProcessEnvironment
+          .PAYPAL_SANDBOX_CLIENT_ID =
+          'paypal-initiation-client-id';
+
+        mutableProcessEnvironment
+          .PAYPAL_SANDBOX_CLIENT_SECRET =
+          'paypal-initiation-client-secret';
+
+        mutableProcessEnvironment
+          .PAYPAL_SANDBOX_WEBHOOK_ID =
+          'PAYPALWEBHOOKINITIATION001';
+
+        mutableProcessEnvironment
+          .NEXT_PUBLIC_SITE_URL =
+          'https://www.phclsuper.com';
+
+        globalThis.fetch =
+          async (
+            input:
+              string | URL | Request,
+          ): Promise<Response> => {
+            const url =
+              input instanceof Request
+                ? input.url
+                : String(
+                    input,
+                  );
+
+            fetchedUrls.push(
+              url,
+            );
+
+            if (
+              url ===
+                'https://api-m.sandbox.paypal.com/v1/oauth2/token'
+            ) {
+              return new Response(
+                JSON.stringify({
+                  access_token:
+                    'paypal-initiation-access-token',
+
+                  token_type:
+                    'Bearer',
+
+                  expires_in:
+                    28_800,
+                }),
+                {
+                  status:
+                    200,
+
+                  headers: {
+                    'Content-Type':
+                      'application/json',
+                  },
+                },
+              );
+            }
+
+            if (
+              url ===
+                'https://api-m.sandbox.paypal.com/v2/checkout/orders'
+            ) {
+              return new Response(
+                JSON.stringify({
+                  id:
+                    providerOrderId,
+
+                  status:
+                    'CREATED',
+
+                  links: [
+                    {
+                      href:
+                        `https://api-m.sandbox.paypal.com/v2/checkout/orders/${providerOrderId}`,
+
+                      rel:
+                        'self',
+
+                      method:
+                        'GET',
+                    },
+                    {
+                      href:
+                        approvalUrl,
+
+                      rel:
+                        'payer-action',
+
+                      method:
+                        'GET',
+                    },
+                  ],
+                }),
+                {
+                  status:
+                    201,
+
+                  headers: {
+                    'Content-Type':
+                      'application/json',
+                  },
+                },
+              );
+            }
+
+            throw new Error(
+              `Unexpected PayPal request: ${url}`,
+            );
+          };
+
+        try {
+          const accountReference =
+            adminDb
+              .collection(
+                'financial_accounts',
+              )
+              .doc(
+                TEST_UID,
+              );
+
+          const accountBefore =
+            await accountReference.get();
+
+          const balancesBefore =
+            accountBefore.data()
+              ?.balancesAtomic;
+
+          const input:
+            InitiateDepositProviderInput = {
+              uid:
+                TEST_UID,
+
+              clientOperationId:
+                'deposit-provider-paypal-001',
+
+              asset:
+                'USD',
+
+              rail:
+                'DIGITAL_WALLET',
+
+              providerCode:
+                'PAYPAL',
+
+              amountAtomic:
+                '1025',
+
+              payer: {
+                type:
+                  'EMAIL',
+
+                value:
+                  payerEmail,
+              },
+
+              returnUrl:
+                'https://www.phclsuper.com/deposit?paypal=approved',
+
+              cancelUrl:
+                'https://www.phclsuper.com/deposit?paypal=cancelled',
+            };
+
+          const first =
+            await initiateDepositProvider(
+              input,
+            );
+
+          assert.equal(
+            first.success,
+            true,
+          );
+
+          assert.equal(
+            first.idempotent,
+            false,
+          );
+
+          assert.equal(
+            first.deposit.asset,
+            'USD',
+          );
+
+          assert.equal(
+            first.deposit.rail,
+            'DIGITAL_WALLET',
+          );
+
+          assert.equal(
+            first.deposit
+              .providerCode,
+            'PAYPAL',
+          );
+
+          assert.equal(
+            first.provider
+              .providerRequestId,
+            providerOrderId,
+          );
+
+          assert.equal(
+            first.provider
+              .providerTransactionId,
+            null,
+          );
+
+          assert.equal(
+            first.provider.status,
+            'REQUIRES_CUSTOMER_ACTION',
+          );
+
+          assert.equal(
+            first.provider
+              .customerAction
+              ?.type,
+            'REDIRECT',
+          );
+
+          if (
+            first.provider
+              .customerAction
+              ?.type !==
+            'REDIRECT'
+          ) {
+            assert.fail(
+              'Expected PayPal redirect action.',
+            );
+          }
+
+          assert.equal(
+            first.provider
+              .customerAction
+              .redirectUrl,
+            approvalUrl,
+          );
+
+          const requestReference =
+            adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .doc(
+                first.deposit
+                  .requestId,
+              );
+
+          const requestSnapshot =
+            await requestReference.get();
+
+          const requestData =
+            requestSnapshot.data();
+
+          assert.equal(
+            requestData
+              ?.providerInitiationStatus,
+            'INITIATED',
+          );
+
+          assert.equal(
+            requestData
+              ?.providerOperationStatus,
+            'REQUIRES_CUSTOMER_ACTION',
+          );
+
+          assert.equal(
+            requestData
+              ?.providerRequestId,
+            providerOrderId,
+          );
+
+          assert.equal(
+            requestData
+              ?.providerTransactionId,
+            null,
+          );
+
+          assert.equal(
+            requestData
+              ?.settlementStatus,
+            'NOT_STARTED',
+          );
+
+          assert.equal(
+            requestData?.credited,
+            false,
+          );
+
+          const serializedRequest =
+            JSON.stringify(
+              requestData,
+            );
+
+          assert.equal(
+            serializedRequest.includes(
+              payerEmail,
+            ),
+            false,
+          );
+
+          assert.equal(
+            serializedRequest.includes(
+              'paypal-initiation-access-token',
+            ),
+            false,
+          );
+
+          assert.equal(
+            serializedRequest.includes(
+              'paypal-initiation-client-secret',
+            ),
+            false,
+          );
+
+          const accountAfter =
+            await accountReference.get();
+
+          assert.deepEqual(
+            accountAfter.data()
+              ?.balancesAtomic,
+            balancesBefore,
+          );
+
+          const ledgerSnapshot =
+            await adminDb
+              .collection(
+                'financial_ledger',
+              )
+              .get();
+
+          assert.equal(
+            ledgerSnapshot.empty,
+            true,
+          );
+
+          const operationSnapshot =
+            await adminDb
+              .collection(
+                'financial_operations',
+              )
+              .get();
+
+          assert.equal(
+            operationSnapshot.empty,
+            true,
+          );
+
+          const second =
+            await initiateDepositProvider(
+              input,
+            );
+
+          assert.equal(
+            second.idempotent,
+            true,
+          );
+
+          assert.equal(
+            second.deposit
+              .requestId,
+            first.deposit
+              .requestId,
+          );
+
+          assert.equal(
+            second.provider
+              .providerRequestId,
+            first.provider
+              .providerRequestId,
+          );
+
+          const matchingRequests =
+            await adminDb
+              .collection(
+                'deposit_requests',
+              )
+              .where(
+                'clientOperationId',
+                '==',
+                input.clientOperationId,
+              )
+              .get();
+
+          assert.equal(
+            matchingRequests.size,
+            1,
+          );
+
+          assert.deepEqual(
+            fetchedUrls,
+            [
+              'https://api-m.sandbox.paypal.com/v1/oauth2/token',
+              'https://api-m.sandbox.paypal.com/v2/checkout/orders',
+              'https://api-m.sandbox.paypal.com/v2/checkout/orders',
+            ],
+          );
+        } finally {
+          globalThis.fetch =
+            originalFetch;
+
+          restoreVariable(
+            'PAYPAL_SANDBOX_CLIENT_ID',
+            originalClientId,
+          );
+
+          restoreVariable(
+            'PAYPAL_SANDBOX_CLIENT_SECRET',
+            originalClientSecret,
+          );
+
+          restoreVariable(
+            'PAYPAL_SANDBOX_WEBHOOK_ID',
+            originalWebhookId,
+          );
+
+          restoreVariable(
+            'NEXT_PUBLIC_SITE_URL',
+            originalSiteUrl,
+          );
+        }
+      },
+    );
+
+    test(
       'rejects reuse of an operation ID with a different amount',
       async () => {
         const input =
@@ -852,7 +1331,7 @@ describe(
               ACTIVE_PROVIDER_CASES[0],
               {
                 providerCode:
-                  'PAYPAL',
+                  'VISA_ACCEPTANCE',
               },
             ),
           ),

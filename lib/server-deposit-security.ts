@@ -38,6 +38,7 @@ const MAX_ATOMIC_AMOUNT_LENGTH =
 export type DepositRail =
   | 'BANK'
   | 'MOBILE_MONEY'
+  | 'DIGITAL_WALLET'
   | 'BLOCKCHAIN';
 
 export type DepositRequestStatus =
@@ -205,6 +206,8 @@ function normalizeRail(
     value !==
       'MOBILE_MONEY' &&
     value !==
+      'DIGITAL_WALLET' &&
+    value !==
       'BLOCKCHAIN'
   ) {
     throw new Error(
@@ -303,6 +306,14 @@ function requireSupportedRoute(
         'BANK' &&
       providerCode ===
         'OTHER_BANK'
+    ) ||
+    (
+      asset ===
+        'USD' &&
+      rail ===
+        'DIGITAL_WALLET' &&
+      providerCode ===
+        'PAYPAL'
     ) ||
     (
       asset ===
@@ -425,6 +436,8 @@ function readExistingResult(
         'BANK' &&
       existing.rail !==
         'MOBILE_MONEY' &&
+      existing.rail !==
+        'DIGITAL_WALLET' &&
       existing.rail !==
         'BLOCKCHAIN'
     ) ||

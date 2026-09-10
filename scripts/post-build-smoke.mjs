@@ -297,6 +297,53 @@ const apiChecks = [
   },
   {
     path:
+      '/api/deposit/paypal/capture',
+    method:
+      'GET',
+    expectedStatus:
+      405,
+    expectedBodyIncludes: [
+      '"code":"METHOD_NOT_ALLOWED"',
+      '"message":"Method not allowed."',
+    ],
+  },
+  {
+    path:
+      '/api/deposit/paypal/capture',
+    method:
+      'POST',
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+      '"message":"Authentication required."',
+    ],
+  },
+  {
+    path:
+      '/api/deposit/paypal/capture',
+    method:
+      'POST',
+    headers: {
+      Authorization:
+        'Bearer invalid-smoke-test-token',
+
+      'Content-Type':
+        'application/json',
+    },
+    body:
+      JSON.stringify({
+        requestId:
+          'invalid-browser-request-id',
+      }),
+    expectedStatus:
+      401,
+    expectedBodyIncludes: [
+      '"code":"UNAUTHENTICATED"',
+    ],
+  },
+  {
+    path:
       '/api/admin/auth',
     method:
       'GET',

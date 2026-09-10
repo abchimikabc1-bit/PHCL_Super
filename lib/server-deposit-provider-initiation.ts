@@ -92,6 +92,16 @@ export type InitiateDepositProviderInput = {
 
   payer:
     ProviderPayerReference;
+
+  /**
+   * Optional server-controlled provider return URLs.
+   * Never copy arbitrary browser URLs into these fields.
+   */
+  returnUrl?:
+    string | null;
+
+  cancelUrl?:
+    string | null;
 };
 
 export type DepositProviderInitiationResult = {
@@ -371,6 +381,13 @@ function createProviderInput(
 
       payer:
         input.payer,
+
+
+      returnUrl:
+        input.returnUrl,
+
+      cancelUrl:
+        input.cancelUrl,
 
       metadata: {
         source:
