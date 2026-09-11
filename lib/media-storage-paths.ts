@@ -13,13 +13,15 @@ function assertSafeId(
   fieldName: string
 ): string {
   const normalized =
-    value.trim();
+  value.trim();
 
-  if (
-    !SAFE_ID_PATTERN.test(
-      normalized
-    )
-  ) {
+if (
+  value !== normalized ||
+  !SAFE_ID_PATTERN.test(
+    normalized
+  )
+) {
+
     throw new Error(
       `${fieldName} is invalid.`
     );
@@ -31,13 +33,14 @@ function assertSafeId(
 function assertSafeFileName(
   fileName: string
 ): string {
-  const normalized =
-    fileName.trim();
+ const normalized =
+  fileName.trim();
 
-  if (
-    !SAFE_FILE_NAME_PATTERN.test(
-      normalized
-    ) ||
+if (
+  fileName !== normalized ||
+  !SAFE_FILE_NAME_PATTERN.test(
+    normalized
+  ) ||
     normalized === '.' ||
     normalized === '..'
   ) {

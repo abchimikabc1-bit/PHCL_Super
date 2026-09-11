@@ -64,3 +64,81 @@ test(
     );
   }
 );
+test(
+  'media metadata authority rejects non-canonical ownership metadata before Firestore access',
+  async () => {
+    const unsafeInputs = [
+      {
+        ownerId:
+          ' user_123',
+
+        mediaId:
+          'media_123',
+
+        sourceFileName:
+          'video.mp4',
+      },
+      {
+        ownerId:
+          'user_123 ',
+
+        mediaId:
+          'media_123',
+
+        sourceFileName:
+          'video.mp4',
+      },
+      {
+        ownerId:
+          'user_123',
+
+        mediaId:
+          ' media_123',
+
+        sourceFileName:
+          'video.mp4',
+      },
+      {
+        ownerId:
+          'user_123',
+
+        mediaId:
+          'media_123 ',
+
+        sourceFileName:
+          'video.mp4',
+      },
+      {
+        ownerId:
+          'user_123',
+
+        mediaId:
+          'media_123',
+
+        sourceFileName:
+          ' video.mp4',
+      },
+      {
+        ownerId:
+          'user_123',
+
+        mediaId:
+          'media_123',
+
+        sourceFileName:
+          'video.mp4 ',
+      },
+    ];
+
+    for (
+      const input
+      of unsafeInputs
+    ) {
+      await assert.rejects(
+        createMediaMetadata(
+          input
+        )
+      );
+    }
+  }
+);

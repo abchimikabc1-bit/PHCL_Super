@@ -160,3 +160,61 @@ test(
     );
   }
 );
+test(
+  'media storage paths reject non-canonical surrounding whitespace',
+  () => {
+    const unsafeIds = [
+      ' user_123',
+      'user_123 ',
+      '\tuser_123',
+      'user_123\t',
+      '\nuser_123',
+      'user_123\n',
+    ];
+
+    for (
+      const unsafeId
+      of unsafeIds
+    ) {
+      assert.throws(
+        () =>
+          buildMediaIngestPath(
+            unsafeId,
+            'media_123',
+            'video.mp4'
+          )
+      );
+
+      assert.throws(
+        () =>
+          buildMediaProcessedPath(
+            unsafeId,
+            'fallback.mp4'
+          )
+      );
+    }
+
+    const unsafeFileNames = [
+      ' video.mp4',
+      'video.mp4 ',
+      '\tvideo.mp4',
+      'video.mp4\t',
+      '\nvideo.mp4',
+      'video.mp4\n',
+    ];
+
+    for (
+      const unsafeFileName
+      of unsafeFileNames
+    ) {
+      assert.throws(
+        () =>
+          buildMediaIngestPath(
+            'user_123',
+            'media_123',
+            unsafeFileName
+          )
+      );
+    }
+  }
+);
