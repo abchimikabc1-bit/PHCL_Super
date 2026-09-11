@@ -16,6 +16,10 @@ import {
   getFirestore,
 } from 'firebase-admin/firestore';
 
+import {
+  getStorage,
+} from 'firebase-admin/storage';
+
 const DEFAULT_APP_NAME =
   '[DEFAULT]';
 
@@ -170,4 +174,30 @@ export const adminAuth =
 export const adminDb =
   getFirestore(
     firebaseAdminApp
+  );
+
+function getFirebaseStorageBucket():
+  string {
+  const storageBucket =
+    normalizeOptionalValue(
+      process.env
+        .FIREBASE_STORAGE_BUCKET
+    );
+
+  if (!storageBucket) {
+    throw new Error(
+      'FIREBASE_STORAGE_BUCKET must be configured for server-side Firebase Storage.'
+    );
+  }
+  return storageBucket;
+}
+
+export const adminStorage =
+  getStorage(
+    firebaseAdminApp
+  );
+
+export const adminStorageBucket =
+  adminStorage.bucket(
+    getFirebaseStorageBucket()
   );
