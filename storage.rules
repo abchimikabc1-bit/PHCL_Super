@@ -1,0 +1,129 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    /*
+     * ============================================================
+     * PHCL SUPER — GLOBAL MEDIA STORAGE SECURITY
+     * PHCL Global Media Pipeline v1
+     * ============================================================
+     *
+     * Security model:
+     *
+     * 1. Client access is denied by default.
+     * 2. Authenticated users may upload only into their own
+     *    private ingest namespace.
+     * 3. Client uploads are restricted to supported video MIME
+     *    types and a controlled maximum size.
+     * 4. Processed media, thumbnails and quarantine objects are
+     *    server/service controlled.
+     * 5. Public delivery will NOT depend on making raw storage
+     *    objects publicly writable.
+     */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId;
+    }
+
+    function isSupportedVideoType() {
+      return request.resource != null
+        && request.resource.contentType is string
+        && (
+          request.resource.contentType == 'video/mp4'
+          || request.resource.contentType == 'video/webm'
+          || request.resource.contentType == 'video/quicktime'
+        );
+    }
+
+    /*
+     * Global PHCL v1 ingest ceiling.
+     *
+     * This is an upload safety ceiling, NOT the final delivery size.
+     * Transcoding will create optimized delivery renditions later.
+     *
+     * 500 MiB allows high-quality source material while preventing
+     * unrestricted client uploads.
+     */
+    function isWithinVideoUploadLimit() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= 500 * 1024 * 1024;
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * PRIVATE RAW VIDEO INGEST
+     * ------------------------------------------------------------
+     *
+     * Expected path:
+     *
+     * media/ingest/{userId}/{mediaId}/{fileName}
+     *
+     * Users may CREATE their own source object.
+     * They cannot read it back directly, overwrite it or delete it.
+     * Processing services use privileged server credentials and are
+     * not governed by these client rules.
+     */
+    match /media/ingest/{userId}/{mediaId}/{fileName} {
+      allow create:
+        if isOwner(userId)
+        && isSupportedVideoType()
+        && isWithinVideoUploadLimit();
+
+      allow read, update, delete:
+        if false;
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * PROCESSED MEDIA
+     * ------------------------------------------------------------
+     *
+     * HLS manifests, segments, MP4 renditions and other generated
+     * delivery assets are server controlled.
+     */
+    match /media/processed/{allPaths=**} {
+      allow read, write:
+        if false;
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * THUMBNAILS
+     * ------------------------------------------------------------
+     */
+    match /media/thumbnails/{allPaths=**} {
+      allow read, write:
+        if false;
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * QUARANTINE
+     * ------------------------------------------------------------
+     *
+     * Rejected or suspicious source objects must never be exposed
+     * directly to clients.
+     */
+    match /media/quarantine/{allPaths=**} {
+      allow read, write:
+        if false;
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * DEFAULT DENY
+     * ------------------------------------------------------------
+     */
+    match /{allPaths=**} {
+      allow read, write:
+        if false;
+    }
+  }
+}
