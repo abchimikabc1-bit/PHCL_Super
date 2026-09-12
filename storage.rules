@@ -65,18 +65,13 @@ service firebase.storage {
      *
      * media/ingest/{userId}/{mediaId}/{fileName}
      *
-     * Users may CREATE their own source object.
-     * They cannot read it back directly, overwrite it or delete it.
+     * Direct client access to ingest objects is denied.
+     * Upload authority is granted only through trusted server-side flows.
      * Processing services use privileged server credentials and are
      * not governed by these client rules.
      */
     match /media/ingest/{userId}/{mediaId}/{fileName} {
-      allow create:
-        if isOwner(userId)
-        && isSupportedVideoType()
-        && isWithinVideoUploadLimit();
-
-      allow read, update, delete:
+      allow read, write:
         if false;
     }
 
