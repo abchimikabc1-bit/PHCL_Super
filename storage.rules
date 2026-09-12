@@ -12,49 +12,14 @@ service firebase.storage {
      * Security model:
      *
      * 1. Client access is denied by default.
-     * 2. Authenticated users may upload only into their own
-     *    private ingest namespace.
-     * 3. Client uploads are restricted to supported video MIME
-     *    types and a controlled maximum size.
+     * 2. Direct client access to private ingest objects is denied.
+     * 3. Media upload authority is granted only through trusted
+     *    server-side flows.
      * 4. Processed media, thumbnails and quarantine objects are
      *    server/service controlled.
      * 5. Public delivery will NOT depend on making raw storage
      *    objects publicly writable.
      */
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn()
-        && request.auth.uid == userId;
-    }
-
-    function isSupportedVideoType() {
-      return request.resource != null
-        && request.resource.contentType is string
-        && (
-          request.resource.contentType == 'video/mp4'
-          || request.resource.contentType == 'video/webm'
-          || request.resource.contentType == 'video/quicktime'
-        );
-    }
-
-    /*
-     * Global PHCL v1 ingest ceiling.
-     *
-     * This is an upload safety ceiling, NOT the final delivery size.
-     * Transcoding will create optimized delivery renditions later.
-     *
-     * 500 MiB allows high-quality source material while preventing
-     * unrestricted client uploads.
-     */
-    function isWithinVideoUploadLimit() {
-      return request.resource != null
-        && request.resource.size > 0
-        && request.resource.size <= 500 * 1024 * 1024;
-    }
 
     /*
      * ------------------------------------------------------------
