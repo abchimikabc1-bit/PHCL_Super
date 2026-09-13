@@ -37,6 +37,8 @@ test(
             'video.mp4',
           contentType:
             'video/mp4',
+          declaredSizeBytes:
+            1024,
         })
       );
     }
@@ -67,6 +69,8 @@ test(
             'video.mp4',
           contentType:
             'video/mp4',
+          declaredSizeBytes:
+            1024,
         })
       );
     }
@@ -97,6 +101,8 @@ test(
           sourceFileName,
           contentType:
             'video/mp4',
+          declaredSizeBytes:
+            1024,
         })
       );
     }
@@ -130,7 +136,43 @@ test(
           sourceFileName:
             'video.mp4',
           contentType,
+          declaredSizeBytes:
+            1024,
         })
+      );
+    }
+  }
+);
+
+test(
+  'media upload authority rejects invalid declared size before Storage access',
+  async () => {
+    const invalidSizes = [
+      0,
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      524_288_001,
+    ];
+
+    for (
+      const declaredSizeBytes
+      of invalidSizes
+    ) {
+      await assert.rejects(
+        () =>
+          createMediaUploadSession({
+            ownerId:
+              'user_123',
+            mediaId:
+              'media_123',
+            sourceFileName:
+              'video.mp4',
+            contentType:
+              'video/mp4',
+            declaredSizeBytes,
+          })
       );
     }
   }
@@ -188,6 +230,8 @@ test(
             'video.mp4',
           contentType:
             'video/mp4',
+          declaredSizeBytes:
+             524_288_000,
         });
 
       assert.deepEqual(

@@ -13,6 +13,7 @@ export type CreateMediaUploadSessionInput = {
   mediaId: string;
   sourceFileName: string;
   contentType: string;
+  declaredSizeBytes: number;
 };
 
 export type MediaUploadSession = {
@@ -29,6 +30,19 @@ export async function createMediaUploadSession(
   ) {
     throw new Error(
       'Media content type is unsupported.'
+    );
+  }
+
+  if (
+    !Number.isSafeInteger(
+      input.declaredSizeBytes
+    ) ||
+    input.declaredSizeBytes <= 0 ||
+    input.declaredSizeBytes >
+      524_288_000
+  ) {
+    throw new Error(
+      'Media declared size is invalid.'
     );
   }
 
