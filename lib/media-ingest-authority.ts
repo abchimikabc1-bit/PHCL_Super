@@ -12,6 +12,8 @@ import {
 export type InitiateMediaIngestInput = {
   ownerId: string;
   sourceFileName: string;
+  contentType: string;
+  declaredSizeBytes: number;
 };
 
 export type MediaIngestInitiation =
@@ -31,5 +33,11 @@ export async function initiateMediaIngest(
 
     sourceFileName:
       input.sourceFileName,
+
+    contentType:
+      input.contentType,
+
+    declaredSizeBytes:
+      input.declaredSizeBytes,
   });
 }

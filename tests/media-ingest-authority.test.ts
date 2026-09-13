@@ -26,8 +26,15 @@ test(
       await assert.rejects(
         initiateMediaIngest({
           ownerId,
+
           sourceFileName:
             'video.mp4',
+
+          contentType:
+            'video/mp4',
+
+          declaredSizeBytes:
+            1024,
         })
       );
     }
@@ -55,6 +62,12 @@ test(
             'user_123',
 
           sourceFileName,
+
+          contentType:
+            'video/mp4',
+
+          declaredSizeBytes:
+            1024,
         })
       );
     }

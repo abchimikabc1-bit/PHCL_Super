@@ -21,6 +21,12 @@ test(
 
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       }),
       /userId is invalid/
     );
@@ -40,6 +46,12 @@ test(
 
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       }),
       /mediaId is invalid/
     );
@@ -59,11 +71,18 @@ test(
 
         sourceFileName:
           '../video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       }),
       /Media file name is invalid/
     );
   }
 );
+
 test(
   'media metadata authority rejects non-canonical ownership metadata before Firestore access',
   async () => {
@@ -77,6 +96,12 @@ test(
 
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       },
       {
         ownerId:
@@ -87,6 +112,12 @@ test(
 
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       },
       {
         ownerId:
@@ -97,6 +128,12 @@ test(
 
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       },
       {
         ownerId:
@@ -107,6 +144,12 @@ test(
 
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       },
       {
         ownerId:
@@ -117,6 +160,12 @@ test(
 
         sourceFileName:
           ' video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       },
       {
         ownerId:
@@ -127,6 +176,12 @@ test(
 
         sourceFileName:
           'video.mp4 ',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       },
     ];
 

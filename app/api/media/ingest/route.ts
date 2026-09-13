@@ -91,6 +91,12 @@ export async function POST(
 
         sourceFileName:
           body.sourceFileName,
+
+        contentType:
+          body.contentType,
+
+        declaredSizeBytes:
+          body.declaredSizeBytes,
       });
 
     return noStoreJson(

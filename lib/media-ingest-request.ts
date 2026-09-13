@@ -5,6 +5,8 @@ const MAX_REQUEST_BODY_BYTES =
 
 export type MediaIngestRequestBody = {
   sourceFileName: string;
+  contentType: string;
+  declaredSizeBytes: number;
 };
 
 function isPlainObject(
@@ -79,11 +81,22 @@ export async function readMediaIngestRequest(
     Object.keys(parsed);
 
   if (
-    keys.length !== 1 ||
-    keys[0] !==
-      'sourceFileName' ||
+    keys.length !== 3 ||
+    !keys.includes(
+      'sourceFileName'
+    ) ||
+    !keys.includes(
+      'contentType'
+    ) ||
+    !keys.includes(
+      'declaredSizeBytes'
+    ) ||
     typeof parsed.sourceFileName !==
-      'string'
+      'string' ||
+    typeof parsed.contentType !==
+      'string' ||
+    typeof parsed.declaredSizeBytes !==
+      'number'
   ) {
     throw new Error(
       'INVALID_REQUEST'
@@ -93,5 +106,11 @@ export async function readMediaIngestRequest(
   return {
     sourceFileName:
       parsed.sourceFileName,
+
+    contentType:
+      parsed.contentType,
+
+    declaredSizeBytes:
+      parsed.declaredSizeBytes,
   };
 }

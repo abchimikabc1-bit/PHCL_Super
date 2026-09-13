@@ -32,6 +32,12 @@ test(
           JSON.stringify({
             sourceFileName:
               'video.mp4',
+
+            contentType:
+              'video/mp4',
+
+            declaredSizeBytes:
+              1024,
           })
         )
       );
@@ -41,6 +47,12 @@ test(
       {
         sourceFileName:
           'video.mp4',
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       }
     );
   }
@@ -69,19 +81,42 @@ test(
 );
 
 test(
-  'rejects missing or invalid sourceFileName',
+  'rejects missing or invalid required media fields',
   async () => {
     for (
       const body of [
         {},
         {
-          sourceFileName: null,
+          sourceFileName:
+            null,
+          contentType:
+            'video/mp4',
+          declaredSizeBytes:
+            1024,
         },
         {
-          sourceFileName: 123,
+          sourceFileName:
+            'video.mp4',
+          contentType:
+            null,
+          declaredSizeBytes:
+            1024,
         },
         {
-          sourceFileName: true,
+          sourceFileName:
+            'video.mp4',
+          contentType:
+            'video/mp4',
+          declaredSizeBytes:
+            null,
+        },
+        {
+          sourceFileName:
+            'video.mp4',
+          contentType:
+            'video/mp4',
+          declaredSizeBytes:
+            '1024',
         },
       ]
     ) {
@@ -114,6 +149,12 @@ test(
               sourceFileName:
                 'video.mp4',
 
+              contentType:
+                'video/mp4',
+
+              declaredSizeBytes:
+                1024,
+
               [extraField]:
                 'attacker-controlled',
             })
@@ -135,6 +176,12 @@ test(
             sourceFileName:
               'video.mp4',
 
+            contentType:
+              'video/mp4',
+
+            declaredSizeBytes:
+              1024,
+
             unexpected:
               'value',
           })
@@ -152,6 +199,12 @@ test(
       JSON.stringify({
         sourceFileName:
           'a'.repeat(5000),
+
+        contentType:
+          'video/mp4',
+
+        declaredSizeBytes:
+          1024,
       });
 
     await assert.rejects(
@@ -179,6 +232,12 @@ test(
             JSON.stringify({
               sourceFileName:
                 'video.mp4',
+
+              contentType:
+                'video/mp4',
+
+              declaredSizeBytes:
+                1024,
             }),
             {
               'content-length':

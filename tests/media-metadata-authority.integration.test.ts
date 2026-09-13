@@ -24,6 +24,12 @@ const TEST_OWNER_ID =
 const TEST_FILE_NAME =
   'video.mp4';
 
+const TEST_CONTENT_TYPE =
+  'video/mp4';
+
+const TEST_DECLARED_SIZE_BYTES =
+  1024;
+
 let adminDb:
   Firestore;
 
@@ -100,6 +106,12 @@ test(
 
         sourceFileName:
           TEST_FILE_NAME,
+
+        contentType:
+          TEST_CONTENT_TYPE,
+
+        declaredSizeBytes:
+          TEST_DECLARED_SIZE_BYTES,
       });
 
     assert.equal(
@@ -115,6 +127,16 @@ test(
     assert.equal(
       created.sourceObject,
       `media/ingest/${TEST_OWNER_ID}/${TEST_MEDIA_ID}/${TEST_FILE_NAME}`
+    );
+
+    assert.equal(
+      created.contentType,
+      TEST_CONTENT_TYPE
+    );
+
+    assert.equal(
+      created.declaredSizeBytes,
+      TEST_DECLARED_SIZE_BYTES
     );
 
     assert.equal(
@@ -158,6 +180,16 @@ test(
     );
 
     assert.equal(
+      firstData?.contentType,
+      TEST_CONTENT_TYPE
+    );
+
+    assert.equal(
+      firstData?.declaredSizeBytes,
+      TEST_DECLARED_SIZE_BYTES
+    );
+
+    assert.equal(
       firstData?.status,
       'UPLOADING'
     );
@@ -185,6 +217,12 @@ test(
 
         sourceFileName:
           'different.mp4',
+
+        contentType:
+          TEST_CONTENT_TYPE,
+
+        declaredSizeBytes:
+          TEST_DECLARED_SIZE_BYTES,
       }),
       /MEDIA_ALREADY_EXISTS/
     );
@@ -208,6 +246,16 @@ test(
     assert.equal(
       finalData?.sourceFileName,
       TEST_FILE_NAME
+    );
+
+    assert.equal(
+      finalData?.contentType,
+      TEST_CONTENT_TYPE
+    );
+
+    assert.equal(
+      finalData?.declaredSizeBytes,
+      TEST_DECLARED_SIZE_BYTES
     );
 
     assert.equal(

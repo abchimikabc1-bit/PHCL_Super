@@ -18,6 +18,12 @@ const MEDIA_COLLECTION =
 const MEDIA_SCHEMA_VERSION =
   1;
 
+const MEDIA_CONTENT_TYPE =
+  'video/mp4';
+
+const MAX_MEDIA_SIZE_BYTES =
+  524_288_000;
+
 export const MEDIA_INITIAL_STATUS =
   'UPLOADING' as const;
 
@@ -30,6 +36,8 @@ export type MediaMetadataRecord = {
   ownerId: string;
   sourceObject: string;
   sourceFileName: string;
+  contentType: string;
+  declaredSizeBytes: number;
   status: MediaInitialStatus;
   createdAtMs: number;
   updatedAtMs: number;
@@ -39,6 +47,8 @@ export type CreateMediaMetadataInput = {
   ownerId: string;
   mediaId: string;
   sourceFileName: string;
+  contentType: string;
+  declaredSizeBytes: number;
 };
 
 export async function createMediaMetadata(
@@ -50,6 +60,28 @@ export async function createMediaMetadata(
       input.mediaId,
       input.sourceFileName
     );
+
+  if (
+    input.contentType !==
+    MEDIA_CONTENT_TYPE
+  ) {
+    throw new Error(
+      'Media content type is unsupported.'
+    );
+  }
+
+  if (
+    !Number.isSafeInteger(
+      input.declaredSizeBytes
+    ) ||
+    input.declaredSizeBytes <= 0 ||
+    input.declaredSizeBytes >
+      MAX_MEDIA_SIZE_BYTES
+  ) {
+    throw new Error(
+      'Media declared size is invalid.'
+    );
+  }
 
   const now =
     Date.now();
@@ -68,6 +100,12 @@ export async function createMediaMetadata(
 
     sourceFileName:
       input.sourceFileName,
+
+    contentType:
+      input.contentType,
+
+    declaredSizeBytes:
+      input.declaredSizeBytes,
 
     status:
       MEDIA_INITIAL_STATUS,

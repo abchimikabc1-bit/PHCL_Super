@@ -16,6 +16,12 @@ const TEST_OWNER_ID =
 const TEST_FILE_NAME =
   'video.mp4';
 
+const TEST_CONTENT_TYPE =
+  'video/mp4';
+
+const TEST_DECLARED_SIZE_BYTES =
+  1024;
+
 let adminDb:
   Firestore;
 
@@ -104,6 +110,12 @@ test(
 
         sourceFileName:
           TEST_FILE_NAME,
+
+        contentType:
+          TEST_CONTENT_TYPE,
+
+        declaredSizeBytes:
+          TEST_DECLARED_SIZE_BYTES,
       });
 
     assert.match(
@@ -119,6 +131,16 @@ test(
     assert.equal(
       result.sourceFileName,
       TEST_FILE_NAME
+    );
+
+    assert.equal(
+      result.contentType,
+      TEST_CONTENT_TYPE
+    );
+
+    assert.equal(
+      result.declaredSizeBytes,
+      TEST_DECLARED_SIZE_BYTES
     );
 
     assert.equal(
@@ -163,6 +185,16 @@ test(
     assert.equal(
       stored?.sourceObject,
       result.sourceObject
+    );
+
+    assert.equal(
+      stored?.contentType,
+      TEST_CONTENT_TYPE
+    );
+
+    assert.equal(
+      stored?.declaredSizeBytes,
+      TEST_DECLARED_SIZE_BYTES
     );
 
     assert.equal(
