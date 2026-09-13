@@ -63,9 +63,11 @@ export async function createMediaUploadSession(
   ] =
     await file.createResumableUpload({
       metadata: {
-        contentType:
-          input.contentType,
-      },
+  contentType:
+    input.contentType,
+  contentLength:
+    input.declaredSizeBytes,
+},
       preconditionOpts: {
         ifGenerationMatch: 0,
       },

@@ -235,17 +235,19 @@ test(
         });
 
       assert.deepEqual(
-        receivedOptions,
-        {
-          metadata: {
-            contentType:
-              'video/mp4',
-          },
-          preconditionOpts: {
-            ifGenerationMatch: 0,
-          },
-        }
-      );
+  receivedOptions,
+  {
+    metadata: {
+      contentType:
+        'video/mp4',
+      contentLength:
+        524_288_000,
+    },
+    preconditionOpts: {
+      ifGenerationMatch: 0,
+    },
+  }
+);
 
       assert.equal(
         createResumableUpload.mock.callCount(),
