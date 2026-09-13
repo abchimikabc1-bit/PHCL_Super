@@ -30,8 +30,10 @@ const TEST_CONTENT_TYPE =
 const TEST_DECLARED_SIZE_BYTES =
   1024;
 
-let adminDb:
-  Firestore;
+const EXPECTED_MEDIA_SCHEMA_VERSION =
+  2;
+
+let adminDb: Firestore;
 
 let createMediaMetadata:
   MediaMetadataAuthorityModule[
@@ -53,12 +55,8 @@ function requireFirestoreEmulator():
 async function deleteTestMedia():
   Promise<void> {
   await adminDb
-    .collection(
-      'media'
-    )
-    .doc(
-      TEST_MEDIA_ID
-    )
+    .collection('media')
+    .doc(TEST_MEDIA_ID)
     .delete();
 }
 
@@ -115,6 +113,11 @@ test(
       });
 
     assert.equal(
+      created.schemaVersion,
+      EXPECTED_MEDIA_SCHEMA_VERSION
+    );
+
+    assert.equal(
       created.mediaId,
       TEST_MEDIA_ID
     );
@@ -146,12 +149,8 @@ test(
 
     const mediaRef =
       adminDb
-        .collection(
-          'media'
-        )
-        .doc(
-          TEST_MEDIA_ID
-        );
+        .collection('media')
+        .doc(TEST_MEDIA_ID);
 
     const firstSnapshot =
       await mediaRef.get();
@@ -163,6 +162,11 @@ test(
 
     const firstData =
       firstSnapshot.data();
+
+    assert.equal(
+      firstData?.schemaVersion,
+      EXPECTED_MEDIA_SCHEMA_VERSION
+    );
 
     assert.equal(
       firstData?.ownerId,
@@ -192,11 +196,6 @@ test(
     assert.equal(
       firstData?.status,
       'UPLOADING'
-    );
-
-    assert.equal(
-      firstData?.schemaVersion,
-      1
     );
 
     assert.ok(
@@ -232,6 +231,11 @@ test(
 
     const finalData =
       finalSnapshot.data();
+
+    assert.equal(
+      finalData?.schemaVersion,
+      EXPECTED_MEDIA_SCHEMA_VERSION
+    );
 
     assert.equal(
       finalData?.ownerId,

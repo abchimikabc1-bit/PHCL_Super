@@ -1,31 +1,19 @@
 import 'server-only';
 
-import {
-  FieldValue,
-} from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 
-import {
-  adminDb,
-} from '@/lib/firebase-admin';
+import { adminDb } from '@/lib/firebase-admin';
+import { buildMediaIngestPath } from '@/lib/media-storage-paths';
 
-import {
-  buildMediaIngestPath,
-} from '@/lib/media-storage-paths';
+const MEDIA_COLLECTION = 'media';
 
-const MEDIA_COLLECTION =
-  'media';
+const MEDIA_SCHEMA_VERSION = 2;
 
-const MEDIA_SCHEMA_VERSION =
-  1;
+const MEDIA_CONTENT_TYPE = 'video/mp4';
 
-const MEDIA_CONTENT_TYPE =
-  'video/mp4';
+const MAX_MEDIA_SIZE_BYTES = 524_288_000;
 
-const MAX_MEDIA_SIZE_BYTES =
-  524_288_000;
-
-export const MEDIA_INITIAL_STATUS =
-  'UPLOADING' as const;
+export const MEDIA_INITIAL_STATUS = 'UPLOADING' as const;
 
 export type MediaInitialStatus =
   typeof MEDIA_INITIAL_STATUS;
@@ -54,84 +42,51 @@ export type CreateMediaMetadataInput = {
 export async function createMediaMetadata(
   input: CreateMediaMetadataInput
 ): Promise<MediaMetadataRecord> {
-  const sourceObject =
-    buildMediaIngestPath(
-      input.ownerId,
-      input.mediaId,
-      input.sourceFileName
-    );
+  const sourceObject = buildMediaIngestPath(
+    input.ownerId,
+    input.mediaId,
+    input.sourceFileName
+  );
 
-  if (
-    input.contentType !==
-    MEDIA_CONTENT_TYPE
-  ) {
+  if (input.contentType !== MEDIA_CONTENT_TYPE) {
     throw new Error(
       'Media content type is unsupported.'
     );
   }
 
   if (
-    !Number.isSafeInteger(
-      input.declaredSizeBytes
-    ) ||
+    !Number.isSafeInteger(input.declaredSizeBytes) ||
     input.declaredSizeBytes <= 0 ||
-    input.declaredSizeBytes >
-      MAX_MEDIA_SIZE_BYTES
+    input.declaredSizeBytes > MAX_MEDIA_SIZE_BYTES
   ) {
     throw new Error(
       'Media declared size is invalid.'
     );
   }
 
-  const now =
-    Date.now();
+  const now = Date.now();
 
   const record: MediaMetadataRecord = {
-    schemaVersion:
-      MEDIA_SCHEMA_VERSION,
-
-    mediaId:
-      input.mediaId,
-
-    ownerId:
-      input.ownerId,
-
+    schemaVersion: MEDIA_SCHEMA_VERSION,
+    mediaId: input.mediaId,
+    ownerId: input.ownerId,
     sourceObject,
-
-    sourceFileName:
-      input.sourceFileName,
-
-    contentType:
-      input.contentType,
-
-    declaredSizeBytes:
-      input.declaredSizeBytes,
-
-    status:
-      MEDIA_INITIAL_STATUS,
-
-    createdAtMs:
-      now,
-
-    updatedAtMs:
-      now,
+    sourceFileName: input.sourceFileName,
+    contentType: input.contentType,
+    declaredSizeBytes: input.declaredSizeBytes,
+    status: MEDIA_INITIAL_STATUS,
+    createdAtMs: now,
+    updatedAtMs: now,
   };
 
-  const mediaRef =
-    adminDb
-      .collection(
-        MEDIA_COLLECTION
-      )
-      .doc(
-        input.mediaId
-      );
+  const mediaRef = adminDb
+    .collection(MEDIA_COLLECTION)
+    .doc(input.mediaId);
 
   await adminDb.runTransaction(
     async (transaction) => {
       const existing =
-        await transaction.get(
-          mediaRef
-        );
+        await transaction.get(mediaRef);
 
       if (existing.exists) {
         throw new Error(
@@ -139,18 +94,13 @@ export async function createMediaMetadata(
         );
       }
 
-      transaction.create(
-        mediaRef,
-        {
-          ...record,
-
-          serverCreatedAt:
-            FieldValue.serverTimestamp(),
-
-          serverUpdatedAt:
-            FieldValue.serverTimestamp(),
-        }
-      );
+      transaction.create(mediaRef, {
+        ...record,
+        serverCreatedAt:
+          FieldValue.serverTimestamp(),
+        serverUpdatedAt:
+          FieldValue.serverTimestamp(),
+      });
     }
   );
 
