@@ -48,6 +48,46 @@ test(
 );
 
 test(
+  'normalizes fractional ffprobe milliseconds to the nearest whole millisecond',
+  () => {
+    const result =
+      parseMediaFfprobeOutput(
+        JSON.stringify({
+          streams: [
+            {
+              codec_type: 'video',
+              codec_name: 'h264',
+              width: 1920,
+              height: 1080,
+              avg_frame_rate: '30/1',
+            },
+            {
+              codec_type: 'audio',
+              codec_name: 'aac',
+            },
+          ],
+          format: {
+            format_name: 'mp4',
+            duration: '12.3456',
+          },
+        })
+      );
+
+    assert.equal(
+      result.durationMs,
+      12_346
+    );
+
+    assert.equal(
+      Number.isSafeInteger(
+        result.durationMs
+      ),
+      true
+    );
+  }
+);
+
+test(
   'fails closed when ffprobe stdout is not valid JSON',
   () => {
     assert.throws(

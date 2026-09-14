@@ -70,10 +70,12 @@ function parseDurationMs(
   }
 
   const durationMs =
-    duration * 1000;
+    Math.round(
+      duration * 1000
+    );
 
   if (
-    !Number.isFinite(durationMs) ||
+    !Number.isSafeInteger(durationMs) ||
     durationMs <= 0
   ) {
     failInvalid();
