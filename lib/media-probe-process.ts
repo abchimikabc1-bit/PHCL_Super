@@ -21,7 +21,7 @@ export type MediaProbeProcessDependencies = {
     executable: string,
     args: string[],
     options: MediaProbeProcessOptions
-  ) => Promise<unknown>;
+  ) => Promise<MediaProbeProcessResult>;
 };
 
 const MEDIA_PROBE_EXECUTABLE =
@@ -36,7 +36,7 @@ const MEDIA_PROBE_MAX_BUFFER_BYTES =
 export async function executeMediaProbeProcessWithDependencies(
   filePath: string,
   dependencies: MediaProbeProcessDependencies
-): Promise<unknown> {
+): Promise<MediaProbeProcessResult> {
   return dependencies.executeFile(
     MEDIA_PROBE_EXECUTABLE,
     [
@@ -65,7 +65,7 @@ const productionDependencies:
 
 export async function executeMediaProbeProcess(
   filePath: string
-): Promise<unknown> {
+): Promise<MediaProbeProcessResult> {
   return executeMediaProbeProcessWithDependencies(
     filePath,
     productionDependencies
