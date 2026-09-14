@@ -1,5 +1,9 @@
 import 'server-only';
 
+import {
+  executeMediaProbeFile,
+} from '@/lib/media-probe-exec-file';
+
 export type MediaProbeProcessOptions = {
   shell: false;
   timeout: number;
@@ -51,5 +55,19 @@ export async function executeMediaProbeProcessWithDependencies(
         MEDIA_PROBE_MAX_BUFFER_BYTES,
       windowsHide: true,
     }
+  );
+}
+
+const productionDependencies:
+  MediaProbeProcessDependencies = {
+    executeFile: executeMediaProbeFile,
+  };
+
+export async function executeMediaProbeProcess(
+  filePath: string
+): Promise<unknown> {
+  return executeMediaProbeProcessWithDependencies(
+    filePath,
+    productionDependencies
   );
 }
