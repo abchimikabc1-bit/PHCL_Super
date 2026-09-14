@@ -8,6 +8,11 @@ type GenerationPinnedFileOptions = {
   generation: string;
 };
 
+type GenerationPinnedMediaObject =
+  ReturnType<
+    typeof adminStorageBucket.file
+  >;
+
 export type GenerationPinnedMediaObjectDependencies<
   TFileHandle = unknown
 > = {
@@ -68,7 +73,9 @@ export function createGenerationPinnedMediaObjectWithDependencies<
 }
 
 const productionDependencies:
-  GenerationPinnedMediaObjectDependencies = {
+  GenerationPinnedMediaObjectDependencies<
+    GenerationPinnedMediaObject
+  > = {
     createFileHandle(
       sourceObject,
       options
@@ -86,7 +93,7 @@ const productionDependencies:
 export function createGenerationPinnedMediaObject(
   sourceObject: string,
   generation: string
-) {
+): GenerationPinnedMediaObject {
   return createGenerationPinnedMediaObjectWithDependencies(
     sourceObject,
     generation,
