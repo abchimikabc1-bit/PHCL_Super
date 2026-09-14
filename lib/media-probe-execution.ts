@@ -5,6 +5,10 @@ import {
   type SeekableMediaProbeInput,
 } from '@/lib/media-seekable-probe-input';
 
+import type {
+  MediaProbeProcessResult,
+} from '@/lib/media-probe-process';
+
 export type MediaProbeExecutionDependencies = {
   createSeekableMediaProbeInput: (
     sourceObject: string,
@@ -13,14 +17,14 @@ export type MediaProbeExecutionDependencies = {
 
   executeProbeProcess: (
     filePath: string
-  ) => Promise<unknown>;
+  ) => Promise<MediaProbeProcessResult>;
 };
 
 export async function executeMediaProbeWithDependencies(
   sourceObject: string,
   generation: string,
   dependencies: MediaProbeExecutionDependencies
-): Promise<unknown> {
+): Promise<MediaProbeProcessResult> {
   const input =
     await dependencies.createSeekableMediaProbeInput(
       sourceObject,
@@ -50,7 +54,7 @@ const productionDependencies:
 export async function executeMediaProbe(
   sourceObject: string,
   generation: string
-): Promise<unknown> {
+): Promise<MediaProbeProcessResult> {
   return executeMediaProbeWithDependencies(
     sourceObject,
     generation,

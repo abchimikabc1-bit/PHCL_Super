@@ -17,8 +17,9 @@ test(
   async () => {
     const calls: string[] = [];
 
-    const rawProbe = {
-      format: 'untrusted-runtime-output',
+    const processResult = {
+      stdout: '{"format":{}}',
+      stderr: '',
     };
 
     const dependencies:
@@ -43,12 +44,12 @@ test(
 
         async executeProbeProcess(
           filePath
-        ): Promise<unknown> {
+        ) {
           calls.push(
             `execute:${filePath}`
           );
 
-          return rawProbe;
+          return processResult;
         },
       };
 
@@ -61,7 +62,7 @@ test(
 
     assert.equal(
       result,
-      rawProbe
+      processResult
     );
 
     assert.deepEqual(calls, [
