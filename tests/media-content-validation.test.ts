@@ -117,6 +117,22 @@ test(
 );
 
 test(
+  'rejects a structurally valid non-h264 video codec',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        videoCodec: 'hevc',
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_VIDEO_CODEC',
+    });
+  }
+);
+
+test(
   'rejects invalid dimensions',
   () => {
     const result =

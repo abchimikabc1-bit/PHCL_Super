@@ -54,6 +54,15 @@ function isMp4Container(
     );
 }
 
+function isH264VideoCodec(
+  value: string
+): boolean {
+  return (
+    isCanonicalNonEmptyString(value) &&
+    value === 'h264'
+  );
+}
+
 export function evaluateMediaContentValidation(
   probe: MediaContentProbe
 ): MediaContentValidationResult {
@@ -81,7 +90,7 @@ export function evaluateMediaContentValidation(
   }
 
   if (
-    !isCanonicalNonEmptyString(
+    !isH264VideoCodec(
       probe.videoCodec
     )
   ) {
