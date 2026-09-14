@@ -63,6 +63,15 @@ function isH264VideoCodec(
   );
 }
 
+function isAacAudioCodec(
+  value: string
+): boolean {
+  return (
+    isCanonicalNonEmptyString(value) &&
+    value === 'aac'
+  );
+}
+
 export function evaluateMediaContentValidation(
   probe: MediaContentProbe
 ): MediaContentValidationResult {
@@ -123,7 +132,7 @@ export function evaluateMediaContentValidation(
   }
 
   if (
-    !isCanonicalNonEmptyString(
+    !isAacAudioCodec(
       probe.audioCodec
     )
   ) {

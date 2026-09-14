@@ -179,3 +179,19 @@ test(
     });
   }
 );
+
+test(
+  'rejects a structurally valid non-aac audio codec',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        audioCodec: 'opus',
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_AUDIO_CODEC',
+    });
+  }
+);
