@@ -4,6 +4,10 @@ import {
   createGenerationPinnedMediaReadStream,
 } from '@/lib/media-generation-pinned-read-stream';
 
+import {
+  materializeMediaProbeReadStream,
+} from '@/lib/media-probe-temp-materializer';
+
 export type SeekableMediaProbeInput = {
   filePath: string;
   cleanup: () => Promise<void>;
@@ -45,13 +49,8 @@ export async function createSeekableMediaProbeInputWithDependencies<
 
 const productionDependencies = {
   createGenerationPinnedMediaReadStream,
-
-  async materializeReadStream():
-    Promise<SeekableMediaProbeInput> {
-    throw new Error(
-      'MEDIA_PROBE_INPUT_MATERIALIZER_NOT_CONFIGURED'
-    );
-  },
+  materializeReadStream:
+    materializeMediaProbeReadStream,
 };
 
 export async function createSeekableMediaProbeInput(
