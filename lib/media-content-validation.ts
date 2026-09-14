@@ -37,11 +37,28 @@ function isCanonicalNonEmptyString(
   );
 }
 
+function isMp4Container(
+  value: string
+): boolean {
+  if (
+    !isCanonicalNonEmptyString(value)
+  ) {
+    return false;
+  }
+
+  return value
+    .split(',')
+    .some(
+      (container) =>
+        container === 'mp4'
+    );
+}
+
 export function evaluateMediaContentValidation(
   probe: MediaContentProbe
 ): MediaContentValidationResult {
   if (
-    !isCanonicalNonEmptyString(
+    !isMp4Container(
       probe.container
     )
   ) {

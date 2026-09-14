@@ -32,12 +32,49 @@ test(
 );
 
 test(
+  'accepts ffprobe container aliases when mp4 is present',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      container:
+        'mov,mp4,m4a,3gp,3g2,mj2',
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
   'rejects invalid container data',
   () => {
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
         container: '',
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_CONTAINER',
+    });
+  }
+);
+
+test(
+  'rejects a structurally valid non-mp4 container',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        container: 'matroska,webm',
       });
 
     assert.deepEqual(result, {
