@@ -365,6 +365,118 @@ test(
 );
 
 test(
+  'accepts the minimum allowed frame rate',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      frameRate: 1,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'rejects frame rate below the minimum allowed frame rate',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        frameRate: 0.999,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_FRAME_RATE',
+    });
+  }
+);
+
+test(
+  'accepts common fractional frame rate',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      frameRate: 29.97,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'accepts high fractional frame rate within the allowed range',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      frameRate: 59.94,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'accepts the maximum allowed frame rate',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      frameRate: 60,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'rejects frame rate above the maximum allowed frame rate',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        frameRate: 60.001,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_FRAME_RATE',
+    });
+  }
+);
+
+test(
   'rejects invalid audio codec data',
   () => {
     const result =

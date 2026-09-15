@@ -40,6 +40,12 @@ const MIN_MEDIA_DIMENSION_PX =
 const MAX_MEDIA_DIMENSION_PX =
   4096;
 
+const MIN_FRAME_RATE =
+  1;
+
+const MAX_FRAME_RATE =
+  60;
+
 function isCanonicalNonEmptyString(
   value: string
 ): boolean {
@@ -91,6 +97,16 @@ function isAllowedMediaDimension(
     Number.isSafeInteger(value) &&
     value >= MIN_MEDIA_DIMENSION_PX &&
     value <= MAX_MEDIA_DIMENSION_PX
+  );
+}
+
+function isAllowedFrameRate(
+  value: number
+): boolean {
+  return (
+    Number.isFinite(value) &&
+    value >= MIN_FRAME_RATE &&
+    value <= MAX_FRAME_RATE
   );
 }
 
@@ -149,8 +165,9 @@ export function evaluateMediaContentValidation(
   }
 
   if (
-    !Number.isFinite(probe.frameRate) ||
-    probe.frameRate <= 0
+    !isAllowedFrameRate(
+      probe.frameRate
+    )
   ) {
     return {
       valid: false,
