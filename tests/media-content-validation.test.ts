@@ -201,6 +201,154 @@ test(
 );
 
 test(
+  'accepts the minimum allowed dimensions',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      width: 240,
+      height: 240,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'rejects width below the minimum allowed dimension',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        width: 239,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_DIMENSIONS',
+    });
+  }
+);
+
+test(
+  'rejects height below the minimum allowed dimension',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        height: 239,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_DIMENSIONS',
+    });
+  }
+);
+
+test(
+  'accepts the maximum allowed dimensions',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      width: 4096,
+      height: 4096,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'rejects width above the maximum allowed dimension',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        width: 4097,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_DIMENSIONS',
+    });
+  }
+);
+
+test(
+  'rejects height above the maximum allowed dimension',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        height: 4097,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_DIMENSIONS',
+    });
+  }
+);
+
+test(
+  'accepts supported portrait dimensions',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      width: 1080,
+      height: 1920,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'accepts supported landscape dimensions',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      width: 1920,
+      height: 1080,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
   'rejects invalid frame rate',
   () => {
     const result =

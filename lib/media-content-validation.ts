@@ -34,6 +34,12 @@ const MIN_DURATION_MS =
 const MAX_DURATION_MS =
   30_000;
 
+const MIN_MEDIA_DIMENSION_PX =
+  240;
+
+const MAX_MEDIA_DIMENSION_PX =
+  4096;
+
 function isCanonicalNonEmptyString(
   value: string
 ): boolean {
@@ -78,6 +84,16 @@ function isAacAudioCodec(
   );
 }
 
+function isAllowedMediaDimension(
+  value: number
+): boolean {
+  return (
+    Number.isSafeInteger(value) &&
+    value >= MIN_MEDIA_DIMENSION_PX &&
+    value <= MAX_MEDIA_DIMENSION_PX
+  );
+}
+
 export function evaluateMediaContentValidation(
   probe: MediaContentProbe
 ): MediaContentValidationResult {
@@ -119,10 +135,12 @@ export function evaluateMediaContentValidation(
   }
 
   if (
-    !Number.isSafeInteger(probe.width) ||
-    probe.width <= 0 ||
-    !Number.isSafeInteger(probe.height) ||
-    probe.height <= 0
+    !isAllowedMediaDimension(
+      probe.width
+    ) ||
+    !isAllowedMediaDimension(
+      probe.height
+    )
   ) {
     return {
       valid: false,
