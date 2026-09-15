@@ -28,6 +28,12 @@ export type MediaContentValidationResult =
       reason: MediaContentValidationFailureReason;
     };
 
+const MIN_DURATION_MS =
+  10_000;
+
+const MAX_DURATION_MS =
+  30_000;
+
 function isCanonicalNonEmptyString(
   value: string
 ): boolean {
@@ -90,7 +96,10 @@ export function evaluateMediaContentValidation(
     !Number.isSafeInteger(
       probe.durationMs
     ) ||
-    probe.durationMs <= 0
+    probe.durationMs <
+      MIN_DURATION_MS ||
+    probe.durationMs >
+      MAX_DURATION_MS
   ) {
     return {
       valid: false,

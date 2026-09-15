@@ -101,6 +101,58 @@ test(
 );
 
 test(
+  'accepts the minimum allowed duration',
+  () => {
+    const probe: MediaContentProbe = {
+      ...VALID_PROBE,
+      durationMs: 10_000,
+    };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(result, {
+      valid: true,
+      probe,
+    });
+  }
+);
+
+test(
+  'rejects duration below the minimum allowed duration',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        durationMs: 9_999,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_DURATION',
+    });
+  }
+);
+
+test(
+  'rejects duration above the maximum allowed duration',
+  () => {
+    const result =
+      evaluateMediaContentValidation({
+        ...VALID_PROBE,
+        durationMs: 30_001,
+      });
+
+    assert.deepEqual(result, {
+      valid: false,
+      reason: 'INVALID_DURATION',
+    });
+  }
+);
+
+test(
   'rejects invalid video codec data',
   () => {
     const result =
