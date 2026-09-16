@@ -1,0 +1,80 @@
+import 'server-only';
+
+import {
+  readValidatingMedia,
+  type ValidatingMediaRecord,
+} from '@/lib/media-validating-reader';
+
+import type {
+  MediaContentProbe,
+} from '@/lib/media-content-validation';
+
+export type MediaContentValidationEvidence = {
+  mediaId: string;
+  sourceObject: string;
+  verifiedGeneration: string;
+  probe: MediaContentProbe;
+};
+
+export type MediaContentValidationEvidenceAuthorityDependencies = {
+  readValidatingMedia: (
+    mediaId: string
+  ) => Promise<ValidatingMediaRecord>;
+
+  probeMediaObject: (
+    sourceObject: string,
+    generation: string
+  ) => Promise<MediaContentProbe>;
+};
+
+export async function readMediaContentValidationEvidenceWithDependencies(
+  mediaId: string,
+  dependencies:
+    MediaContentValidationEvidenceAuthorityDependencies
+): Promise<MediaContentValidationEvidence> {
+  const media =
+    await dependencies
+      .readValidatingMedia(
+        mediaId
+      );
+
+  const probe =
+    await dependencies
+      .probeMediaObject(
+        media.sourceObject,
+        media.verifiedGeneration
+      );
+
+  return {
+    mediaId:
+      media.mediaId,
+
+    sourceObject:
+      media.sourceObject,
+
+    verifiedGeneration:
+      media.verifiedGeneration,
+
+    probe,
+  };
+}
+
+const productionDependencies:
+  MediaContentValidationEvidenceAuthorityDependencies = {
+    readValidatingMedia,
+
+    async probeMediaObject() {
+      throw new Error(
+        'MEDIA_CONTENT_PROBE_NOT_CONFIGURED'
+      );
+    },
+  };
+
+export async function readMediaContentValidationEvidence(
+  mediaId: string
+): Promise<MediaContentValidationEvidence> {
+  return readMediaContentValidationEvidenceWithDependencies(
+    mediaId,
+    productionDependencies
+  );
+}
