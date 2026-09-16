@@ -13,6 +13,7 @@ import {
 
 import {
   claimMediaValidationWork,
+  renewMediaValidationWorkClaim,
 } from '@/lib/media-validation-work-claim-authority';
 
 const MEDIA_VALIDATION_WORK_COLLECTION =
@@ -357,6 +358,211 @@ test(
     assert.deepEqual(
       snapshot.data(),
       successfulClaims[0]
+    );
+  }
+);
+
+test(
+  'atomically renews the exact active validation work claim',
+  async () => {
+    await createTestWork();
+
+    const claimedAtMs =
+      1_800_000_000_000;
+
+    const claim =
+      await claimMediaValidationWork(
+        TEST_MEDIA_ID,
+        claimedAtMs
+      );
+
+    assert.ok(claim);
+
+    const renewalNowMs =
+      claimedAtMs + 60_000;
+
+    const renewed =
+      await renewMediaValidationWorkClaim(
+        TEST_MEDIA_ID,
+        claim.claimId,
+        renewalNowMs
+      );
+
+    assert.ok(renewed);
+
+    assert.equal(
+      renewed.claimId,
+      claim.claimId
+    );
+
+    assert.equal(
+      renewed.workId,
+      claim.workId
+    );
+
+    assert.equal(
+      renewed.mediaId,
+      claim.mediaId
+    );
+
+    assert.equal(
+      renewed.workType,
+      claim.workType
+    );
+
+    assert.equal(
+      renewed.claimedAtMs,
+      claim.claimedAtMs
+    );
+
+    assert.ok(
+      renewed.leaseExpiresAtMs >
+        claim.leaseExpiresAtMs
+    );
+
+    assert.ok(
+      renewed.leaseExpiresAtMs >
+        renewalNowMs
+    );
+
+    const snapshot =
+      await adminDb
+        .collection(
+          MEDIA_VALIDATION_WORK_CLAIM_COLLECTION
+        )
+        .doc(TEST_MEDIA_ID)
+        .get();
+
+    assert.deepEqual(
+      snapshot.data(),
+      renewed
+    );
+  }
+);
+
+test(
+  'does not renew a validation work claim for a stale claimant',
+  async () => {
+    await createTestWork();
+
+    const claim =
+      await claimMediaValidationWork(
+        TEST_MEDIA_ID,
+        1_800_000_000_000
+      );
+
+    assert.ok(claim);
+
+    const renewed =
+      await renewMediaValidationWorkClaim(
+        TEST_MEDIA_ID,
+        'stale-validation-work-claim',
+        claim.claimedAtMs + 60_000
+      );
+
+    assert.equal(
+      renewed,
+      null
+    );
+
+    const snapshot =
+      await adminDb
+        .collection(
+          MEDIA_VALIDATION_WORK_CLAIM_COLLECTION
+        )
+        .doc(TEST_MEDIA_ID)
+        .get();
+
+    assert.deepEqual(
+      snapshot.data(),
+      claim
+    );
+  }
+);
+
+test(
+  'does not resurrect an expired validation work claim',
+  async () => {
+    await createTestWork();
+
+    const claim =
+      await claimMediaValidationWork(
+        TEST_MEDIA_ID,
+        1_800_000_000_000
+      );
+
+    assert.ok(claim);
+
+    const renewed =
+      await renewMediaValidationWorkClaim(
+        TEST_MEDIA_ID,
+        claim.claimId,
+        claim.leaseExpiresAtMs
+      );
+
+    assert.equal(
+      renewed,
+      null
+    );
+
+    const snapshot =
+      await adminDb
+        .collection(
+          MEDIA_VALIDATION_WORK_CLAIM_COLLECTION
+        )
+        .doc(TEST_MEDIA_ID)
+        .get();
+
+    assert.deepEqual(
+      snapshot.data(),
+      claim
+    );
+  }
+);
+
+test(
+  'does not renew a claim when durable validation work is missing',
+  async () => {
+    await createTestWork();
+
+    const claim =
+      await claimMediaValidationWork(
+        TEST_MEDIA_ID,
+        1_800_000_000_000
+      );
+
+    assert.ok(claim);
+
+    await adminDb
+      .collection(
+        MEDIA_VALIDATION_WORK_COLLECTION
+      )
+      .doc(TEST_MEDIA_ID)
+      .delete();
+
+    const renewed =
+      await renewMediaValidationWorkClaim(
+        TEST_MEDIA_ID,
+        claim.claimId,
+        claim.claimedAtMs + 60_000
+      );
+
+    assert.equal(
+      renewed,
+      null
+    );
+
+    const snapshot =
+      await adminDb
+        .collection(
+          MEDIA_VALIDATION_WORK_CLAIM_COLLECTION
+        )
+        .doc(TEST_MEDIA_ID)
+        .get();
+
+    assert.deepEqual(
+      snapshot.data(),
+      claim
     );
   }
 );

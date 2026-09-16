@@ -186,6 +186,19 @@ function assertValidNowMs(
   }
 }
 
+function assertValidClaimId(
+  claimId: string
+): void {
+  if (
+    typeof claimId !== 'string' ||
+    claimId.length === 0
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_VALIDATION_WORK_CLAIM_ID'
+    );
+  }
+}
+
 function createClaimId(): string {
   return randomBytes(32).toString(
     'base64url'
@@ -283,6 +296,115 @@ export async function claimMediaValidationWork(
       );
 
       return claim;
+    }
+  );
+}
+
+export async function renewMediaValidationWorkClaim(
+  mediaId: string,
+  claimId: string,
+  nowMs: number
+): Promise<MediaValidationWorkClaim | null> {
+  assertValidClaimId(
+    claimId
+  );
+
+  assertValidNowMs(
+    nowMs
+  );
+
+  const workRef =
+    adminDb
+      .collection(
+        MEDIA_VALIDATION_WORK_COLLECTION
+      )
+      .doc(mediaId);
+
+  const claimRef =
+    adminDb
+      .collection(
+        MEDIA_VALIDATION_WORK_CLAIM_COLLECTION
+      )
+      .doc(mediaId);
+
+  return adminDb.runTransaction(
+    async (transaction) => {
+      const [
+        workSnapshot,
+        claimSnapshot,
+      ] =
+        await Promise.all([
+          transaction.get(
+            workRef
+          ),
+
+          transaction.get(
+            claimRef
+          ),
+        ]);
+
+      if (
+        !workSnapshot.exists ||
+        !claimSnapshot.exists
+      ) {
+        return null;
+      }
+
+      const work =
+        parseMediaValidationWork(
+          workSnapshot.data(),
+          mediaId
+        );
+
+      const existingClaim =
+        parseExistingClaim(
+          claimSnapshot.data(),
+          mediaId
+        );
+
+      if (
+        existingClaim.claimId !==
+          claimId ||
+        existingClaim.workId !==
+          work.workId ||
+        existingClaim.mediaId !==
+          work.mediaId ||
+        existingClaim.workType !==
+          work.workType ||
+        existingClaim.leaseExpiresAtMs <=
+          nowMs
+      ) {
+        return null;
+      }
+
+      const renewedClaim:
+        MediaValidationWorkClaim = {
+          claimId:
+            existingClaim.claimId,
+
+          workId:
+            existingClaim.workId,
+
+          mediaId:
+            existingClaim.mediaId,
+
+          workType:
+            existingClaim.workType,
+
+          claimedAtMs:
+            existingClaim.claimedAtMs,
+
+          leaseExpiresAtMs:
+            nowMs +
+            MEDIA_VALIDATION_WORK_LEASE_MS,
+        };
+
+      transaction.set(
+        claimRef,
+        renewedClaim
+      );
+
+      return renewedClaim;
     }
   );
 }
