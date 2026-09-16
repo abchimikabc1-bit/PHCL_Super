@@ -12,8 +12,15 @@ import {
   buildMediaIngestPath,
 } from '@/lib/media-storage-paths';
 
+import {
+  buildMediaValidationWork,
+} from '@/lib/media-validation-work-authority';
+
 const MEDIA_COLLECTION =
   'media';
+
+const MEDIA_VALIDATION_WORK_COLLECTION =
+  'mediaValidationWork';
 
 const MEDIA_SCHEMA_VERSION =
   2;
@@ -193,6 +200,18 @@ export async function transitionVerifiedMediaToValidating(
       .collection(MEDIA_COLLECTION)
       .doc(input.mediaId);
 
+  const validationWork =
+    buildMediaValidationWork(
+      input.mediaId
+    );
+
+  const validationWorkRef =
+    adminDb
+      .collection(
+        MEDIA_VALIDATION_WORK_COLLECTION
+      )
+      .doc(validationWork.workId);
+
   return adminDb.runTransaction(
     async (transaction) => {
       const snapshot =
@@ -241,6 +260,11 @@ export async function transitionVerifiedMediaToValidating(
           serverUpdatedAt:
             FieldValue.serverTimestamp(),
         }
+      );
+
+      transaction.create(
+        validationWorkRef,
+        validationWork
       );
 
       return {

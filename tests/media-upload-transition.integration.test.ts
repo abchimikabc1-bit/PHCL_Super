@@ -10,6 +10,10 @@ import type {
   Firestore,
 } from 'firebase-admin/firestore';
 
+import {
+  MEDIA_VALIDATION_WORK_TYPE,
+} from '@/lib/media-validation-work-authority';
+
 type MediaUploadTransitionModule =
   typeof import(
     '@/lib/media-upload-transition-authority'
@@ -29,6 +33,9 @@ const TEST_SOURCE_OBJECT =
 
 const TEST_GENERATION =
   '123456789';
+
+const MEDIA_VALIDATION_WORK_COLLECTION =
+  'mediaValidationWork';
 
 let adminDb: Firestore;
 
@@ -55,6 +62,24 @@ async function deleteTestMedia():
     .collection('media')
     .doc(TEST_MEDIA_ID)
     .delete();
+}
+
+async function deleteTestValidationWork():
+  Promise<void> {
+  await adminDb
+    .collection(
+      MEDIA_VALIDATION_WORK_COLLECTION
+    )
+    .doc(TEST_MEDIA_ID)
+    .delete();
+}
+
+async function resetTestState():
+  Promise<void> {
+  await Promise.all([
+    deleteTestMedia(),
+    deleteTestValidationWork(),
+  ]);
 }
 
 async function writeTestMedia(
@@ -88,6 +113,15 @@ async function writeTestMedia(
     });
 }
 
+async function readTestValidationWork() {
+  return adminDb
+    .collection(
+      MEDIA_VALIDATION_WORK_COLLECTION
+    )
+    .doc(TEST_MEDIA_ID)
+    .get();
+}
+
 before(
   async () => {
     requireFirestoreEmulator();
@@ -109,21 +143,22 @@ before(
       transitionModule
         .transitionVerifiedMediaToValidating;
 
-    await deleteTestMedia();
+    await resetTestState();
   }
 );
 
 after(
   async () => {
     if (adminDb) {
-      await deleteTestMedia();
+      await resetTestState();
     }
   }
 );
 
 test(
-  'atomically transitions an exact verified upload from UPLOADING to VALIDATING',
+  'atomically transitions an exact verified upload from UPLOADING to VALIDATING and creates deterministic validation work',
   async () => {
+    await resetTestState();
     await writeTestMedia();
 
     const result =
@@ -167,12 +202,35 @@ test(
         ?.verifiedGeneration,
       TEST_GENERATION
     );
+
+    const workSnapshot =
+      await readTestValidationWork();
+
+    assert.equal(
+      workSnapshot.exists,
+      true
+    );
+
+    assert.deepEqual(
+      workSnapshot.data(),
+      {
+        workId:
+          TEST_MEDIA_ID,
+
+        mediaId:
+          TEST_MEDIA_ID,
+
+        workType:
+          MEDIA_VALIDATION_WORK_TYPE,
+      }
+    );
   }
 );
 
 test(
-  'rejects transition when authoritative source object does not match verified source object',
+  'rejects transition when authoritative source object does not match verified source object without creating validation work',
   async () => {
+    await resetTestState();
     await writeTestMedia();
 
     await assert.rejects(
@@ -203,12 +261,22 @@ test(
         ?.verifiedGeneration,
       undefined
     );
+
+    const workSnapshot =
+      await readTestValidationWork();
+
+    assert.equal(
+      workSnapshot.exists,
+      false
+    );
   }
 );
 
 test(
-  'rejects transition when media is no longer in UPLOADING state',
+  'rejects transition when media is no longer in UPLOADING state without creating validation work',
   async () => {
+    await resetTestState();
+
     await writeTestMedia({
       status:
         'VALIDATING',
@@ -227,12 +295,22 @@ test(
       }),
       /MEDIA_INVALID_TRANSITION/
     );
+
+    const workSnapshot =
+      await readTestValidationWork();
+
+    assert.equal(
+      workSnapshot.exists,
+      false
+    );
   }
 );
 
 test(
-  'rejects transition for unsupported media metadata schema',
+  'rejects transition for unsupported media metadata schema without creating validation work',
   async () => {
+    await resetTestState();
+
     await writeTestMedia({
       schemaVersion:
         1,
@@ -249,13 +327,21 @@ test(
       }),
       /INVALID_MEDIA_METADATA/
     );
+
+    const workSnapshot =
+      await readTestValidationWork();
+
+    assert.equal(
+      workSnapshot.exists,
+      false
+    );
   }
 );
 
 test(
-  'rejects transition when authoritative media metadata is missing',
+  'rejects transition when authoritative media metadata is missing without creating validation work',
   async () => {
-    await deleteTestMedia();
+    await resetTestState();
 
     await assert.rejects(
       transitionVerifiedMediaToValidating({
@@ -268,12 +354,21 @@ test(
       }),
       /MEDIA_NOT_FOUND/
     );
+
+    const workSnapshot =
+      await readTestValidationWork();
+
+    assert.equal(
+      workSnapshot.exists,
+      false
+    );
   }
 );
 
 test(
-  'rejects an invalid verified object generation',
+  'rejects an invalid verified object generation without creating validation work',
   async () => {
+    await resetTestState();
     await writeTestMedia();
 
     await assert.rejects(
@@ -297,6 +392,66 @@ test(
     assert.equal(
       snapshot.data()?.status,
       'UPLOADING'
+    );
+
+    const workSnapshot =
+      await readTestValidationWork();
+
+    assert.equal(
+      workSnapshot.exists,
+      false
+    );
+  }
+);
+
+test(
+  'fails atomically when deterministic validation work already exists',
+  async () => {
+    await resetTestState();
+    await writeTestMedia();
+
+    await adminDb
+      .collection(
+        MEDIA_VALIDATION_WORK_COLLECTION
+      )
+      .doc(TEST_MEDIA_ID)
+      .create({
+        workId:
+          TEST_MEDIA_ID,
+
+        mediaId:
+          TEST_MEDIA_ID,
+
+        workType:
+          MEDIA_VALIDATION_WORK_TYPE,
+      });
+
+    await assert.rejects(
+      transitionVerifiedMediaToValidating({
+        mediaId:
+          TEST_MEDIA_ID,
+        sourceObject:
+          TEST_SOURCE_OBJECT,
+        generation:
+          TEST_GENERATION,
+      })
+    );
+
+    const snapshot =
+      await adminDb
+        .collection('media')
+        .doc(TEST_MEDIA_ID)
+        .get();
+
+    assert.equal(
+      snapshot.data()?.status,
+      'UPLOADING'
+    );
+
+    assert.equal(
+      snapshot.data()
+        ?.verifiedGeneration,
+      undefined
     );
   }
 );
