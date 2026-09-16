@@ -5,8 +5,9 @@ import {
   type SeekableMediaProbeInput,
 } from '@/lib/media-seekable-probe-input';
 
-import type {
-  MediaProbeProcessResult,
+import {
+  executeMediaProbeProcess,
+  type MediaProbeProcessResult,
 } from '@/lib/media-probe-process';
 
 export type MediaProbeExecutionDependencies = {
@@ -43,12 +44,8 @@ export async function executeMediaProbeWithDependencies(
 const productionDependencies:
   MediaProbeExecutionDependencies = {
     createSeekableMediaProbeInput,
-
-    async executeProbeProcess() {
-      throw new Error(
-        'MEDIA_PROBE_PROCESS_NOT_CONFIGURED'
-      );
-    },
+    executeProbeProcess:
+      executeMediaProbeProcess,
   };
 
 export async function executeMediaProbe(

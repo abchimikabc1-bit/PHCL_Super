@@ -5,6 +5,10 @@ import {
   type ValidatingMediaRecord,
 } from '@/lib/media-validating-reader';
 
+import {
+  probeMediaObjectWithRuntimeComposition,
+} from '@/lib/media-runtime-probe-composition';
+
 import type {
   MediaContentProbe,
 } from '@/lib/media-content-validation';
@@ -62,12 +66,8 @@ export async function readMediaContentValidationEvidenceWithDependencies(
 const productionDependencies:
   MediaContentValidationEvidenceAuthorityDependencies = {
     readValidatingMedia,
-
-    async probeMediaObject() {
-      throw new Error(
-        'MEDIA_CONTENT_PROBE_NOT_CONFIGURED'
-      );
-    },
+    probeMediaObject:
+      probeMediaObjectWithRuntimeComposition,
   };
 
 export async function readMediaContentValidationEvidence(
