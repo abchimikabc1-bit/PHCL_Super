@@ -7,15 +7,15 @@ import type {
 const FIRESTORE_DOCUMENT_CREATED_EVENT_TYPE =
   'google.cloud.firestore.document.v1.created';
 
-const MEDIA_VALIDATION_WORK_SUBJECT_PREFIX =
-  'documents/mediaValidationWork/';
+const MEDIA_VALIDATION_WORK_DOCUMENT_PREFIX =
+  'mediaValidationWork/';
 
 type MediaValidationWorkerCloudEvent = {
   specversion?: unknown;
   id?: unknown;
   type?: unknown;
   source?: unknown;
-  subject?: unknown;
+  document?: unknown;
 };
 
 function invalidEvent(): never {
@@ -46,23 +46,23 @@ export function readMediaValidationWorkerEventarcInvocation(
   }
 
   if (
-    typeof cloudEvent.subject !==
+    typeof cloudEvent.document !==
     'string'
   ) {
     return invalidEvent();
   }
 
   if (
-    !cloudEvent.subject.startsWith(
-      MEDIA_VALIDATION_WORK_SUBJECT_PREFIX
+    !cloudEvent.document.startsWith(
+      MEDIA_VALIDATION_WORK_DOCUMENT_PREFIX
     )
   ) {
     return invalidEvent();
   }
 
   const mediaId =
-    cloudEvent.subject.slice(
-      MEDIA_VALIDATION_WORK_SUBJECT_PREFIX.length
+    cloudEvent.document.slice(
+      MEDIA_VALIDATION_WORK_DOCUMENT_PREFIX.length
     );
 
   if (

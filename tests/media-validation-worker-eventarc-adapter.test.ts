@@ -6,7 +6,7 @@ import {
 } from '@/lib/media-validation-worker-eventarc-adapter';
 
 test(
-  'extracts the mediaId from a Firestore document-created CloudEvent subject',
+  'extracts the mediaId from a Firestore document-created CloudEvent document extension',
   () => {
     const invocation =
       readMediaValidationWorkerEventarcInvocation({
@@ -16,8 +16,8 @@ test(
           'google.cloud.firestore.document.v1.created',
         source:
           '//firestore.googleapis.com/projects/phcl-super-f0d21/databases/(default)',
-        subject:
-          'documents/mediaValidationWork/media-123',
+        document:
+          'mediaValidationWork/media-123',
       });
 
     assert.deepEqual(
@@ -41,8 +41,8 @@ test(
             'google.cloud.firestore.document.v1.updated',
           source:
             '//firestore.googleapis.com/projects/phcl-super-f0d21/databases/(default)',
-          subject:
-            'documents/mediaValidationWork/media-123',
+          document:
+            'mediaValidationWork/media-123',
         }),
       /INVALID_EVENT/
     );
@@ -61,8 +61,8 @@ test(
             'google.cloud.firestore.document.v1.created',
           source:
             '//firestore.googleapis.com/projects/phcl-super-f0d21/databases/(default)',
-          subject:
-            'documents/otherCollection/media-123',
+          document:
+            'otherCollection/media-123',
         }),
       /INVALID_EVENT/
     );
@@ -81,8 +81,8 @@ test(
             'google.cloud.firestore.document.v1.created',
           source:
             '//firestore.googleapis.com/projects/phcl-super-f0d21/databases/(default)',
-          subject:
-            'documents/mediaValidationWork/',
+          document:
+            'mediaValidationWork/',
         }),
       /INVALID_EVENT/
     );
@@ -101,8 +101,28 @@ test(
             'google.cloud.firestore.document.v1.created',
           source:
             '//firestore.googleapis.com/projects/phcl-super-f0d21/databases/(default)',
+          document:
+            'mediaValidationWork/media-123/nested/value',
+        }),
+      /INVALID_EVENT/
+    );
+  }
+);
+
+test(
+  'does not accept the old CloudEvent subject as document authority',
+  () => {
+    assert.throws(
+      () =>
+        readMediaValidationWorkerEventarcInvocation({
+          specversion: '1.0',
+          id: 'event-6',
+          type:
+            'google.cloud.firestore.document.v1.created',
+          source:
+            '//firestore.googleapis.com/projects/phcl-super-f0d21/databases/(default)',
           subject:
-            'documents/mediaValidationWork/media-123/nested/value',
+            'documents/mediaValidationWork/media-123',
         }),
       /INVALID_EVENT/
     );
