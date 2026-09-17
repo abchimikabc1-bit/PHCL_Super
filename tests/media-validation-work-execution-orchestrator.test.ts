@@ -79,6 +79,16 @@ const TERMINAL_RESULT:
       VERIFIED_GENERATION,
   };
 
+
+const RETAINED_HEARTBEAT_DEPENDENCIES = {
+  startMediaValidationWorkClaimHeartbeat:
+    () => ({
+      stopAndWait:
+        async () =>
+          true,
+    }),
+};
+
 test(
   'executes claimed validation work through authoritative evidence, evaluation, and atomic completion',
   async () => {
@@ -88,6 +98,7 @@ test(
       await executeMediaValidationWorkWithDependencies(
         MEDIA_ID,
         {
+          ...RETAINED_HEARTBEAT_DEPENDENCIES,
           nowMs: () => {
             calls.push('now');
 
@@ -201,6 +212,7 @@ test(
       await executeMediaValidationWorkWithDependencies(
         MEDIA_ID,
         {
+          ...RETAINED_HEARTBEAT_DEPENDENCIES,
           nowMs: () =>
             CLAIM_NOW_MS,
 
@@ -275,6 +287,7 @@ test(
         executeMediaValidationWorkWithDependencies(
           MEDIA_ID,
           {
+            ...RETAINED_HEARTBEAT_DEPENDENCIES,
             nowMs: () =>
               CLAIM_NOW_MS,
 
@@ -340,6 +353,7 @@ test(
         executeMediaValidationWorkWithDependencies(
           MEDIA_ID,
           {
+            ...RETAINED_HEARTBEAT_DEPENDENCIES,
             nowMs: () =>
               CLAIM_NOW_MS,
 
@@ -406,6 +420,7 @@ test(
         executeMediaValidationWorkWithDependencies(
           MEDIA_ID,
           {
+            ...RETAINED_HEARTBEAT_DEPENDENCIES,
             nowMs: () =>
               COMPLETION_NOW_MS,
 
@@ -462,6 +477,7 @@ test(
         executeMediaValidationWorkWithDependencies(
           MEDIA_ID,
           {
+            ...RETAINED_HEARTBEAT_DEPENDENCIES,
             nowMs: () =>
               CLAIM_NOW_MS,
 
@@ -489,6 +505,387 @@ test(
         ),
       (error: unknown) =>
         error === operationalError
+    );
+  }
+);
+test(
+  'starts the exact-claim heartbeat after claim acquisition and settles it before atomic completion',
+  async () => {
+    const calls: string[] = [];
+
+    const dependencies = {
+      nowMs: () => {
+        calls.push('now');
+
+        return calls.filter(
+          (call) => call === 'now'
+        ).length === 1
+          ? CLAIM_NOW_MS
+          : COMPLETION_NOW_MS;
+      },
+
+      claimMediaValidationWork:
+        async () => {
+          calls.push('claim');
+
+          return CLAIM;
+        },
+
+      startMediaValidationWorkClaimHeartbeat:
+        (
+          mediaId: string,
+          claimId: string
+        ) => {
+          calls.push(
+            'heartbeat-start'
+          );
+
+          assert.equal(
+            mediaId,
+            MEDIA_ID
+          );
+
+          assert.equal(
+            claimId,
+            CLAIM_ID
+          );
+
+          return {
+            stopAndWait:
+              async () => {
+                calls.push(
+                  'heartbeat-stop'
+                );
+
+                return true;
+              },
+          };
+        },
+
+      readMediaContentValidationEvidence:
+        async () => {
+          calls.push('evidence');
+
+          return EVIDENCE;
+        },
+
+      evaluateMediaContentValidation:
+        () => {
+          calls.push('evaluate');
+
+          return VALIDATION_RESULT;
+        },
+
+      completeMediaValidationWork:
+        async () => {
+          calls.push('complete');
+
+          return TERMINAL_RESULT;
+        },
+
+      releaseMediaValidationWorkClaim:
+        async () => {
+          calls.push('release');
+
+          return true;
+        },
+    };
+
+    const result =
+      await executeMediaValidationWorkWithDependencies(
+        MEDIA_ID,
+        dependencies
+      );
+
+    assert.deepEqual(
+      result,
+      TERMINAL_RESULT
+    );
+
+    assert.deepEqual(
+      calls,
+      [
+        'now',
+        'claim',
+        'heartbeat-start',
+        'evidence',
+        'evaluate',
+        'heartbeat-stop',
+        'now',
+        'complete',
+      ]
+    );
+  }
+);
+
+test(
+  'fails closed without atomic completion when heartbeat reports lost claim ownership',
+  async () => {
+    let completed = false;
+    let released = false;
+
+    const dependencies = {
+      nowMs: () =>
+        CLAIM_NOW_MS,
+
+      claimMediaValidationWork:
+        async () =>
+          CLAIM,
+
+      startMediaValidationWorkClaimHeartbeat:
+        () => ({
+          stopAndWait:
+            async () =>
+              false,
+        }),
+
+      readMediaContentValidationEvidence:
+        async () =>
+          EVIDENCE,
+
+      evaluateMediaContentValidation:
+        () =>
+          VALIDATION_RESULT,
+
+      completeMediaValidationWork:
+        async () => {
+          completed = true;
+
+          return TERMINAL_RESULT;
+        },
+
+      releaseMediaValidationWorkClaim:
+        async (
+          mediaId: string,
+          claimId: string
+        ) => {
+          released = true;
+
+          assert.equal(
+            mediaId,
+            MEDIA_ID
+          );
+
+          assert.equal(
+            claimId,
+            CLAIM_ID
+          );
+
+          return false;
+        },
+    };
+
+    await assert.rejects(
+      () =>
+        executeMediaValidationWorkWithDependencies(
+          MEDIA_ID,
+          dependencies
+        ),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message ===
+          'MEDIA_VALIDATION_WORK_CLAIM_LOST'
+    );
+
+    assert.equal(
+      completed,
+      false
+    );
+
+    assert.equal(
+      released,
+      true
+    );
+  }
+);
+
+test(
+  'settles the heartbeat before releasing the claim when evidence execution fails',
+  async () => {
+    const operationalError =
+      new Error(
+        'MEDIA_PROBE_OPERATIONAL_FAILURE'
+      );
+
+    const calls: string[] = [];
+
+    const dependencies = {
+      nowMs: () =>
+        CLAIM_NOW_MS,
+
+      claimMediaValidationWork:
+        async () => {
+          calls.push('claim');
+
+          return CLAIM;
+        },
+
+      startMediaValidationWorkClaimHeartbeat:
+        () => {
+          calls.push(
+            'heartbeat-start'
+          );
+
+          return {
+            stopAndWait:
+              async () => {
+                calls.push(
+                  'heartbeat-stop'
+                );
+
+                return true;
+              },
+          };
+        },
+
+      readMediaContentValidationEvidence:
+        async () => {
+          calls.push('evidence');
+
+          throw operationalError;
+        },
+
+      evaluateMediaContentValidation:
+        () =>
+          VALIDATION_RESULT,
+
+      completeMediaValidationWork:
+        async () =>
+          TERMINAL_RESULT,
+
+      releaseMediaValidationWorkClaim:
+        async () => {
+          calls.push('release');
+
+          return true;
+        },
+    };
+
+    await assert.rejects(
+      () =>
+        executeMediaValidationWorkWithDependencies(
+          MEDIA_ID,
+          dependencies
+        ),
+      (error: unknown) =>
+        error === operationalError
+    );
+
+    assert.deepEqual(
+      calls,
+      [
+        'claim',
+        'heartbeat-start',
+        'evidence',
+        'heartbeat-stop',
+        'release',
+      ]
+    );
+  }
+);
+
+test(
+  'releases the acquired claim and preserves the heartbeat start error when heartbeat startup fails',
+  async () => {
+    const heartbeatStartError =
+      new Error(
+        'MEDIA_VALIDATION_HEARTBEAT_START_FAILURE'
+      );
+
+    const releaseError =
+      new Error(
+        'MEDIA_VALIDATION_RELEASE_FAILURE'
+      );
+
+    const calls: string[] = [];
+
+    let evidenceRead = false;
+    let completed = false;
+
+    await assert.rejects(
+      () =>
+        executeMediaValidationWorkWithDependencies(
+          MEDIA_ID,
+          {
+            nowMs: () =>
+              CLAIM_NOW_MS,
+
+            claimMediaValidationWork:
+              async () => {
+                calls.push('claim');
+
+                return CLAIM;
+              },
+
+            startMediaValidationWorkClaimHeartbeat:
+              () => {
+                calls.push(
+                  'heartbeat-start'
+                );
+
+                throw heartbeatStartError;
+              },
+
+            readMediaContentValidationEvidence:
+              async () => {
+                evidenceRead = true;
+
+                return EVIDENCE;
+              },
+
+            evaluateMediaContentValidation:
+              () =>
+                VALIDATION_RESULT,
+
+            completeMediaValidationWork:
+              async () => {
+                completed = true;
+
+                return TERMINAL_RESULT;
+              },
+
+            releaseMediaValidationWorkClaim:
+              async (
+                mediaId,
+                claimId
+              ) => {
+                calls.push('release');
+
+                assert.equal(
+                  mediaId,
+                  MEDIA_ID
+                );
+
+                assert.equal(
+                  claimId,
+                  CLAIM_ID
+                );
+
+                throw releaseError;
+              },
+          }
+        ),
+      (error: unknown) =>
+        error === heartbeatStartError
+    );
+
+    assert.deepEqual(
+      calls,
+      [
+        'claim',
+        'heartbeat-start',
+        'release',
+      ]
+    );
+
+    assert.equal(
+      evidenceRead,
+      false
+    );
+
+    assert.equal(
+      completed,
+      false
     );
   }
 );

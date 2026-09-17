@@ -17,6 +17,11 @@ import {
 } from '@/lib/media-validation-work-claim-authority';
 
 import {
+  startMediaValidationWorkClaimHeartbeat,
+  type MediaValidationWorkClaimHeartbeat,
+} from '@/lib/media-validation-work-claim-heartbeat';
+
+import {
   completeMediaValidationWork,
   releaseMediaValidationWorkClaim,
 } from '@/lib/media-validation-work-completion-authority';
@@ -35,6 +40,11 @@ export type MediaValidationWorkExecutionOrchestratorDependencies = {
     mediaId: string,
     nowMs: number
   ) => Promise<MediaValidationWorkClaim | null>;
+
+  startMediaValidationWorkClaimHeartbeat: (
+    mediaId: string,
+    claimId: string
+  ) => MediaValidationWorkClaimHeartbeat;
 
   readMediaContentValidationEvidence: (
     mediaId: string
@@ -76,6 +86,50 @@ export async function executeMediaValidationWorkWithDependencies(
     return null;
   }
 
+  let heartbeat:
+    MediaValidationWorkClaimHeartbeat;
+
+  try {
+    heartbeat =
+      dependencies
+        .startMediaValidationWorkClaimHeartbeat(
+          mediaId,
+          claim.claimId
+        );
+  } catch (error) {
+    try {
+      await dependencies
+        .releaseMediaValidationWorkClaim(
+          mediaId,
+          claim.claimId
+        );
+    } catch {
+      // Preserve the original heartbeat start failure.
+    }
+
+    throw error;
+  }
+
+  let heartbeatSettled = false;
+
+  const stopHeartbeatAndRequireOwnership =
+    async (): Promise<void> => {
+      if (heartbeatSettled) {
+        return;
+      }
+
+      heartbeatSettled = true;
+
+      const ownershipRetained =
+        await heartbeat.stopAndWait();
+
+      if (!ownershipRetained) {
+        throw new Error(
+          'MEDIA_VALIDATION_WORK_CLAIM_LOST'
+        );
+      }
+    };
+
   try {
     const evidence =
       await dependencies
@@ -88,6 +142,8 @@ export async function executeMediaValidationWorkWithDependencies(
         .evaluateMediaContentValidation(
           evidence.probe
         );
+
+    await stopHeartbeatAndRequireOwnership();
 
     return await dependencies
       .completeMediaValidationWork({
@@ -109,6 +165,16 @@ export async function executeMediaValidationWorkWithDependencies(
           dependencies.nowMs(),
       });
   } catch (error) {
+    if (!heartbeatSettled) {
+      heartbeatSettled = true;
+
+      try {
+        await heartbeat.stopAndWait();
+      } catch {
+        // Preserve the original execution failure.
+      }
+    }
+
     try {
       await dependencies
         .releaseMediaValidationWorkClaim(
@@ -129,6 +195,8 @@ const productionDependencies:
       Date.now(),
 
     claimMediaValidationWork,
+
+    startMediaValidationWorkClaimHeartbeat,
 
     readMediaContentValidationEvidence,
 
