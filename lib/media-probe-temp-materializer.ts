@@ -18,6 +18,10 @@ import {
 } from 'node:path';
 
 import {
+  Transform,
+} from 'node:stream';
+
+import {
   pipeline,
 } from 'node:stream/promises';
 
@@ -31,9 +35,28 @@ const MEDIA_PROBE_TEMP_PREFIX =
 const MEDIA_PROBE_INPUT_FILE =
   'input.mp4';
 
+const MEDIA_PROBE_MAX_MATERIALIZED_BYTES =
+  524_288_000;
+
+const MEDIA_PROBE_MATERIALIZATION_TIMEOUT_MS =
+  60_000;
+
+export type MediaProbeMaterializationLimits = {
+  maxBytes: number;
+  timeoutMs: number;
+};
+
+export type MediaProbePipelineOptions<
+  TAbortSignal
+> = {
+  signal: TAbortSignal;
+};
+
 export type MediaProbeTempMaterializerDependencies<
   TReadStream,
-  TWriteStream
+  TByteLimitTransform,
+  TWriteStream,
+  TAbortSignal
 > = {
   createTemporaryDirectory:
     () => Promise<string>;
@@ -42,9 +65,35 @@ export type MediaProbeTempMaterializerDependencies<
     filePath: string
   ) => TWriteStream;
 
+  createByteLimitTransform: (
+    maxBytes: number
+  ) => TByteLimitTransform;
+
+  createAbortController: () => {
+    signal: TAbortSignal;
+    abort(): void;
+  };
+
+  scheduleAbort: (
+    controller: {
+      signal: TAbortSignal;
+      abort(): void;
+    },
+    timeoutMs: number
+  ) => unknown;
+
+  clearScheduledAbort: (
+    timer: unknown
+  ) => void;
+
   pipeline: (
     source: TReadStream,
-    destination: TWriteStream
+    limiter: TByteLimitTransform,
+    destination: TWriteStream,
+    options:
+      MediaProbePipelineOptions<
+        TAbortSignal
+      >
   ) => Promise<void>;
 
   removeTemporaryDirectory: (
@@ -52,17 +101,101 @@ export type MediaProbeTempMaterializerDependencies<
   ) => Promise<void>;
 };
 
+function assertMaterializationLimits(
+  limits: MediaProbeMaterializationLimits
+): void {
+  if (
+    !Number.isSafeInteger(
+      limits.maxBytes
+    ) ||
+    limits.maxBytes <= 0
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_PROBE_MATERIALIZATION_MAX_BYTES'
+    );
+  }
+
+  if (
+    !Number.isSafeInteger(
+      limits.timeoutMs
+    ) ||
+    limits.timeoutMs <= 0
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_PROBE_MATERIALIZATION_TIMEOUT'
+    );
+  }
+}
+
+export function createMediaProbeByteLimitTransform(
+  maxBytes: number
+): Transform {
+  if (
+    !Number.isSafeInteger(maxBytes) ||
+    maxBytes <= 0
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_PROBE_MATERIALIZATION_MAX_BYTES'
+    );
+  }
+
+  let receivedBytes = 0;
+
+  return new Transform({
+    transform(
+      chunk,
+      _encoding,
+      callback
+    ) {
+      const chunkBytes =
+        Buffer.isBuffer(chunk)
+          ? chunk.length
+          : Buffer.byteLength(chunk);
+
+      if (
+        chunkBytes >
+          maxBytes - receivedBytes
+      ) {
+        callback(
+          new Error(
+            'MEDIA_PROBE_MATERIALIZATION_LIMIT_EXCEEDED'
+          )
+        );
+
+        return;
+      }
+
+      receivedBytes +=
+        chunkBytes;
+
+      callback(
+        null,
+        chunk
+      );
+    },
+  });
+}
+
 export async function materializeMediaProbeReadStreamWithDependencies<
   TReadStream,
-  TWriteStream
+  TByteLimitTransform,
+  TWriteStream,
+  TAbortSignal
 >(
   readStream: TReadStream,
+  limits: MediaProbeMaterializationLimits,
   dependencies:
     MediaProbeTempMaterializerDependencies<
       TReadStream,
-      TWriteStream
+      TByteLimitTransform,
+      TWriteStream,
+      TAbortSignal
     >
 ): Promise<SeekableMediaProbeInput> {
+  assertMaterializationLimits(
+    limits
+  );
+
   const directoryPath =
     await dependencies.createTemporaryDirectory();
 
@@ -77,10 +210,35 @@ export async function materializeMediaProbeReadStreamWithDependencies<
         filePath
       );
 
-    await dependencies.pipeline(
-      readStream,
-      writeStream
-    );
+    const byteLimitTransform =
+      dependencies.createByteLimitTransform(
+        limits.maxBytes
+      );
+
+    const abortController =
+      dependencies.createAbortController();
+
+    const abortTimer =
+      dependencies.scheduleAbort(
+        abortController,
+        limits.timeoutMs
+      );
+
+    try {
+      await dependencies.pipeline(
+        readStream,
+        byteLimitTransform,
+        writeStream,
+        {
+          signal:
+            abortController.signal,
+        }
+      );
+    } finally {
+      dependencies.clearScheduledAbort(
+        abortTimer
+      );
+    }
   } catch (error) {
     await dependencies.removeTemporaryDirectory(
       directoryPath
@@ -100,56 +258,110 @@ export async function materializeMediaProbeReadStreamWithDependencies<
   };
 }
 
-const productionDependencies = {
-  async createTemporaryDirectory() {
-    return mkdtemp(
-      join(
-        tmpdir(),
-        MEDIA_PROBE_TEMP_PREFIX
-      )
-    );
-  },
+const productionDependencies:
+  MediaProbeTempMaterializerDependencies<
+    NodeJS.ReadableStream,
+    Transform,
+    NodeJS.WritableStream,
+    AbortSignal
+  > = {
+    async createTemporaryDirectory() {
+      return mkdtemp(
+        join(
+          tmpdir(),
+          MEDIA_PROBE_TEMP_PREFIX
+        )
+      );
+    },
 
-  createTemporaryWriteStream(
-    filePath: string
-  ) {
-    return createWriteStream(
-      filePath,
-      {
-        flags: 'wx',
-        mode: 0o600,
-      }
-    );
-  },
+    createTemporaryWriteStream(
+      filePath: string
+    ) {
+      return createWriteStream(
+        filePath,
+        {
+          flags: 'wx',
+          mode: 0o600,
+        }
+      );
+    },
 
-  async pipeline(
-    source: NodeJS.ReadableStream,
-    destination: NodeJS.WritableStream
-  ) {
-    await pipeline(
+    createByteLimitTransform(
+      maxBytes
+    ) {
+      return createMediaProbeByteLimitTransform(
+        maxBytes
+      );
+    },
+
+    createAbortController() {
+      return new AbortController();
+    },
+
+    scheduleAbort(
+      controller,
+      timeoutMs
+    ) {
+      return setTimeout(
+        () => {
+          controller.abort();
+        },
+        timeoutMs
+      );
+    },
+
+    clearScheduledAbort(
+      timer
+    ) {
+      clearTimeout(
+        timer as ReturnType<
+          typeof setTimeout
+        >
+      );
+    },
+
+    async pipeline(
       source,
-      destination
-    );
-  },
+      limiter,
+      destination,
+      options
+    ) {
+      await pipeline(
+        source,
+        limiter,
+        destination,
+        {
+          signal:
+            options.signal,
+        }
+      );
+    },
 
-  async removeTemporaryDirectory(
-    directoryPath: string
-  ) {
-    await rm(
-      directoryPath,
-      {
-        recursive: true,
-        force: true,
-      }
-    );
-  },
-};
+    async removeTemporaryDirectory(
+      directoryPath: string
+    ) {
+      await rm(
+        directoryPath,
+        {
+          recursive: true,
+          force: true,
+        }
+      );
+    },
+  };
 
 export async function materializeMediaProbeReadStream(
   readStream: NodeJS.ReadableStream
 ): Promise<SeekableMediaProbeInput> {
   return materializeMediaProbeReadStreamWithDependencies(
     readStream,
+    {
+      maxBytes:
+        MEDIA_PROBE_MAX_MATERIALIZED_BYTES,
+
+      timeoutMs:
+        MEDIA_PROBE_MATERIALIZATION_TIMEOUT_MS,
+    },
     productionDependencies
   );
 }
