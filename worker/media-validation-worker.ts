@@ -1,5 +1,9 @@
 import 'server-only';
 
+import type {
+  Server,
+} from 'node:http';
+
 import {
   createMediaValidationPlatformAdmission,
   createPlatformAdmittedMediaValidationAuthenticator,
@@ -10,7 +14,7 @@ import {
   startMediaValidationWorkerRuntime,
 } from './media-validation-runtime';
 
-export async function startMediaValidationWorker(): Promise<void> {
+export async function startMediaValidationWorker(): Promise<Server> {
   const admission =
     createMediaValidationPlatformAdmission(
       MEDIA_VALIDATION_PLATFORM_AUTHORITY
@@ -21,7 +25,7 @@ export async function startMediaValidationWorker(): Promise<void> {
       admission
     );
 
-  await startMediaValidationWorkerRuntime(
+  return startMediaValidationWorkerRuntime(
     {
       authenticateRequest,
     },
