@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "firebase-admin": "14.3.0",
-    "server-only": "0.0.1"
+    "firebase-admin": "14.3.0"
   }
 }
