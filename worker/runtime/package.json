@@ -1,0 +1,10 @@
+{
+  "name": "phcl-media-validation-worker-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "firebase-admin": "14.3.0",
+    "server-only": "0.0.1"
+  }
+}
