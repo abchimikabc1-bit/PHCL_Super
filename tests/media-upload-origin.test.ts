@@ -14,7 +14,8 @@ test(
     assert.equal(
       resolveTrustedMediaUploadOrigin(
         'https://www.phclsuper.com',
-        CONFIGURED_SITE_URL
+        CONFIGURED_SITE_URL,
+        'production'
       ),
       'https://www.phclsuper.com'
     );
@@ -27,9 +28,69 @@ test(
     assert.equal(
       resolveTrustedMediaUploadOrigin(
         'https://www.phclsuper.com',
-        'https://www.phclsuper.com/'
+        'https://www.phclsuper.com/',
+        'production'
       ),
       'https://www.phclsuper.com'
+    );
+  }
+);
+
+test(
+  'accepts exact localhost origin in development',
+  () => {
+    assert.equal(
+      resolveTrustedMediaUploadOrigin(
+        'http://localhost:3000',
+        CONFIGURED_SITE_URL,
+        'development'
+      ),
+      'http://localhost:3000'
+    );
+  }
+);
+
+test(
+  'rejects localhost origin in production',
+  () => {
+    assert.throws(
+      () =>
+        resolveTrustedMediaUploadOrigin(
+          'http://localhost:3000',
+          CONFIGURED_SITE_URL,
+          'production'
+        ),
+      /MEDIA_UPLOAD_ORIGIN_FORBIDDEN/
+    );
+  }
+);
+
+test(
+  'rejects different localhost port in development',
+  () => {
+    assert.throws(
+      () =>
+        resolveTrustedMediaUploadOrigin(
+          'http://localhost:3001',
+          CONFIGURED_SITE_URL,
+          'development'
+        ),
+      /MEDIA_UPLOAD_ORIGIN_FORBIDDEN/
+    );
+  }
+);
+
+test(
+  'rejects network origin in development',
+  () => {
+    assert.throws(
+      () =>
+        resolveTrustedMediaUploadOrigin(
+          'http://192.168.100.39:3000',
+          CONFIGURED_SITE_URL,
+          'development'
+        ),
+      /MEDIA_UPLOAD_ORIGIN_FORBIDDEN/
     );
   }
 );
@@ -41,7 +102,8 @@ test(
       () =>
         resolveTrustedMediaUploadOrigin(
           null,
-          CONFIGURED_SITE_URL
+          CONFIGURED_SITE_URL,
+          'production'
         ),
       /MEDIA_UPLOAD_ORIGIN_FORBIDDEN/
     );
@@ -55,7 +117,8 @@ test(
       () =>
         resolveTrustedMediaUploadOrigin(
           'https://evil.example',
-          CONFIGURED_SITE_URL
+          CONFIGURED_SITE_URL,
+          'production'
         ),
       /MEDIA_UPLOAD_ORIGIN_FORBIDDEN/
     );
@@ -69,7 +132,8 @@ test(
       () =>
         resolveTrustedMediaUploadOrigin(
           'https://www.phclsuper.com',
-          undefined
+          undefined,
+          'production'
         ),
       /MEDIA_UPLOAD_ORIGIN_CONFIGURATION_INVALID/
     );
@@ -95,7 +159,8 @@ test(
         () =>
           resolveTrustedMediaUploadOrigin(
             'https://www.phclsuper.com',
-            configuredSiteUrl
+            configuredSiteUrl,
+            'production'
           ),
         /MEDIA_UPLOAD_ORIGIN_CONFIGURATION_INVALID/
       );
@@ -125,7 +190,8 @@ test(
         () =>
           resolveTrustedMediaUploadOrigin(
             requestOrigin,
-            CONFIGURED_SITE_URL
+            CONFIGURED_SITE_URL,
+            'production'
           ),
         /MEDIA_UPLOAD_ORIGIN_FORBIDDEN/
       );

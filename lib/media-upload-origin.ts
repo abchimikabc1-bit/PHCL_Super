@@ -6,6 +6,9 @@ const CONFIGURATION_ERROR =
 const FORBIDDEN_ERROR =
   'MEDIA_UPLOAD_ORIGIN_FORBIDDEN';
 
+const DEVELOPMENT_ORIGIN =
+  'http://localhost:3000';
+
 function readConfiguredOrigin(
   configuredSiteUrl:
     string | undefined
@@ -53,7 +56,9 @@ function readConfiguredOrigin(
 
 function readRequestOrigin(
   requestOrigin:
-    string | null
+    string | null,
+  runtimeEnvironment:
+    string | undefined
 ): string {
   if (
     typeof requestOrigin !==
@@ -81,8 +86,18 @@ function readRequestOrigin(
     );
   }
 
+  const isDevelopmentOrigin =
+    runtimeEnvironment ===
+      'development' &&
+    requestOrigin ===
+      DEVELOPMENT_ORIGIN;
+
   if (
-    parsed.protocol !== 'https:' ||
+    (
+      parsed.protocol !==
+        'https:' &&
+      !isDevelopmentOrigin
+    ) ||
     parsed.username ||
     parsed.password ||
     parsed.search ||
@@ -103,7 +118,10 @@ export function resolveTrustedMediaUploadOrigin(
   requestOrigin:
     string | null,
   configuredSiteUrl:
-    string | undefined
+    string | undefined,
+  runtimeEnvironment:
+    string | undefined =
+      process.env.NODE_ENV
 ): string {
   const configuredOrigin =
     readConfiguredOrigin(
@@ -112,17 +130,27 @@ export function resolveTrustedMediaUploadOrigin(
 
   const normalizedRequestOrigin =
     readRequestOrigin(
-      requestOrigin
+      requestOrigin,
+      runtimeEnvironment
     );
 
   if (
-    normalizedRequestOrigin !==
+    normalizedRequestOrigin ===
     configuredOrigin
   ) {
-    throw new Error(
-      FORBIDDEN_ERROR
-    );
+    return configuredOrigin;
   }
 
-  return configuredOrigin;
+  if (
+    runtimeEnvironment ===
+      'development' &&
+    normalizedRequestOrigin ===
+      DEVELOPMENT_ORIGIN
+  ) {
+    return DEVELOPMENT_ORIGIN;
+  }
+
+  throw new Error(
+    FORBIDDEN_ERROR
+  );
 }
