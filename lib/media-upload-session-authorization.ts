@@ -47,14 +47,62 @@ function assertAuthenticatedUid(
   }
 }
 
+function assertTrustedOrigin(
+  trustedOrigin: string
+): void {
+  if (
+    typeof trustedOrigin !== 'string' ||
+    trustedOrigin.length === 0 ||
+    trustedOrigin.trim() !==
+      trustedOrigin
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_UPLOAD_SESSION_ORIGIN'
+    );
+  }
+
+  let parsed:
+    URL;
+
+  try {
+    parsed =
+      new URL(
+        trustedOrigin
+      );
+  } catch {
+    throw new Error(
+      'INVALID_MEDIA_UPLOAD_SESSION_ORIGIN'
+    );
+  }
+
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.origin !==
+      trustedOrigin
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_UPLOAD_SESSION_ORIGIN'
+    );
+  }
+}
+
 export async function authorizeMediaUploadSessionWithDependencies(
   authenticatedUid: string,
   mediaId: string,
+  trustedOrigin: string,
   dependencies:
     MediaUploadSessionAuthorizationDependencies
 ): Promise<MediaUploadSession> {
   assertAuthenticatedUid(
     authenticatedUid
+  );
+
+  assertTrustedOrigin(
+    trustedOrigin
   );
 
   const media =
@@ -86,16 +134,21 @@ export async function authorizeMediaUploadSessionWithDependencies(
 
     declaredSizeBytes:
       media.declaredSizeBytes,
+
+    origin:
+      trustedOrigin,
   });
 }
 
 export function authorizeMediaUploadSession(
   authenticatedUid: string,
-  mediaId: string
+  mediaId: string,
+  trustedOrigin: string
 ): Promise<MediaUploadSession> {
   return authorizeMediaUploadSessionWithDependencies(
     authenticatedUid,
     mediaId,
+    trustedOrigin,
     productionDependencies
   );
 }

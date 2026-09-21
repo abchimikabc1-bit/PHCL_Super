@@ -25,6 +25,9 @@ const SOURCE_FILE_NAME =
 const SOURCE_OBJECT =
   `media/ingest/${AUTHENTICATED_UID}/${MEDIA_ID}/${SOURCE_FILE_NAME}`;
 
+const TRUSTED_ORIGIN =
+  'https://www.phclsuper.com';
+
 function createMedia(): MediaMetadataRecord {
   return {
     schemaVersion: 2,
@@ -41,7 +44,7 @@ function createMedia(): MediaMetadataRecord {
 }
 
 test(
-  'authenticated owner may create upload session for authoritative media',
+  'authenticated owner may create upload session for authoritative media and trusted origin',
   async () => {
     const receivedInputs: unknown[] =
       [];
@@ -69,6 +72,7 @@ test(
       await authorizeMediaUploadSessionWithDependencies(
         AUTHENTICATED_UID,
         MEDIA_ID,
+        TRUSTED_ORIGIN,
         dependencies
       );
 
@@ -86,6 +90,8 @@ test(
             'video/mp4',
           declaredSizeBytes:
             1024,
+          origin:
+            TRUSTED_ORIGIN,
         },
       ]
     );
@@ -131,6 +137,7 @@ test(
       authorizeMediaUploadSessionWithDependencies(
         OTHER_UID,
         MEDIA_ID,
+        TRUSTED_ORIGIN,
         dependencies
       ),
       /MEDIA_UPLOAD_SESSION_FORBIDDEN/
@@ -192,6 +199,7 @@ test(
     await authorizeMediaUploadSessionWithDependencies(
       AUTHENTICATED_UID,
       MEDIA_ID,
+      TRUSTED_ORIGIN,
       dependencies
     );
 
@@ -209,6 +217,8 @@ test(
             'video/mp4',
           declaredSizeBytes:
             4096,
+          origin:
+            TRUSTED_ORIGIN,
         },
       ]
     );

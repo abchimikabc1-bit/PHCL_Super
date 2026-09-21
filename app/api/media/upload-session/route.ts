@@ -14,6 +14,10 @@ import {
   readMediaFinalizationRequest,
 } from '@/lib/media-finalization-request';
 
+import {
+  resolveTrustedMediaUploadOrigin,
+} from '@/lib/media-upload-origin';
+
 function noStoreJson(
   body: unknown,
   status: number
@@ -52,6 +56,28 @@ export async function POST(
     );
   }
 
+  let trustedOrigin:
+    string;
+
+  try {
+    trustedOrigin =
+      resolveTrustedMediaUploadOrigin(
+        request.headers.get(
+          'origin'
+        ),
+        process.env
+          .NEXT_PUBLIC_SITE_URL
+      );
+  } catch {
+    return noStoreJson(
+      {
+        error:
+          'Media upload origin is not allowed.',
+      },
+      403
+    );
+  }
+
   let body;
 
   try {
@@ -87,7 +113,8 @@ export async function POST(
     const session =
       await authorizeMediaUploadSession(
         auth.user.uid,
-        body.mediaId
+        body.mediaId,
+        trustedOrigin
       );
 
     return noStoreJson(

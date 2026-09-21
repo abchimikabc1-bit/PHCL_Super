@@ -14,6 +14,7 @@ export type CreateMediaUploadSessionInput = {
   sourceFileName: string;
   contentType: string;
   declaredSizeBytes: number;
+  origin: string;
 };
 
 export type MediaUploadSession = {
@@ -62,12 +63,17 @@ export async function createMediaUploadSession(
     uploadUri,
   ] =
     await file.createResumableUpload({
+      origin:
+        input.origin,
+
       metadata: {
-  contentType:
-    input.contentType,
-  contentLength:
-    input.declaredSizeBytes,
-},
+        contentType:
+          input.contentType,
+
+        contentLength:
+          input.declaredSizeBytes,
+      },
+
       preconditionOpts: {
         ifGenerationMatch: 0,
       },

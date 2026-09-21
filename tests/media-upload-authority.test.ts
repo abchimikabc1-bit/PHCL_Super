@@ -13,6 +13,9 @@ import {
   createMediaUploadSession,
 } from '@/lib/media-upload-authority';
 
+const TRUSTED_ORIGIN =
+  'https://www.phclsuper.com';
+
 test(
   'media upload authority rejects unsafe owner identity before Storage access',
   async () => {
@@ -39,6 +42,8 @@ test(
             'video/mp4',
           declaredSizeBytes:
             1024,
+          origin:
+            TRUSTED_ORIGIN,
         })
       );
     }
@@ -71,6 +76,8 @@ test(
             'video/mp4',
           declaredSizeBytes:
             1024,
+          origin:
+            TRUSTED_ORIGIN,
         })
       );
     }
@@ -103,6 +110,8 @@ test(
             'video/mp4',
           declaredSizeBytes:
             1024,
+          origin:
+            TRUSTED_ORIGIN,
         })
       );
     }
@@ -138,6 +147,8 @@ test(
           contentType,
           declaredSizeBytes:
             1024,
+          origin:
+            TRUSTED_ORIGIN,
         })
       );
     }
@@ -172,6 +183,8 @@ test(
             contentType:
               'video/mp4',
             declaredSizeBytes,
+            origin:
+              TRUSTED_ORIGIN,
           })
       );
     }
@@ -179,7 +192,7 @@ test(
 );
 
 test(
-  'media upload authority creates a canonical create-only resumable session',
+  'media upload authority creates a canonical create-only resumable session bound to trusted origin',
   async () => {
     const expectedSourceObject =
       'media/ingest/user_123/media_123/video.mp4';
@@ -231,23 +244,27 @@ test(
           contentType:
             'video/mp4',
           declaredSizeBytes:
-             524_288_000,
+            524_288_000,
+          origin:
+            TRUSTED_ORIGIN,
         });
 
       assert.deepEqual(
-  receivedOptions,
-  {
-    metadata: {
-      contentType:
-        'video/mp4',
-      contentLength:
-        524_288_000,
-    },
-    preconditionOpts: {
-      ifGenerationMatch: 0,
-    },
-  }
-);
+        receivedOptions,
+        {
+          origin:
+            TRUSTED_ORIGIN,
+          metadata: {
+            contentType:
+              'video/mp4',
+            contentLength:
+              524_288_000,
+          },
+          preconditionOpts: {
+            ifGenerationMatch: 0,
+          },
+        }
+      );
 
       assert.equal(
         createResumableUpload.mock.callCount(),
