@@ -51,6 +51,20 @@ test(
 );
 
 test(
+  'media storage paths accept bracketed duplicate file names',
+  () => {
+    assert.equal(
+      buildMediaIngestPath(
+        'user_123',
+        'media_456',
+        'Tests[1].mp4'
+      ),
+      'media/ingest/user_123/media_456/Tests[1].mp4'
+    );
+  }
+);
+
+test(
   'media storage paths reject unsafe identifiers',
   () => {
     const unsafeIds = [
@@ -160,6 +174,7 @@ test(
     );
   }
 );
+
 test(
   'media storage paths reject non-canonical surrounding whitespace',
   () => {

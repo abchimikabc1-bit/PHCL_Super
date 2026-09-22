@@ -1,27 +1,28 @@
 import 'server-only';
 
-import { randomUUID } from 'node:crypto';
+import {
+  randomUUID,
+} from 'node:crypto';
 
 const SAFE_ID_PATTERN =
   /^[A-Za-z0-9_-]{1,128}$/;
 
 const SAFE_FILE_NAME_PATTERN =
-  /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
+  /^[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,254}$/;
 
 function assertSafeId(
   value: string,
   fieldName: string
 ): string {
   const normalized =
-  value.trim();
+    value.trim();
 
-if (
-  value !== normalized ||
-  !SAFE_ID_PATTERN.test(
-    normalized
-  )
-) {
-
+  if (
+    value !== normalized ||
+    !SAFE_ID_PATTERN.test(
+      normalized
+    )
+  ) {
     throw new Error(
       `${fieldName} is invalid.`
     );
@@ -33,14 +34,14 @@ if (
 function assertSafeFileName(
   fileName: string
 ): string {
- const normalized =
-  fileName.trim();
+  const normalized =
+    fileName.trim();
 
-if (
-  fileName !== normalized ||
-  !SAFE_FILE_NAME_PATTERN.test(
-    normalized
-  ) ||
+  if (
+    fileName !== normalized ||
+    !SAFE_FILE_NAME_PATTERN.test(
+      normalized
+    ) ||
     normalized === '.' ||
     normalized === '..'
   ) {

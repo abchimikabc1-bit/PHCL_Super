@@ -22,7 +22,7 @@ const TEST_OWNER_ID =
   'media_test_owner_001';
 
 const TEST_FILE_NAME =
-  'video.mp4';
+  'Tests[1].mp4';
 
 const TEST_CONTENT_TYPE =
   'video/mp4';
@@ -33,7 +33,8 @@ const TEST_DECLARED_SIZE_BYTES =
 const EXPECTED_MEDIA_SCHEMA_VERSION =
   2;
 
-let adminDb: Firestore;
+let adminDb:
+  Firestore;
 
 let createMediaMetadata:
   MediaMetadataAuthorityModule[
@@ -130,6 +131,11 @@ test(
     assert.equal(
       created.sourceObject,
       `media/ingest/${TEST_OWNER_ID}/${TEST_MEDIA_ID}/${TEST_FILE_NAME}`
+    );
+
+    assert.equal(
+      created.sourceFileName,
+      TEST_FILE_NAME
     );
 
     assert.equal(

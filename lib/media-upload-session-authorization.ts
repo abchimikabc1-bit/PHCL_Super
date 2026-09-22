@@ -14,6 +14,9 @@ import {
   type MediaUploadSession,
 } from '@/lib/media-upload-authority';
 
+const DEVELOPMENT_ORIGIN =
+  'http://localhost:3000';
+
 export type MediaUploadSessionAuthorizationDependencies = {
   readMediaMetadata: (
     mediaId: string
@@ -61,8 +64,7 @@ function assertTrustedOrigin(
     );
   }
 
-  let parsed:
-    URL;
+  let parsed: URL;
 
   try {
     parsed =
@@ -75,12 +77,24 @@ function assertTrustedOrigin(
     );
   }
 
+  const isSecureOrigin =
+    parsed.protocol ===
+      'https:';
+
+  const isDevelopmentOrigin =
+    trustedOrigin ===
+      DEVELOPMENT_ORIGIN;
+
   if (
-    parsed.protocol !== 'https:' ||
+    (
+      !isSecureOrigin &&
+      !isDevelopmentOrigin
+    ) ||
     parsed.username ||
     parsed.password ||
     parsed.search ||
     parsed.hash ||
+    parsed.pathname !== '/' ||
     parsed.origin !==
       trustedOrigin
   ) {

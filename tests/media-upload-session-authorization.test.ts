@@ -28,6 +28,9 @@ const SOURCE_OBJECT =
 const TRUSTED_ORIGIN =
   'https://www.phclsuper.com';
 
+const DEVELOPMENT_ORIGIN =
+  'http://localhost:3000';
+
 function createMedia(): MediaMetadataRecord {
   return {
     schemaVersion: 2,
@@ -43,37 +46,45 @@ function createMedia(): MediaMetadataRecord {
   };
 }
 
-test(
-  'authenticated owner may create upload session for authoritative media and trusted origin',
-  async () => {
-    const receivedInputs: unknown[] =
-      [];
+function createDependencies(
+  receivedInputs: unknown[] = []
+): MediaUploadSessionAuthorizationDependencies {
+  return {
+    readMediaMetadata:
+      async () =>
+        createMedia(),
 
-    const dependencies:
-      MediaUploadSessionAuthorizationDependencies = {
-        readMediaMetadata: async () =>
-          createMedia(),
-
-        createMediaUploadSession: async (
+    createMediaUploadSession:
+      async (input) => {
+        receivedInputs.push(
           input
-        ) => {
-          receivedInputs.push(input);
+        );
 
-          return {
-            sourceObject:
-              SOURCE_OBJECT,
-            uploadUri:
-              'https://upload.example.test/session',
-          };
-        },
-      };
+        return {
+          sourceObject:
+            SOURCE_OBJECT,
+
+          uploadUri:
+            'https://upload.example.test/session',
+        };
+      },
+  };
+}
+
+test(
+  'authenticated owner may create upload session for authoritative media and trusted HTTPS origin',
+  async () => {
+    const receivedInputs:
+      unknown[] = [];
 
     const result =
       await authorizeMediaUploadSessionWithDependencies(
         AUTHENTICATED_UID,
         MEDIA_ID,
         TRUSTED_ORIGIN,
-        dependencies
+        createDependencies(
+          receivedInputs
+        )
       );
 
     assert.deepEqual(
@@ -82,14 +93,19 @@ test(
         {
           ownerId:
             AUTHENTICATED_UID,
+
           mediaId:
             MEDIA_ID,
+
           sourceFileName:
             SOURCE_FILE_NAME,
+
           contentType:
             'video/mp4',
+
           declaredSizeBytes:
             1024,
+
           origin:
             TRUSTED_ORIGIN,
         },
@@ -101,9 +117,52 @@ test(
       {
         sourceObject:
           SOURCE_OBJECT,
+
         uploadUri:
           'https://upload.example.test/session',
       }
+    );
+  }
+);
+
+test(
+  'authenticated owner may create upload session from exact localhost origin in development',
+  async () => {
+    const receivedInputs:
+      unknown[] = [];
+
+    await authorizeMediaUploadSessionWithDependencies(
+      AUTHENTICATED_UID,
+      MEDIA_ID,
+      DEVELOPMENT_ORIGIN,
+      createDependencies(
+        receivedInputs
+      )
+    );
+
+    assert.deepEqual(
+      receivedInputs,
+      [
+        {
+          ownerId:
+            AUTHENTICATED_UID,
+
+          mediaId:
+            MEDIA_ID,
+
+          sourceFileName:
+            SOURCE_FILE_NAME,
+
+          contentType:
+            'video/mp4',
+
+          declaredSizeBytes:
+            1024,
+
+          origin:
+            DEVELOPMENT_ORIGIN,
+        },
+      ]
     );
   }
 );
@@ -116,8 +175,9 @@ test(
 
     const dependencies:
       MediaUploadSessionAuthorizationDependencies = {
-        readMediaMetadata: async () =>
-          createMedia(),
+        readMediaMetadata:
+          async () =>
+            createMedia(),
 
         createMediaUploadSession:
           async () => {
@@ -127,6 +187,7 @@ test(
             return {
               sourceObject:
                 SOURCE_OBJECT,
+
               uploadUri:
                 'https://upload.example.test/session',
             };
@@ -162,38 +223,46 @@ test(
     const authoritativeSourceObject =
       `media/ingest/${AUTHENTICATED_UID}/${authoritativeMediaId}/${authoritativeFileName}`;
 
-    const media: MediaMetadataRecord = {
-      ...createMedia(),
-      mediaId:
-        authoritativeMediaId,
-      sourceObject:
-        authoritativeSourceObject,
-      sourceFileName:
-        authoritativeFileName,
-      declaredSizeBytes:
-        4096,
-    };
+    const media:
+      MediaMetadataRecord = {
+        ...createMedia(),
 
-    const receivedInputs: unknown[] =
-      [];
+        mediaId:
+          authoritativeMediaId,
+
+        sourceObject:
+          authoritativeSourceObject,
+
+        sourceFileName:
+          authoritativeFileName,
+
+        declaredSizeBytes:
+          4096,
+      };
+
+    const receivedInputs:
+      unknown[] = [];
 
     const dependencies:
       MediaUploadSessionAuthorizationDependencies = {
-        readMediaMetadata: async () =>
-          media,
+        readMediaMetadata:
+          async () =>
+            media,
 
-        createMediaUploadSession: async (
-          input
-        ) => {
-          receivedInputs.push(input);
+        createMediaUploadSession:
+          async (input) => {
+            receivedInputs.push(
+              input
+            );
 
-          return {
-            sourceObject:
-              authoritativeSourceObject,
-            uploadUri:
-              'https://upload.example.test/session',
-          };
-        },
+            return {
+              sourceObject:
+                authoritativeSourceObject,
+
+              uploadUri:
+                'https://upload.example.test/session',
+            };
+          },
       };
 
     await authorizeMediaUploadSessionWithDependencies(
@@ -209,18 +278,56 @@ test(
         {
           ownerId:
             AUTHENTICATED_UID,
+
           mediaId:
             authoritativeMediaId,
+
           sourceFileName:
             authoritativeFileName,
+
           contentType:
             'video/mp4',
+
           declaredSizeBytes:
             4096,
+
           origin:
             TRUSTED_ORIGIN,
         },
       ]
     );
+  }
+);
+
+test(
+  'rejects malformed and untrusted upload-session origins',
+  async () => {
+    const unsafeOrigins = [
+      '',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+      'http://192.168.100.39:3000',
+      'http://www.phclsuper.com',
+      'https://user:pass@www.phclsuper.com',
+      'https://www.phclsuper.com/',
+      'https://www.phclsuper.com/path',
+      'https://www.phclsuper.com?query=1',
+      'not-a-url',
+    ];
+
+    for (
+      const unsafeOrigin
+      of unsafeOrigins
+    ) {
+      await assert.rejects(
+        authorizeMediaUploadSessionWithDependencies(
+          AUTHENTICATED_UID,
+          MEDIA_ID,
+          unsafeOrigin,
+          createDependencies()
+        ),
+        /INVALID_MEDIA_UPLOAD_SESSION_ORIGIN/
+      );
+    }
   }
 );
