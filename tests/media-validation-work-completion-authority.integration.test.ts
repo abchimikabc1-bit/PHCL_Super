@@ -55,6 +55,9 @@ const MEDIA_VALIDATION_WORK_COLLECTION =
 const MEDIA_VALIDATION_WORK_CLAIM_COLLECTION =
   'mediaValidationWorkClaims';
 
+const MEDIA_TRANSCODE_WORK_COLLECTION =
+  'mediaTranscodeWork';
+
 const VALID_PROBE:
   MediaContentProbe = {
     container:
@@ -126,6 +129,13 @@ async function resetTestState():
     adminDb
       .collection(
         MEDIA_VALIDATION_WORK_CLAIM_COLLECTION
+      )
+      .doc(TEST_MEDIA_ID)
+      .delete(),
+
+    adminDb
+      .collection(
+        MEDIA_TRANSCODE_WORK_COLLECTION
       )
       .doc(TEST_MEDIA_ID)
       .delete(),
@@ -211,6 +221,15 @@ async function readClaim() {
     .get();
 }
 
+async function readTranscodeWork() {
+  return adminDb
+    .collection(
+      MEDIA_TRANSCODE_WORK_COLLECTION
+    )
+    .doc(TEST_MEDIA_ID)
+    .get();
+}
+
 before(
   async () => {
     requireFirestoreEmulator();
@@ -273,7 +292,7 @@ after(
 );
 
 test(
-  'atomically completes valid media validation and consumes durable work and claim',
+  'atomically completes valid media validation, consumes validation work and creates durable transcode work',
   async () => {
     await createValidatingWork();
 
@@ -321,23 +340,25 @@ test(
 
     assert.equal(
       result.status,
-      'VALIDATED'
+      'TRANSCODE_PENDING'
     );
 
     const [
       mediaSnapshot,
       workSnapshot,
       claimSnapshot,
+      transcodeWorkSnapshot,
     ] =
       await Promise.all([
         readMedia(),
         readWork(),
         readClaim(),
+        readTranscodeWork(),
       ]);
 
     assert.equal(
       mediaSnapshot.data()?.status,
-      'VALIDATED'
+      'TRANSCODE_PENDING'
     );
 
     assert.equal(
@@ -360,6 +381,22 @@ test(
     assert.equal(
       claimSnapshot.exists,
       false
+    );
+
+    assert.deepEqual(
+      transcodeWorkSnapshot.data(),
+      {
+        workId:
+          TEST_MEDIA_ID,
+        mediaId:
+          TEST_MEDIA_ID,
+        workType:
+          'MEDIA_TRANSCODE',
+        sourceObject:
+          TEST_SOURCE_OBJECT,
+        verifiedGeneration:
+          TEST_GENERATION,
+      }
     );
   }
 );
@@ -415,11 +452,13 @@ test(
       mediaSnapshot,
       workSnapshot,
       claimSnapshot,
+      transcodeWorkSnapshot,
     ] =
       await Promise.all([
         readMedia(),
         readWork(),
         readClaim(),
+        readTranscodeWork(),
       ]);
 
     assert.equal(
@@ -440,6 +479,11 @@ test(
 
     assert.equal(
       claimSnapshot.exists,
+      false
+    );
+
+    assert.equal(
+      transcodeWorkSnapshot.exists,
       false
     );
   }

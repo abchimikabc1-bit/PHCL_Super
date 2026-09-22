@@ -40,7 +40,7 @@ test(
   async () => {
     const expected = {
       mediaId: 'media-456',
-      status: 'VALIDATED',
+      status: 'TRANSCODE_PENDING',
       verifiedGeneration: '17',
     } as const;
 

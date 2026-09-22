@@ -74,7 +74,7 @@ const CLAIM: MediaValidationWorkClaim = {
 const TERMINAL_RESULT:
   MediaContentValidationTransitionResult = {
     mediaId: MEDIA_ID,
-    status: 'VALIDATED',
+    status: 'TRANSCODE_PENDING',
     verifiedGeneration:
       VERIFIED_GENERATION,
   };

@@ -1,6 +1,7 @@
 import {
   after,
   before,
+  beforeEach,
   test,
 } from 'node:test';
 
@@ -33,6 +34,9 @@ const TEST_SOURCE_OBJECT =
 
 const TEST_GENERATION =
   '987654321';
+
+const MEDIA_TRANSCODE_WORK_COLLECTION =
+  'mediaTranscodeWork';
 
 const VALID_PROBE:
   MediaContentProbe = {
@@ -74,10 +78,19 @@ function requireFirestoreEmulator():
 
 async function deleteTestMedia():
   Promise<void> {
-  await adminDb
-    .collection('media')
-    .doc(TEST_MEDIA_ID)
-    .delete();
+  await Promise.all([
+    adminDb
+      .collection('media')
+      .doc(TEST_MEDIA_ID)
+      .delete(),
+
+    adminDb
+      .collection(
+        MEDIA_TRANSCODE_WORK_COLLECTION
+      )
+      .doc(TEST_MEDIA_ID)
+      .delete(),
+  ]);
 }
 
 async function writeTestMedia(
@@ -141,6 +154,12 @@ before(
   }
 );
 
+beforeEach(
+  async () => {
+    await deleteTestMedia();
+  }
+);
+
 after(
   async () => {
     if (adminDb) {
@@ -150,7 +169,7 @@ after(
 );
 
 test(
-  'atomically transitions matching VALIDATING media to VALIDATED',
+  'atomically transitions matching VALIDATING media to TRANSCODE_PENDING and creates durable transcode work',
   async () => {
     await writeTestMedia();
 
@@ -177,7 +196,7 @@ test(
 
     assert.equal(
       result.status,
-      'VALIDATED'
+      'TRANSCODE_PENDING'
     );
 
     assert.equal(
@@ -185,18 +204,30 @@ test(
       TEST_GENERATION
     );
 
-    const snapshot =
-      await adminDb
-        .collection('media')
-        .doc(TEST_MEDIA_ID)
-        .get();
+    const [
+      snapshot,
+      transcodeWorkSnapshot,
+    ] =
+      await Promise.all([
+        adminDb
+          .collection('media')
+          .doc(TEST_MEDIA_ID)
+          .get(),
+
+        adminDb
+          .collection(
+            MEDIA_TRANSCODE_WORK_COLLECTION
+          )
+          .doc(TEST_MEDIA_ID)
+          .get(),
+      ]);
 
     const media =
       snapshot.data();
 
     assert.equal(
       media?.status,
-      'VALIDATED'
+      'TRANSCODE_PENDING'
     );
 
     assert.equal(
@@ -227,6 +258,22 @@ test(
     assert.equal(
       typeof media?.updatedAtMs,
       'number'
+    );
+
+    assert.deepEqual(
+      transcodeWorkSnapshot.data(),
+      {
+        workId:
+          TEST_MEDIA_ID,
+        mediaId:
+          TEST_MEDIA_ID,
+        workType:
+          'MEDIA_TRANSCODE',
+        sourceObject:
+          TEST_SOURCE_OBJECT,
+        verifiedGeneration:
+          TEST_GENERATION,
+      }
     );
   }
 );
@@ -299,6 +346,19 @@ test(
     assert.equal(
       typeof media?.validatedAtMs,
       'number'
+    );
+
+    const transcodeWorkSnapshot =
+      await adminDb
+        .collection(
+          MEDIA_TRANSCODE_WORK_COLLECTION
+        )
+        .doc(TEST_MEDIA_ID)
+        .get();
+
+    assert.equal(
+      transcodeWorkSnapshot.exists,
+      false
     );
   }
 );

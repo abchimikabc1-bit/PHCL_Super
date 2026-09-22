@@ -18,8 +18,15 @@ import type {
   MediaContentValidationResult,
 } from '@/lib/media-content-validation';
 
+import {
+  buildMediaTranscodeWork,
+} from '@/lib/media-transcode-work-authority';
+
 const MEDIA_COLLECTION =
   'media';
+
+const MEDIA_TRANSCODE_WORK_COLLECTION =
+  'mediaTranscodeWork';
 
 const MEDIA_SCHEMA_VERSION =
   2;
@@ -33,14 +40,14 @@ const MAX_MEDIA_SIZE_BYTES =
 const MEDIA_VALIDATING_STATUS =
   'VALIDATING';
 
-export const MEDIA_VALIDATED_STATUS =
-  'VALIDATED' as const;
+export const MEDIA_TRANSCODE_PENDING_STATUS =
+  'TRANSCODE_PENDING' as const;
 
 export const MEDIA_REJECTED_STATUS =
   'REJECTED' as const;
 
 export type MediaPostValidationStatus =
-  | typeof MEDIA_VALIDATED_STATUS
+  | typeof MEDIA_TRANSCODE_PENDING_STATUS
   | typeof MEDIA_REJECTED_STATUS;
 
 export type TransitionMediaContentValidationInput = {
@@ -362,6 +369,13 @@ export async function transitionMediaContentValidation(
       .collection(MEDIA_COLLECTION)
       .doc(input.mediaId);
 
+  const transcodeWorkRef =
+    adminDb
+      .collection(
+        MEDIA_TRANSCODE_WORK_COLLECTION
+      )
+      .doc(input.mediaId);
+
   return adminDb.runTransaction(
     async (transaction) => {
       const snapshot =
@@ -398,11 +412,18 @@ export async function transitionMediaContentValidation(
         Date.now();
 
       if (validation.valid === true) {
+        const transcodeWork =
+          buildMediaTranscodeWork(
+            input.mediaId,
+            input.sourceObject,
+            input.verifiedGeneration
+          );
+
         transaction.update(
           mediaRef,
           {
             status:
-              MEDIA_VALIDATED_STATUS,
+              MEDIA_TRANSCODE_PENDING_STATUS,
 
             validatedGeneration:
               input.verifiedGeneration,
@@ -424,12 +445,17 @@ export async function transitionMediaContentValidation(
           }
         );
 
+        transaction.create(
+          transcodeWorkRef,
+          transcodeWork
+        );
+
         return {
           mediaId:
             input.mediaId,
 
           status:
-            MEDIA_VALIDATED_STATUS,
+            MEDIA_TRANSCODE_PENDING_STATUS,
 
           verifiedGeneration:
             input.verifiedGeneration,

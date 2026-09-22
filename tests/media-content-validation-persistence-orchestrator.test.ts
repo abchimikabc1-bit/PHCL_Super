@@ -48,12 +48,12 @@ const VALID_EVIDENCE:
       VALID_PROBE,
   };
 
-const VALIDATED_RESULT:
+const TRANSCODE_PENDING_RESULT:
   MediaContentValidationTransitionResult = {
     mediaId:
       VALID_EVIDENCE.mediaId,
     status:
-      'VALIDATED',
+      'TRANSCODE_PENDING',
     verifiedGeneration:
       VALID_EVIDENCE.verifiedGeneration,
   };
@@ -103,7 +103,7 @@ test(
           async (input) => {
             calls.push(input);
 
-            return VALIDATED_RESULT;
+            return TRANSCODE_PENDING_RESULT;
           },
       };
 
@@ -134,7 +134,7 @@ test(
 
     assert.deepEqual(
       result,
-      VALIDATED_RESULT
+      TRANSCODE_PENDING_RESULT
     );
   }
 );
@@ -242,7 +242,7 @@ test(
               input
             );
 
-            return VALIDATED_RESULT;
+            return TRANSCODE_PENDING_RESULT;
           },
       };
 
@@ -306,7 +306,7 @@ test(
           async () => {
             transitionCalls += 1;
 
-            return VALIDATED_RESULT;
+            return TRANSCODE_PENDING_RESULT;
           },
       };
 

@@ -25,9 +25,13 @@ import type {
 
 import {
   MEDIA_REJECTED_STATUS,
-  MEDIA_VALIDATED_STATUS,
+  MEDIA_TRANSCODE_PENDING_STATUS,
   type MediaContentValidationTransitionResult,
 } from '@/lib/media-content-validation-transition-authority';
+
+import {
+  buildMediaTranscodeWork,
+} from '@/lib/media-transcode-work-authority';
 
 const MEDIA_COLLECTION =
   'media';
@@ -37,6 +41,9 @@ const MEDIA_VALIDATION_WORK_COLLECTION =
 
 const MEDIA_VALIDATION_WORK_CLAIM_COLLECTION =
   'mediaValidationWorkClaims';
+
+const MEDIA_TRANSCODE_WORK_COLLECTION =
+  'mediaTranscodeWork';
 
 const MEDIA_SCHEMA_VERSION =
   2;
@@ -545,6 +552,13 @@ export async function completeMediaValidationWork(
       )
       .doc(input.mediaId);
 
+  const transcodeWorkRef =
+    adminDb
+      .collection(
+        MEDIA_TRANSCODE_WORK_COLLECTION
+      )
+      .doc(input.mediaId);
+
   return adminDb.runTransaction(
     async (transaction) => {
       const [
@@ -636,11 +650,18 @@ export async function completeMediaValidationWork(
         Date.now();
 
       if (input.validation.valid === true) {
+        const transcodeWork =
+          buildMediaTranscodeWork(
+            input.mediaId,
+            input.sourceObject,
+            input.verifiedGeneration
+          );
+
         transaction.update(
           mediaRef,
           {
             status:
-              MEDIA_VALIDATED_STATUS,
+              MEDIA_TRANSCODE_PENDING_STATUS,
 
             validatedGeneration:
               input.verifiedGeneration,
@@ -670,12 +691,17 @@ export async function completeMediaValidationWork(
           claimRef
         );
 
+        transaction.create(
+          transcodeWorkRef,
+          transcodeWork
+        );
+
         return {
           mediaId:
             input.mediaId,
 
           status:
-            MEDIA_VALIDATED_STATUS,
+            MEDIA_TRANSCODE_PENDING_STATUS,
 
           verifiedGeneration:
             input.verifiedGeneration,

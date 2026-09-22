@@ -201,7 +201,7 @@ test(
                   'media-123',
 
                 status:
-                  'VALIDATED',
+                  'TRANSCODE_PENDING',
 
                 verifiedGeneration:
                   '12345',
