@@ -32,7 +32,7 @@ const MIN_DURATION_MS =
   10_000;
 
 const MAX_DURATION_MS =
-  30_000;
+  60_000;
 
 const MIN_MEDIA_DIMENSION_PX =
   240;
@@ -59,7 +59,9 @@ function isMp4Container(
   value: string
 ): boolean {
   if (
-    !isCanonicalNonEmptyString(value)
+    !isCanonicalNonEmptyString(
+      value
+    )
   ) {
     return false;
   }
@@ -76,7 +78,9 @@ function isH264VideoCodec(
   value: string
 ): boolean {
   return (
-    isCanonicalNonEmptyString(value) &&
+    isCanonicalNonEmptyString(
+      value
+    ) &&
     value === 'h264'
   );
 }
@@ -85,7 +89,9 @@ function isAacAudioCodec(
   value: string
 ): boolean {
   return (
-    isCanonicalNonEmptyString(value) &&
+    isCanonicalNonEmptyString(
+      value
+    ) &&
     value === 'aac'
   );
 }
@@ -94,9 +100,13 @@ function isAllowedMediaDimension(
   value: number
 ): boolean {
   return (
-    Number.isSafeInteger(value) &&
-    value >= MIN_MEDIA_DIMENSION_PX &&
-    value <= MAX_MEDIA_DIMENSION_PX
+    Number.isSafeInteger(
+      value
+    ) &&
+    value >=
+      MIN_MEDIA_DIMENSION_PX &&
+    value <=
+      MAX_MEDIA_DIMENSION_PX
   );
 }
 
@@ -104,9 +114,13 @@ function isAllowedFrameRate(
   value: number
 ): boolean {
   return (
-    Number.isFinite(value) &&
-    value >= MIN_FRAME_RATE &&
-    value <= MAX_FRAME_RATE
+    Number.isFinite(
+      value
+    ) &&
+    value >=
+      MIN_FRAME_RATE &&
+    value <=
+      MAX_FRAME_RATE
   );
 }
 
@@ -120,7 +134,8 @@ export function evaluateMediaContentValidation(
   ) {
     return {
       valid: false,
-      reason: 'INVALID_CONTAINER',
+      reason:
+        'INVALID_CONTAINER',
     };
   }
 
@@ -135,7 +150,8 @@ export function evaluateMediaContentValidation(
   ) {
     return {
       valid: false,
-      reason: 'INVALID_DURATION',
+      reason:
+        'INVALID_DURATION',
     };
   }
 
@@ -146,7 +162,8 @@ export function evaluateMediaContentValidation(
   ) {
     return {
       valid: false,
-      reason: 'INVALID_VIDEO_CODEC',
+      reason:
+        'INVALID_VIDEO_CODEC',
     };
   }
 
@@ -160,7 +177,8 @@ export function evaluateMediaContentValidation(
   ) {
     return {
       valid: false,
-      reason: 'INVALID_DIMENSIONS',
+      reason:
+        'INVALID_DIMENSIONS',
     };
   }
 
@@ -171,7 +189,8 @@ export function evaluateMediaContentValidation(
   ) {
     return {
       valid: false,
-      reason: 'INVALID_FRAME_RATE',
+      reason:
+        'INVALID_FRAME_RATE',
     };
   }
 
@@ -182,7 +201,8 @@ export function evaluateMediaContentValidation(
   ) {
     return {
       valid: false,
-      reason: 'INVALID_AUDIO_CODEC',
+      reason:
+        'INVALID_AUDIO_CODEC',
     };
   }
 

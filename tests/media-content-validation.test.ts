@@ -6,15 +6,29 @@ import {
   type MediaContentProbe,
 } from '@/lib/media-content-validation';
 
-const VALID_PROBE: MediaContentProbe = {
-  container: 'mp4',
-  durationMs: 30_000,
-  videoCodec: 'h264',
-  width: 1080,
-  height: 1920,
-  frameRate: 30,
-  audioCodec: 'aac',
-};
+const VALID_PROBE:
+  MediaContentProbe = {
+    container:
+      'mp4',
+
+    durationMs:
+      30_000,
+
+    videoCodec:
+      'h264',
+
+    width:
+      1080,
+
+    height:
+      1920,
+
+    frameRate:
+      30,
+
+    audioCodec:
+      'aac',
+  };
 
 test(
   'accepts structurally valid media probe data',
@@ -24,31 +38,40 @@ test(
         VALID_PROBE
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe: VALID_PROBE,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe:
+          VALID_PROBE,
+      }
+    );
   }
 );
 
 test(
   'accepts ffprobe container aliases when mp4 is present',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      container:
-        'mov,mp4,m4a,3gp,3g2,mj2',
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+
+        container:
+          'mov,mp4,m4a,3gp,3g2,mj2',
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -58,13 +81,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        container: '',
+        container:
+          '',
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_CONTAINER',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_CONTAINER',
+      }
+    );
   }
 );
 
@@ -74,13 +102,19 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        container: 'matroska,webm',
+
+        container:
+          'matroska,webm',
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_CONTAINER',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_CONTAINER',
+      }
+    );
   }
 );
 
@@ -90,33 +124,43 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        durationMs: 0,
+        durationMs:
+          0,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DURATION',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DURATION',
+      }
+    );
   }
 );
 
 test(
   'accepts the minimum allowed duration',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      durationMs: 10_000,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        durationMs:
+          10_000,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -126,13 +170,43 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        durationMs: 9_999,
+        durationMs:
+          9_999,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DURATION',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DURATION',
+      }
+    );
+  }
+);
+
+test(
+  'accepts the maximum allowed duration',
+  () => {
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        durationMs:
+          60_000,
+      };
+
+    const result =
+      evaluateMediaContentValidation(
+        probe
+      );
+
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -142,13 +216,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        durationMs: 30_001,
+        durationMs:
+          60_001,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DURATION',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DURATION',
+      }
+    );
   }
 );
 
@@ -158,13 +237,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        videoCodec: ' ',
+        videoCodec:
+          ' ',
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_VIDEO_CODEC',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_VIDEO_CODEC',
+      }
+    );
   }
 );
 
@@ -174,13 +258,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        videoCodec: 'hevc',
+        videoCodec:
+          'hevc',
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_VIDEO_CODEC',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_VIDEO_CODEC',
+      }
+    );
   }
 );
 
@@ -190,34 +279,45 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        width: 0,
+        width:
+          0,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DIMENSIONS',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DIMENSIONS',
+      }
+    );
   }
 );
 
 test(
   'accepts the minimum allowed dimensions',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      width: 240,
-      height: 240,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        width:
+          240,
+        height:
+          240,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -227,13 +327,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        width: 239,
+        width:
+          239,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DIMENSIONS',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DIMENSIONS',
+      }
+    );
   }
 );
 
@@ -243,34 +348,45 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        height: 239,
+        height:
+          239,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DIMENSIONS',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DIMENSIONS',
+      }
+    );
   }
 );
 
 test(
   'accepts the maximum allowed dimensions',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      width: 4096,
-      height: 4096,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        width:
+          4096,
+        height:
+          4096,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -280,13 +396,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        width: 4097,
+        width:
+          4097,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DIMENSIONS',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DIMENSIONS',
+      }
+    );
   }
 );
 
@@ -296,55 +417,72 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        height: 4097,
+        height:
+          4097,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_DIMENSIONS',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_DIMENSIONS',
+      }
+    );
   }
 );
 
 test(
   'accepts supported portrait dimensions',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      width: 1080,
-      height: 1920,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        width:
+          1080,
+        height:
+          1920,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
 test(
   'accepts supported landscape dimensions',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      width: 1920,
-      height: 1080,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        width:
+          1920,
+        height:
+          1080,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -354,33 +492,43 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        frameRate: Number.NaN,
+        frameRate:
+          Number.NaN,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_FRAME_RATE',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_FRAME_RATE',
+      }
+    );
   }
 );
 
 test(
   'accepts the minimum allowed frame rate',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      frameRate: 1,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        frameRate:
+          1,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -390,73 +538,93 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        frameRate: 0.999,
+        frameRate:
+          0.999,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_FRAME_RATE',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_FRAME_RATE',
+      }
+    );
   }
 );
 
 test(
   'accepts common fractional frame rate',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      frameRate: 29.97,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        frameRate:
+          29.97,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
 test(
   'accepts high fractional frame rate within the allowed range',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      frameRate: 59.94,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        frameRate:
+          59.94,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
 test(
   'accepts the maximum allowed frame rate',
   () => {
-    const probe: MediaContentProbe = {
-      ...VALID_PROBE,
-      frameRate: 60,
-    };
+    const probe:
+      MediaContentProbe = {
+        ...VALID_PROBE,
+        frameRate:
+          60,
+      };
 
     const result =
       evaluateMediaContentValidation(
         probe
       );
 
-    assert.deepEqual(result, {
-      valid: true,
-      probe,
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: true,
+        probe,
+      }
+    );
   }
 );
 
@@ -466,13 +634,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        frameRate: 60.001,
+        frameRate:
+          60.001,
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_FRAME_RATE',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_FRAME_RATE',
+      }
+    );
   }
 );
 
@@ -482,13 +655,18 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        audioCodec: ' aac',
+        audioCodec:
+          ' aac',
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_AUDIO_CODEC',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_AUDIO_CODEC',
+      }
+    );
   }
 );
 
@@ -498,12 +676,17 @@ test(
     const result =
       evaluateMediaContentValidation({
         ...VALID_PROBE,
-        audioCodec: 'opus',
+        audioCodec:
+          'opus',
       });
 
-    assert.deepEqual(result, {
-      valid: false,
-      reason: 'INVALID_AUDIO_CODEC',
-    });
+    assert.deepEqual(
+      result,
+      {
+        valid: false,
+        reason:
+          'INVALID_AUDIO_CODEC',
+      }
+    );
   }
 );
