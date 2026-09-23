@@ -1,0 +1,21 @@
+steps:
+  - id: build-media-transcode-worker
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file
+      - Dockerfile.media-transcode
+      - --tag
+      - me-central1-docker.pkg.dev/$PROJECT_ID/phcl-media-transcode-worker/media-transcode-worker:$BUILD_ID
+      - --tag
+      - me-central1-docker.pkg.dev/$PROJECT_ID/phcl-media-transcode-worker/media-transcode-worker:latest
+      - .
+
+images:
+  - me-central1-docker.pkg.dev/$PROJECT_ID/phcl-media-transcode-worker/media-transcode-worker:$BUILD_ID
+  - me-central1-docker.pkg.dev/$PROJECT_ID/phcl-media-transcode-worker/media-transcode-worker:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s
