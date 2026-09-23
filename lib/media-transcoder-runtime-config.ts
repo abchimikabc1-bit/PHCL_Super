@@ -1,7 +1,7 @@
 import 'server-only';
 
 const MEDIA_TRANSCODER_LOCATION =
-  'us-east1' as const;
+  'me-central1' as const;
 
 const SAFE_PROJECT_ID_PATTERN =
   /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
@@ -14,16 +14,24 @@ const COMPLETION_TOPIC_PATTERN =
 
 export type MediaTranscoderRuntimeConfig = {
   projectId: string;
-  location: typeof MEDIA_TRANSCODER_LOCATION;
+  location:
+    typeof MEDIA_TRANSCODER_LOCATION;
   bucketName: string;
   completionTopic: string;
 };
 
 export type MediaTranscoderRuntimeEnvironment = {
-  MEDIA_TRANSCODER_PROJECT_ID?: string;
-  MEDIA_TRANSCODER_LOCATION?: string;
-  FIREBASE_STORAGE_BUCKET?: string;
-  MEDIA_TRANSCODE_COMPLETION_TOPIC?: string;
+  MEDIA_TRANSCODER_PROJECT_ID?:
+    string;
+
+  MEDIA_TRANSCODER_LOCATION?:
+    string;
+
+  FIREBASE_STORAGE_BUCKET?:
+    string;
+
+  MEDIA_TRANSCODE_COMPLETION_TOPIC?:
+    string;
 };
 
 function canonicalValue(
@@ -41,7 +49,8 @@ function canonicalValue(
 }
 
 export function readMediaTranscoderRuntimeConfigFromEnvironment(
-  environment: MediaTranscoderRuntimeEnvironment
+  environment:
+    MediaTranscoderRuntimeEnvironment
 ): MediaTranscoderRuntimeConfig {
   const projectId =
     canonicalValue(
@@ -94,9 +103,12 @@ export function readMediaTranscoderRuntimeConfigFromEnvironment(
 
   return {
     projectId,
+
     location:
       MEDIA_TRANSCODER_LOCATION,
+
     bucketName,
+
     completionTopic,
   };
 }

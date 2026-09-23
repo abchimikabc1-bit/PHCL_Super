@@ -27,7 +27,7 @@ const CLAIM_ID =
   'transcode-worker-claim';
 
 const JOB_NAME =
-  'projects/phcl-super-f0d21/locations/us-east1/jobs/job-123';
+  'projects/phcl-super-f0d21/locations/me-central1/jobs/job-123';
 
 const CLAIM_NOW_MS =
   1_000;
@@ -39,18 +39,25 @@ const CLAIM:
   MediaTranscodeWorkClaim = {
     claimId:
       CLAIM_ID,
+
     workId:
       MEDIA_ID,
+
     mediaId:
       MEDIA_ID,
+
     workType:
       'MEDIA_TRANSCODE',
+
     sourceObject:
       SOURCE_OBJECT,
+
     verifiedGeneration:
       GENERATION,
+
     claimedAtMs:
       CLAIM_NOW_MS,
+
     leaseExpiresAtMs:
       121_000,
   };
@@ -59,10 +66,13 @@ const COMPLETION_RESULT:
   MediaTranscodeWorkCompletionResult = {
     mediaId:
       MEDIA_ID,
+
     status:
       'TRANSCODING',
+
     verifiedGeneration:
       GENERATION,
+
     transcoderJobName:
       JOB_NAME,
   };
@@ -79,10 +89,13 @@ function createDependencies(
       () => ({
         projectId:
           'phcl-super-f0d21',
+
         location:
-          'us-east1',
+          'me-central1',
+
         bucketName:
           'phcl-super-f0d21.firebasestorage.app',
+
         completionTopic:
           'projects/phcl-super-f0d21/topics/media-transcode-complete',
       }),
@@ -102,6 +115,7 @@ function createDependencies(
       async () => ({
         jobName:
           JOB_NAME,
+
         created:
           true,
       }),
@@ -206,16 +220,22 @@ test(
                 {
                   projectId:
                     'phcl-super-f0d21',
+
                   location:
-                    'us-east1',
+                    'me-central1',
+
                   bucketName:
                     'phcl-super-f0d21.firebasestorage.app',
+
                   completionTopic:
                     'projects/phcl-super-f0d21/topics/media-transcode-complete',
+
                   mediaId:
                     MEDIA_ID,
+
                   sourceObject:
                     SOURCE_OBJECT,
+
                   verifiedGeneration:
                     GENERATION,
                 }
@@ -224,6 +244,7 @@ test(
               return {
                 jobName:
                   JOB_NAME,
+
                 created:
                   true,
               };
@@ -238,14 +259,19 @@ test(
                 {
                   mediaId:
                     MEDIA_ID,
+
                   claimId:
                     CLAIM_ID,
+
                   sourceObject:
                     SOURCE_OBJECT,
+
                   verifiedGeneration:
                     GENERATION,
+
                   transcoderJobName:
                     JOB_NAME,
+
                   nowMs:
                     COMPLETION_NOW_MS,
                 }
@@ -290,6 +316,7 @@ test(
           claimMediaTranscodeWork:
             async () =>
               null,
+
           readMediaTranscoderRuntimeConfig:
             () => {
               configRead = true;
@@ -297,6 +324,7 @@ test(
               return createDependencies()
                 .readMediaTranscoderRuntimeConfig();
             },
+
           submitMediaTranscodeJob:
             async () => {
               submitted = true;
@@ -304,6 +332,7 @@ test(
               return {
                 jobName:
                   JOB_NAME,
+
                 created:
                   true,
               };
@@ -351,13 +380,17 @@ test(
           createDependencies({
             readMediaTranscoderRuntimeConfig:
               () => {
-                if (stage === 'config') {
+                if (
+                  stage ===
+                  'config'
+                ) {
                   throw expectedError;
                 }
 
                 return createDependencies()
                   .readMediaTranscoderRuntimeConfig();
               },
+
             submitMediaTranscodeJob:
               async () => {
                 if (
@@ -370,10 +403,12 @@ test(
                 return {
                   jobName:
                     JOB_NAME,
+
                   created:
                     true,
                 };
               },
+
             releaseMediaTranscodeWorkClaim:
               async () => {
                 releaseCount += 1;
@@ -410,12 +445,14 @@ test(
                 async () =>
                   false,
             }),
+
           completeMediaTranscodeWork:
             async () => {
               completed = true;
 
               return COMPLETION_RESULT;
             },
+
           releaseMediaTranscodeWorkClaim:
             async () => {
               released = true;
@@ -457,6 +494,7 @@ test(
             async () => {
               throw completionError;
             },
+
           releaseMediaTranscodeWorkClaim:
             async () => {
               releaseCount += 1;
@@ -498,6 +536,7 @@ test(
 
               throw heartbeatError;
             },
+
           releaseMediaTranscodeWorkClaim:
             async (
               mediaId,

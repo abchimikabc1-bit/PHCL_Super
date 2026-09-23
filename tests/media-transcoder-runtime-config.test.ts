@@ -8,10 +8,13 @@ import {
 const VALID_ENVIRONMENT = {
   MEDIA_TRANSCODER_PROJECT_ID:
     'phcl-super-f0d21',
+
   MEDIA_TRANSCODER_LOCATION:
-    'us-east1',
+    'me-central1',
+
   FIREBASE_STORAGE_BUCKET:
     'phcl-super-f0d21.firebasestorage.app',
+
   MEDIA_TRANSCODE_COMPLETION_TOPIC:
     'projects/phcl-super-f0d21/topics/media-transcode-complete',
 };
@@ -26,10 +29,13 @@ test(
       {
         projectId:
           'phcl-super-f0d21',
+
         location:
-          'us-east1',
+          'me-central1',
+
         bucketName:
           'phcl-super-f0d21.firebasestorage.app',
+
         completionTopic:
           'projects/phcl-super-f0d21/topics/media-transcode-complete',
       }
@@ -43,21 +49,25 @@ test(
     const unsafeEnvironments = [
       {
         ...VALID_ENVIRONMENT,
+
         MEDIA_TRANSCODER_PROJECT_ID:
           undefined,
       },
       {
         ...VALID_ENVIRONMENT,
+
         MEDIA_TRANSCODER_LOCATION:
-          'me-central1',
+          'us-east1',
       },
       {
         ...VALID_ENVIRONMENT,
+
         FIREBASE_STORAGE_BUCKET:
           ' bucket.example ',
       },
       {
         ...VALID_ENVIRONMENT,
+
         MEDIA_TRANSCODE_COMPLETION_TOPIC:
           'not-a-topic',
       },
@@ -85,6 +95,7 @@ test(
       () =>
         readMediaTranscoderRuntimeConfigFromEnvironment({
           ...VALID_ENVIRONMENT,
+
           MEDIA_TRANSCODE_COMPLETION_TOPIC:
             'projects/other-project-123/topics/media-transcode-complete',
         }),
