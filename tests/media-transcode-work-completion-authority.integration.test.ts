@@ -37,7 +37,7 @@ const GENERATION =
   '123456789';
 
 const JOB_NAME =
-  'projects/phcl-super-f0d21/locations/us-east1/jobs/job-123';
+  'projects/823513556612/locations/me-central1/jobs/job-123';
 
 const WORK_COLLECTION =
   'mediaTranscodeWork';
@@ -497,8 +497,7 @@ test(
 );
 
 test(
-  'does not let a stale claimant release a newer reclaimed lease',
-  async () => {
+  'does not let a stale claimant release a newer reclaimed lease',  async () => {
     await createPendingWork();
 
     const firstClaim =

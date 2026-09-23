@@ -14,36 +14,45 @@ const INPUT:
   MediaTranscoderSubmissionInput = {
     projectId:
       'phcl-super-f0d21',
+
     location:
-      'us-east1',
+      'me-central1',
+
     bucketName:
       'phcl-super-f0d21.firebasestorage.app',
+
     completionTopic:
       'projects/phcl-super-f0d21/topics/media-transcode-complete',
+
     mediaId:
       'media-123',
+
     sourceObject:
       'media/ingest/owner-123/media-123/source.mp4',
+
     verifiedGeneration:
       '17',
   };
 
 const PARENT =
-  'projects/phcl-super-f0d21/locations/us-east1';
+  'projects/phcl-super-f0d21/locations/me-central1';
 
 const JOB_NAME =
-  `${PARENT}/jobs/job-123`;
+  'projects/823513556612/locations/me-central1/jobs/job-123';
 
 function matchingJob(
   name: string = JOB_NAME
 ): MediaTranscodeJob {
   return {
     name,
+
     labels: {
       phcl_media_id:
         INPUT.mediaId,
+
       phcl_generation:
         INPUT.verifiedGeneration,
+
       phcl_pipeline:
         'media-transcode-v1',
     },
@@ -53,7 +62,10 @@ function matchingJob(
 async function* jobs(
   values: MediaTranscodeJob[]
 ): AsyncIterable<MediaTranscodeJob> {
-  for (const value of values) {
+  for (
+    const value
+    of values
+  ) {
     yield value;
   }
 }
@@ -62,6 +74,7 @@ test(
   'reuses the exact existing transcode job without creating a duplicate',
   async () => {
     const listCalls: unknown[] = [];
+
     let createCalls = 0;
 
     const result =
@@ -96,6 +109,7 @@ test(
       {
         jobName:
           JOB_NAME,
+
         created:
           false,
       }
@@ -112,6 +126,7 @@ test(
         {
           parent:
             PARENT,
+
           filter:
             'labels.phcl_media_id:media-123 AND labels.phcl_generation:17 AND labels.phcl_pipeline:media-transcode-v1',
         },
@@ -148,6 +163,7 @@ test(
 
               return {
                 ...job,
+
                 name:
                   JOB_NAME,
               };
@@ -160,6 +176,7 @@ test(
       {
         jobName:
           JOB_NAME,
+
         created:
           true,
       }
@@ -180,8 +197,10 @@ test(
       {
         phcl_media_id:
           INPUT.mediaId,
+
         phcl_generation:
           INPUT.verifiedGeneration,
+
         phcl_pipeline:
           'media-transcode-v1',
       }
@@ -202,8 +221,10 @@ test(
             jobs([
               {
                 ...matchingJob(),
+
                 labels: {
                   ...matchingJob().labels,
+
                   phcl_generation:
                     '18',
                 },
@@ -219,6 +240,7 @@ test(
 
               return {
                 ...job,
+
                 name:
                   JOB_NAME,
               };
@@ -248,10 +270,11 @@ test(
           listJobs: () =>
             jobs([
               matchingJob(
-                `${PARENT}/jobs/job-1`
+                'projects/823513556612/locations/me-central1/jobs/job-1'
               ),
+
               matchingJob(
-                `${PARENT}/jobs/job-2`
+                'projects/823513556612/locations/me-central1/jobs/job-2'
               ),
             ]),
 
@@ -279,15 +302,66 @@ test(
             async () => ({
               name:
                 JOB_NAME,
+
               labels: {
                 phcl_media_id:
                   INPUT.mediaId,
+
                 phcl_generation:
                   '18',
+
                 phcl_pipeline:
                   'media-transcode-v1',
               },
             }),
+        }
+      ),
+      /INVALID_MEDIA_TRANSCODER_JOB/
+    );
+  }
+);
+
+test(
+  'rejects a job from an unexpected location',
+  async () => {
+    await assert.rejects(
+      submitMediaTranscodeJobWithDependencies(
+        INPUT,
+        {
+          listJobs: () =>
+            jobs([
+              matchingJob(
+                'projects/823513556612/locations/us-east1/jobs/job-123'
+              ),
+            ]),
+
+          createJob:
+            async () =>
+              matchingJob(),
+        }
+      ),
+      /INVALID_MEDIA_TRANSCODER_JOB/
+    );
+  }
+);
+
+test(
+  'rejects an unsafe job resource name',
+  async () => {
+    await assert.rejects(
+      submitMediaTranscodeJobWithDependencies(
+        INPUT,
+        {
+          listJobs: () =>
+            jobs([
+              matchingJob(
+                'projects/823513556612/locations/me-central1/jobs/job-123/nested'
+              ),
+            ]),
+
+          createJob:
+            async () =>
+              matchingJob(),
         }
       ),
       /INVALID_MEDIA_TRANSCODER_JOB/
@@ -304,8 +378,9 @@ test(
       submitMediaTranscodeJobWithDependencies(
         {
           ...INPUT,
+
           location:
-            '../us-east1',
+            '../me-central1',
         },
         {
           listJobs: () => {

@@ -63,7 +63,7 @@ const TRANSCODE_CLAIM_KEYS = [
 ] as const;
 
 const TRANSCODER_JOB_NAME_PATTERN =
-  /^projects\/[a-z][a-z0-9-]{4,28}[a-z0-9]\/locations\/[a-z][a-z0-9-]{0,62}\/jobs\/[A-Za-z0-9_-]+$/;
+  /^projects\/([a-z][a-z0-9-]{4,28}[a-z0-9]|[1-9][0-9]{5,19})\/locations\/[a-z][a-z0-9-]{0,62}\/jobs\/[A-Za-z0-9_-]+$/;
 
 export const MEDIA_TRANSCODING_STATUS =
   'TRANSCODING' as const;

@@ -17,7 +17,10 @@ const SAFE_LOCATION_PATTERN =
   /^[a-z][a-z0-9-]{0,62}$/;
 
 const JOB_NAME_PATTERN =
-  /^projects\/[a-z][a-z0-9-]{4,28}[a-z0-9]\/locations\/[a-z][a-z0-9-]{0,62}\/jobs\/[A-Za-z0-9_-]+$/;
+  /^projects\/([a-z][a-z0-9-]{4,28}[a-z0-9]|[1-9][0-9]{5,19})\/locations\/([a-z][a-z0-9-]{0,62})\/jobs\/[A-Za-z0-9_-]+$/;
+
+const PROJECT_NUMBER_PATTERN =
+  /^[1-9][0-9]{5,19}$/;
 
 export type MediaTranscoderSubmissionInput = {
   projectId: string;
@@ -133,17 +136,43 @@ function hasExactIdentity(
 
 function readJobName(
   job: MediaTranscodeJob,
-  parent: string
+  input: MediaTranscoderSubmissionInput
 ): string {
   if (
     !isCanonicalNonEmptyString(
       job.name
-    ) ||
-    !JOB_NAME_PATTERN.test(
-      job.name
-    ) ||
-    !job.name.startsWith(
-      `${parent}/jobs/`
+    )
+  ) {
+    throw new Error(
+      'INVALID_MEDIA_TRANSCODER_JOB'
+    );
+  }
+
+  const match =
+    job.name.match(
+      JOB_NAME_PATTERN
+    );
+
+  if (match === null) {
+    throw new Error(
+      'INVALID_MEDIA_TRANSCODER_JOB'
+    );
+  }
+
+  const projectReference =
+    match[1];
+
+  const location =
+    match[2];
+
+  if (
+    location !== input.location ||
+    (
+      projectReference !==
+        input.projectId &&
+      !PROJECT_NUMBER_PATTERN.test(
+        projectReference ?? ''
+      )
     )
   ) {
     throw new Error(
@@ -208,7 +237,7 @@ export async function submitMediaTranscodeJobWithDependencies(
       jobName:
         readJobName(
           matchingJob,
-          parent
+          input
         ),
       created:
         false,
@@ -250,7 +279,7 @@ export async function submitMediaTranscodeJobWithDependencies(
     jobName:
       readJobName(
         createdJob,
-        parent
+        input
       ),
     created:
       true,
