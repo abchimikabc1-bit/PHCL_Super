@@ -14,6 +14,102 @@ export type MediaValidationWorkerRequestHandler =
     request: Request
   ) => Promise<Response>;
 
+type OperationalErrorLog = {
+  severity: 'ERROR';
+  event:
+    'MEDIA_WORKER_REQUEST_FAILED';
+  errorName: string;
+  errorMessage: string;
+  errorCode?: string | number;
+  errorDetails?: string;
+};
+
+function readOperationalErrorLog(
+  error: unknown
+): OperationalErrorLog {
+  if (
+    typeof error !== 'object' ||
+    error === null
+  ) {
+    return {
+      severity:
+        'ERROR',
+
+      event:
+        'MEDIA_WORKER_REQUEST_FAILED',
+
+      errorName:
+        'UnknownError',
+
+      errorMessage:
+        typeof error === 'string'
+          ? error
+          : 'UNKNOWN_OPERATIONAL_ERROR',
+    };
+  }
+
+  const candidate =
+    error as {
+      name?: unknown;
+      message?: unknown;
+      code?: unknown;
+      details?: unknown;
+    };
+
+  const log:
+    OperationalErrorLog = {
+      severity:
+        'ERROR',
+
+      event:
+        'MEDIA_WORKER_REQUEST_FAILED',
+
+      errorName:
+        typeof candidate.name ===
+          'string'
+          ? candidate.name
+          : 'Error',
+
+      errorMessage:
+        typeof candidate.message ===
+          'string'
+          ? candidate.message
+          : 'UNKNOWN_OPERATIONAL_ERROR',
+    };
+
+  if (
+    typeof candidate.code ===
+      'string' ||
+    typeof candidate.code ===
+      'number'
+  ) {
+    log.errorCode =
+      candidate.code;
+  }
+
+  if (
+    typeof candidate.details ===
+      'string'
+  ) {
+    log.errorDetails =
+      candidate.details;
+  }
+
+  return log;
+}
+
+function logOperationalFailure(
+  error: unknown
+): void {
+  console.error(
+    JSON.stringify(
+      readOperationalErrorLog(
+        error
+      )
+    )
+  );
+}
+
 function getRequestOrigin(
   request: IncomingMessage
 ): string {
@@ -204,7 +300,11 @@ export function createMediaValidationWorkerNodeHttpListener(
         webResponse,
         response
       );
-    } catch {
+    } catch (error) {
+      logOperationalFailure(
+        error
+      );
+
       if (
         !response.headersSent
       ) {
