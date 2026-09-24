@@ -5,12 +5,20 @@ import type {
 } from 'node:http';
 
 import {
+  createProductionMediaTranscodeCompletionRequestHandler,
+} from '@/lib/media-transcode-completion-production';
+
+import {
   createProductionMediaTranscodeWorkerEventarcRequestHandler,
 } from '@/lib/media-transcode-worker-eventarc-production';
 
 import type {
   MediaTranscodeWorkerRequestAuthenticator,
 } from '@/lib/media-transcode-worker-handler';
+
+import {
+  createMediaTranscodeWorkerRequestRouter,
+} from '@/lib/media-transcode-worker-request-router';
 
 import {
   createMediaValidationWorkerHttpServer,
@@ -27,10 +35,24 @@ export function createMediaTranscodeWorkerRuntimeServer(
   dependencies:
     MediaTranscodeWorkerRuntimeDependencies
 ): Server {
-  const handler =
+  const eventarcHandler =
     createProductionMediaTranscodeWorkerEventarcRequestHandler(
       dependencies.authenticateRequest
     );
+
+  const completionHandler =
+    createProductionMediaTranscodeCompletionRequestHandler(
+      dependencies.authenticateRequest
+    );
+
+  const handler =
+    createMediaTranscodeWorkerRequestRouter({
+      handleEventarcRequest:
+        eventarcHandler,
+
+      handleCompletionRequest:
+        completionHandler,
+    });
 
   return createMediaValidationWorkerHttpServer(
     handler

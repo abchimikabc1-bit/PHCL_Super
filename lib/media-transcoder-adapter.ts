@@ -16,11 +16,20 @@ const SAFE_PROJECT_ID_PATTERN =
 const SAFE_LOCATION_PATTERN =
   /^[a-z][a-z0-9-]{0,62}$/;
 
+const SAFE_BUCKET_PATTERN =
+  /^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/;
+
+const SAFE_GENERATION_PATTERN =
+  /^[0-9]{1,32}$/;
+
 const JOB_NAME_PATTERN =
   /^projects\/([a-z][a-z0-9-]{4,28}[a-z0-9]|[1-9][0-9]{5,19})\/locations\/([a-z][a-z0-9-]{0,62})\/jobs\/[A-Za-z0-9_-]+$/;
 
 const PROJECT_NUMBER_PATTERN =
   /^[1-9][0-9]{5,19}$/;
+
+const SUCCEEDED_JOB_STATE =
+  3;
 
 export type MediaTranscoderSubmissionInput = {
   projectId: string;
@@ -49,9 +58,37 @@ export type MediaTranscoderAdapterDependencies = {
   ) => Promise<MediaTranscodeJob>;
 };
 
+export type MediaTranscoderCompletedJobInput = {
+  location: string;
+  bucketName: string;
+  mediaId: string;
+  sourceObject: string;
+  verifiedGeneration: string;
+  transcoderJobName: string;
+};
+
+export type MediaTranscoderCompletedJob = {
+  jobName: string;
+  state: 'SUCCEEDED';
+  mediaId: string;
+  verifiedGeneration: string;
+};
+
+export type MediaTranscoderCompletedJobDependencies = {
+  getJob: (
+    name: string
+  ) => Promise<MediaTranscodeJob>;
+};
+
 function invalidSubmission(): never {
   throw new Error(
     'INVALID_MEDIA_TRANSCODER_SUBMISSION'
+  );
+}
+
+function invalidCompletedJob(): never {
+  throw new Error(
+    'INVALID_MEDIA_TRANSCODER_COMPLETED_JOB'
   );
 }
 
@@ -99,6 +136,58 @@ function assertSubmissionInput(
   });
 }
 
+function assertCompletedJobInput(
+  input: MediaTranscoderCompletedJobInput
+): void {
+  if (
+    !SAFE_LOCATION_PATTERN.test(
+      input.location
+    ) ||
+    !SAFE_BUCKET_PATTERN.test(
+      input.bucketName
+    ) ||
+    !isCanonicalNonEmptyString(
+      input.mediaId
+    ) ||
+    !isCanonicalNonEmptyString(
+      input.sourceObject
+    ) ||
+    !SAFE_GENERATION_PATTERN.test(
+      input.verifiedGeneration
+    ) ||
+    !isCanonicalNonEmptyString(
+      input.transcoderJobName
+    )
+  ) {
+    return invalidCompletedJob();
+  }
+
+  if (
+    !input.sourceObject.startsWith(
+      'media/ingest/'
+    ) ||
+    !input.sourceObject.includes(
+      `/${input.mediaId}/`
+    ) ||
+    input.sourceObject.includes('..') ||
+    input.sourceObject.includes('\\')
+  ) {
+    return invalidCompletedJob();
+  }
+
+  const match =
+    input.transcoderJobName.match(
+      JOB_NAME_PATTERN
+    );
+
+  if (
+    match === null ||
+    match[2] !== input.location
+  ) {
+    return invalidCompletedJob();
+  }
+}
+
 function buildParent(
   projectId: string,
   location: string
@@ -122,13 +211,14 @@ function buildIdentityFilter(
 
 function hasExactIdentity(
   job: MediaTranscodeJob,
-  input: MediaTranscoderSubmissionInput
+  mediaId: string,
+  verifiedGeneration: string
 ): boolean {
   return (
     job.labels?.phcl_media_id ===
-      input.mediaId &&
+      mediaId &&
     job.labels?.phcl_generation ===
-      input.verifiedGeneration &&
+      verifiedGeneration &&
     job.labels?.phcl_pipeline ===
       'media-transcode-v1'
   );
@@ -183,6 +273,38 @@ function readJobName(
   return job.name;
 }
 
+function isSucceededState(
+  value: unknown
+): boolean {
+  return (
+    value === 'SUCCEEDED' ||
+    value === SUCCEEDED_JOB_STATE
+  );
+}
+
+function hasCanonicalCompletedJobConfig(
+  job: MediaTranscodeJob,
+  input: MediaTranscoderCompletedJobInput
+): boolean {
+  const inputs =
+    job.config?.inputs;
+
+  const expectedInputUri =
+    `gs://${input.bucketName}/${input.sourceObject}`;
+
+  const expectedOutputUri =
+    `gs://${input.bucketName}/media/processed/${input.mediaId}/`;
+
+  return (
+    Array.isArray(inputs) &&
+    inputs.length === 1 &&
+    inputs[0]?.key === 'source' &&
+    inputs[0]?.uri === expectedInputUri &&
+    job.config?.output?.uri ===
+      expectedOutputUri
+  );
+}
+
 export async function submitMediaTranscodeJobWithDependencies(
   input: MediaTranscoderSubmissionInput,
   dependencies: MediaTranscoderAdapterDependencies
@@ -216,7 +338,8 @@ export async function submitMediaTranscodeJobWithDependencies(
     if (
       !hasExactIdentity(
         job,
-        input
+        input.mediaId,
+        input.verifiedGeneration
       )
     ) {
       continue;
@@ -267,7 +390,8 @@ export async function submitMediaTranscodeJobWithDependencies(
   if (
     !hasExactIdentity(
       createdJob,
-      input
+      input.mediaId,
+      input.verifiedGeneration
     )
   ) {
     throw new Error(
@@ -286,13 +410,60 @@ export async function submitMediaTranscodeJobWithDependencies(
   };
 }
 
+export async function readCompletedMediaTranscodeJobWithDependencies(
+  input: MediaTranscoderCompletedJobInput,
+  dependencies: MediaTranscoderCompletedJobDependencies
+): Promise<MediaTranscoderCompletedJob> {
+  assertCompletedJobInput(
+    input
+  );
+
+  const job =
+    await dependencies.getJob(
+      input.transcoderJobName
+    );
+
+  if (
+    job.name !==
+      input.transcoderJobName ||
+    !hasExactIdentity(
+      job,
+      input.mediaId,
+      input.verifiedGeneration
+    ) ||
+    !hasCanonicalCompletedJobConfig(
+      job,
+      input
+    )
+  ) {
+    return invalidCompletedJob();
+  }
+
+  if (!isSucceededState(job.state)) {
+    throw new Error(
+      'MEDIA_TRANSCODER_JOB_NOT_SUCCEEDED'
+    );
+  }
+
+  return {
+    jobName:
+      input.transcoderJobName,
+    state:
+      'SUCCEEDED',
+    mediaId:
+      input.mediaId,
+    verifiedGeneration:
+      input.verifiedGeneration,
+  };
+}
+
 type TranscoderJob =
   protos.google.cloud.video.transcoder.v1.IJob;
 
 const transcoderClient =
   new v1.TranscoderServiceClient();
 
-const productionDependencies:
+const productionSubmissionDependencies:
   MediaTranscoderAdapterDependencies = {
     listJobs: (
       parent,
@@ -321,11 +492,33 @@ const productionDependencies:
       },
   };
 
+const productionCompletedJobDependencies:
+  MediaTranscoderCompletedJobDependencies = {
+    getJob:
+      async (name) => {
+        const [job] =
+          await transcoderClient.getJob({
+            name,
+          });
+
+        return job;
+      },
+  };
+
 export function submitMediaTranscodeJob(
   input: MediaTranscoderSubmissionInput
 ): Promise<MediaTranscoderSubmissionResult> {
   return submitMediaTranscodeJobWithDependencies(
     input,
-    productionDependencies
+    productionSubmissionDependencies
+  );
+}
+
+export function readCompletedMediaTranscodeJob(
+  input: MediaTranscoderCompletedJobInput
+): Promise<MediaTranscoderCompletedJob> {
+  return readCompletedMediaTranscodeJobWithDependencies(
+    input,
+    productionCompletedJobDependencies
   );
 }
