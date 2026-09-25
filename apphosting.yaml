@@ -27,14 +27,17 @@ env:
   - variable: FIREBASE_STORAGE_BUCKET
     value: "phcl-super-f0d21.firebasestorage.app"
     availability:
+      - BUILD
       - RUNTIME
 
   - variable: ADMIN_SESSION_SECRET
     secret: phcl-admin-session-secret
     availability:
+      - BUILD
       - RUNTIME
 
   - variable: ADMIN_PASSWORD
     secret: phcl-admin-password
     availability:
+      - BUILD
       - RUNTIME
