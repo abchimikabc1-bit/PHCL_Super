@@ -34,6 +34,7 @@ jobs:
           NEXT_PUBLIC_SITE_URL=https://phclsuper.com
           NEXT_PUBLIC_API_URL=https://api.phclsuper.com
           NEXT_PUBLIC_APP_NAME=PHCL Super
+          FIREBASE_STORAGE_BUCKET=phcl-super-f0d21.firebasestorage.app
           EOF
 
       - name: Run PHCL release verification
