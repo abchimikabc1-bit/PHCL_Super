@@ -169,6 +169,10 @@ test(
       MEDIA_ID
     );
     assert.equal(
+      record?.expiresAt.toMillis(),
+      NOW_MS + 600_000
+    );
+    assert.equal(
       record?.tokenDigest.length,
       64
     );

@@ -10,6 +10,10 @@ import {
 } from '@/lib/firebase-admin';
 
 import {
+  Timestamp,
+} from 'firebase-admin/firestore';
+
+import {
   readReadyMediaForPlayback,
   type ReadyMediaForPlayback,
 } from '@/lib/media-playback-ready-reader';
@@ -54,6 +58,7 @@ export type MediaPlaybackSessionRecord = {
   outputPrefix: string;
   createdAtMs: number;
   expiresAtMs: number;
+  expiresAt: Timestamp;
   revoked: boolean;
 };
 
@@ -281,6 +286,9 @@ function parseSessionRecord(
     !isValidTimestampMs(
       value.expiresAtMs
     ) ||
+    !(value.expiresAt instanceof Timestamp) ||
+    value.expiresAt.toMillis() !==
+      value.expiresAtMs ||
     value.expiresAtMs <=
       value.createdAtMs ||
     value.revoked !== false
@@ -307,6 +315,8 @@ function parseSessionRecord(
       value.createdAtMs,
     expiresAtMs:
       value.expiresAtMs,
+    expiresAt:
+      value.expiresAt,
     revoked:
       false,
   };
@@ -431,6 +441,10 @@ export async function createMediaPlaybackSessionWithDependencies(
         media.outputPrefix,
       createdAtMs,
       expiresAtMs,
+      expiresAt:
+        Timestamp.fromMillis(
+          expiresAtMs
+        ),
       revoked:
         false,
     }
