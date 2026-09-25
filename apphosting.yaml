@@ -36,8 +36,8 @@ env:
       - BUILD
       - RUNTIME
 
-  - variable: ADMIN_PASSWORD
-    secret: phcl-admin-password
+  - variable: ADMIN_PASSWORD_HASH
+    secret: phcl-admin-password-hash
     availability:
       - BUILD
       - RUNTIME
