@@ -20,5 +20,21 @@ runConfig:
 env:
   - variable: NEXT_PUBLIC_SITE_URL
     value: "https://www.phclsuper.com"
+
   - variable: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
     value: "6LfRGmMtAAAAACDfmVzYA4HZjmdkfKiF95WJRYxF"
+
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: "phcl-super-f0d21.firebasestorage.app"
+    availability:
+      - RUNTIME
+
+  - variable: ADMIN_SESSION_SECRET
+    secret: phcl-admin-session-secret
+    availability:
+      - RUNTIME
+
+  - variable: ADMIN_PASSWORD
+    secret: phcl-admin-password
+    availability:
+      - RUNTIME
