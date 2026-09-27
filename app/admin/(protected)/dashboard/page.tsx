@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -74,7 +74,7 @@ export default function AdminDashboardPage() {
         .map<DashboardLogEntry>((event: ProductStockAuditEntry) => ({
           timestamp: event.timestamp,
           source: 'Stock',
-          summary: `${event.action.replace(/_/g, ' ')}${event.productName ? ` • ${event.productName}` : ''}`,
+          summary: `${event.action.replace(/_/g, ' ')}${event.productName ? ` â€¢ ${event.productName}` : ''}`,
           tone: event.action === 'disabled_product' ? 'warning' : 'normal',
         }));
 
@@ -83,7 +83,7 @@ export default function AdminDashboardPage() {
         .map<DashboardLogEntry>((event) => ({
           timestamp: event.changedAt,
           source: 'Currency',
-          summary: `Updated ${event.changedCodes.join(', ')} • active ${event.activeBefore} -> ${event.activeAfter}`,
+          summary: `Updated ${event.changedCodes.join(', ')} â€¢ active ${event.activeBefore} -> ${event.activeAfter}`,
           tone: event.statusChangedCodes.length > 0 ? 'warning' : 'normal',
         }));
 
@@ -101,7 +101,7 @@ export default function AdminDashboardPage() {
         .map<DashboardLogEntry>((event) => ({
           timestamp: event.changedAt,
           source: 'Settings',
-          summary: `${event.action === 'reset' ? 'Reset settings' : 'Updated settings'} • ${event.changedKeys.join(', ')}`,
+          summary: `${event.action === 'reset' ? 'Reset settings' : 'Updated settings'} â€¢ ${event.changedKeys.join(', ')}`,
           tone: event.action === 'reset' ? 'warning' : 'normal',
         }));
 
@@ -176,7 +176,7 @@ export default function AdminDashboardPage() {
     },
     {
       label: 'Policy Baseline',
-      value: `Terms v${policyVersions.termsVersion} • Privacy v${policyVersions.privacyVersion}`,
+      value: `Terms v${policyVersions.termsVersion} â€¢ Privacy v${policyVersions.privacyVersion}`,
       tone: 'cyan',
     },
     {
@@ -192,16 +192,17 @@ export default function AdminDashboardPage() {
   ] as const;
 
   const menuItems = [
-    { title: 'Products', description: 'Manage marketplace products', icon: '📦', href: '/admin/products', color: 'from-purple-500 to-pink-500' },
-    { title: 'Currencies', description: 'Manage currencies & rates', icon: '💱', href: '/admin/currencies', color: 'from-green-500 to-emerald-500' },
-    { title: 'Languages', description: 'Manage translations', icon: '🌍', href: '/admin/languages', color: 'from-blue-500 to-cyan-500' },
-    { title: 'Analytics', description: 'View system analytics', icon: '📊', href: '/admin/analytics', color: 'from-orange-500 to-red-500' },
-    { title: 'Users', description: 'Manage user accounts', icon: '👥', href: '/admin/users', color: 'from-indigo-500 to-purple-500' },
-    { title: 'Orders', description: 'Review customer orders', icon: '🧾', href: '/admin/orders', color: 'from-amber-500 to-orange-500' },
-    { title: 'Wallet Ledger', description: 'Trace debits, refunds, and balances', icon: '💼', href: '/admin/wallet', color: 'from-cyan-500 to-teal-500' },
-    { title: 'Settings', description: 'System configuration', icon: '⚙️', href: '/admin/settings', color: 'from-slate-500 to-gray-500' },
-    { title: 'Converter', description: 'Currency conversion tool', icon: '🔄', href: '/admin/converter', color: 'from-cyan-500 to-blue-500' },
-    { title: 'Security', description: 'Auth audit and lockout monitor', icon: '🛡️', href: '/admin/security', color: 'from-rose-500 to-red-500' },
+    { title: 'Products', description: 'Manage marketplace products', icon: 'ðŸ“¦', href: '/admin/products', color: 'from-purple-500 to-pink-500' },
+    { title: 'Media', description: 'Manage uploaded media and processing', icon: '🎬', href: '/admin/media', color: 'from-violet-500 to-fuchsia-500' },
+    { title: 'Currencies', description: 'Manage currencies & rates', icon: 'ðŸ’±', href: '/admin/currencies', color: 'from-green-500 to-emerald-500' },
+    { title: 'Languages', description: 'Manage translations', icon: 'ðŸŒ', href: '/admin/languages', color: 'from-blue-500 to-cyan-500' },
+    { title: 'Analytics', description: 'View system analytics', icon: 'ðŸ“Š', href: '/admin/analytics', color: 'from-orange-500 to-red-500' },
+    { title: 'Users', description: 'Manage user accounts', icon: 'ðŸ‘¥', href: '/admin/users', color: 'from-indigo-500 to-purple-500' },
+    { title: 'Orders', description: 'Review customer orders', icon: 'ðŸ§¾', href: '/admin/orders', color: 'from-amber-500 to-orange-500' },
+    { title: 'Wallet Ledger', description: 'Trace debits, refunds, and balances', icon: 'ðŸ’¼', href: '/admin/wallet', color: 'from-cyan-500 to-teal-500' },
+    { title: 'Settings', description: 'System configuration', icon: 'âš™ï¸', href: '/admin/settings', color: 'from-slate-500 to-gray-500' },
+    { title: 'Converter', description: 'Currency conversion tool', icon: 'ðŸ”„', href: '/admin/converter', color: 'from-cyan-500 to-blue-500' },
+    { title: 'Security', description: 'Auth audit and lockout monitor', icon: 'ðŸ›¡ï¸', href: '/admin/security', color: 'from-rose-500 to-red-500' },
   ];
 
   const handleLogout = async () => {
@@ -229,7 +230,7 @@ export default function AdminDashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-lg shadow-lg shadow-amber-500/20">
-              👑
+              ðŸ‘‘
             </div>
             <div>
               <h1 className="text-xl font-black text-white tracking-wide">PHCL Admin Console</h1>
@@ -246,13 +247,13 @@ export default function AdminDashboardPage() {
               onClick={checkAuth}
               className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition"
             >
-              🔄 Refresh Session
+              ðŸ”„ Refresh Session
             </button>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-extrabold text-xs rounded-xl border border-rose-500/30 transition"
             >
-              🚪 Logout
+              ðŸšª Logout
             </button>
           </div>
         </div>
@@ -291,14 +292,14 @@ export default function AdminDashboardPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
             <div>
               <span className="text-amber-500 font-bold text-xs tracking-wider uppercase">Financial Analytics</span>
-              <h3 className="text-xl font-extrabold text-white">💰 Muhtasari wa Mapato na Miamala</h3>
+              <h3 className="text-xl font-extrabold text-white">ðŸ’° Muhtasari wa Mapato na Miamala</h3>
             </div>
             <div className="flex gap-2">
               <Link href="/admin/orders" className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-extrabold text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 transition">
-                📦 View Orders
+                ðŸ“¦ View Orders
               </Link>
               <Link href="/admin/wallet" className="rounded-xl bg-cyan-500/10 border border-cyan-500/30 px-3 py-1.5 text-xs font-extrabold text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition">
-                💼 Wallet Ledger
+                ðŸ’¼ Wallet Ledger
               </Link>
             </div>
           </div>
@@ -362,7 +363,7 @@ export default function AdminDashboardPage() {
 
         {/* Operational Readiness */}
         <div className="rounded-3xl border border-cyan-500/20 bg-cyan-950/20 p-6 space-y-4">
-          <h3 className="text-base font-extrabold text-slate-100 uppercase tracking-wider">⚡ Operational Readiness Monitor</h3>
+          <h3 className="text-base font-extrabold text-slate-100 uppercase tracking-wider">âš¡ Operational Readiness Monitor</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
             {operationalReadiness.map((item) => (
               <div key={item.label} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 space-y-1">
@@ -380,7 +381,7 @@ export default function AdminDashboardPage() {
         {/* Stock Health & Critical Items */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 space-y-4">
           <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
-            <h3 className="text-base font-extrabold text-white">📦 Stock Health Command Center</h3>
+            <h3 className="text-base font-extrabold text-white">ðŸ“¦ Stock Health Command Center</h3>
             <Link href="/admin/products" className="rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-1.5 text-xs font-extrabold transition">
               Manage Products Stock
             </Link>
@@ -419,7 +420,7 @@ export default function AdminDashboardPage() {
 
         {/* System Administration Shortcuts Navigation */}
         <div className="space-y-4">
-          <h3 className="text-base font-extrabold text-slate-100">🛠️ Zana za Usimamizi wa Mfumo</h3>
+          <h3 className="text-base font-extrabold text-slate-100">ðŸ› ï¸ Zana za Usimamizi wa Mfumo</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {menuItems.map((item) => (
               <Link key={item.href} href={item.href} className="group">
@@ -442,7 +443,7 @@ export default function AdminDashboardPage() {
 
         {/* Activity Logs */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-          <h3 className="text-base font-extrabold text-white">📜 Unified System Activity Log</h3>
+          <h3 className="text-base font-extrabold text-white">ðŸ“œ Unified System Activity Log</h3>
           {recentLogs.length === 0 ? (
             <p className="text-xs text-slate-500 italic">Hakuna taarifa za karibuni za mfumo.</p>
           ) : (
@@ -468,3 +469,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+
